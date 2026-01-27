@@ -28,6 +28,8 @@ export const createMessage = async (req: Request, res: Response) => {
   try {
     const { riderId, shopId, sender, text } = req.body;
 
+    console.log('📨 Received message:', { riderId, shopId, sender, text }); // Debug log
+
     if (!riderId || !sender || !text) {
       return res.status(400).json({ message: 'riderId, sender and text are required' });
     }
@@ -39,6 +41,8 @@ export const createMessage = async (req: Request, res: Response) => {
       text,
       createdAt: new Date(),
     });
+
+    console.log('✅ Message saved:', message); // Debug log
 
     return res.status(201).json(message);
   } catch (error) {

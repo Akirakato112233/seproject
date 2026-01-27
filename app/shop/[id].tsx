@@ -374,16 +374,31 @@ export default function ShopDetailScreen() {
             <View style={localStyles.bottomBar}>
                 <TouchableOpacity
                     style={localStyles.addToBasketButton}
-                    onPress={() =>
-                        router.push({
-                            // ใช้ cast เป็น any เพื่อหลีกเลี่ยงปัญหา type ของ expo-router
-                            pathname: '/shop/chat' as any,
-                            params: {
-                                id: shop._id,
-                                riderId: '6978e0ce8e292dec914a9396',
-                            },
-                        })
-                    }
+                    onPress={async () => {
+                        try {
+                            // ดึง riderId สุ่มจากฐานข้อมูล
+                            const response = await fetch('http://10.64.32.117:3000/api/riders/random/id');
+                            const data = await response.json();
+                            
+                            router.push({
+                                pathname: '/shop/chat' as any,
+                                params: {
+                                    id: shop._id,
+                                    riderId: data.riderId,
+                                },
+                            });
+                        } catch (error) {
+                            console.error('Error getting random rider:', error);
+                            // fallback ใช้ค่า default หากเกิดข้อผิดพลาด
+                            router.push({
+                                pathname: '/shop/chat' as any,
+                                params: {
+                                    id: shop._id,
+                                    riderId: '6978e0ce8e292dec914a9396',
+                                },
+                            });
+                        }
+                    }}
                 >
                     <Text style={localStyles.addToBasketText}>
                         Add to basket {calculateTotal() > 0 ? `(฿ ${calculateTotal()})` : ''}

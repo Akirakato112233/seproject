@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IChatMessage extends Document {
   riderId: string;
@@ -21,5 +21,5 @@ const ChatMessageSchema = new Schema<IChatMessage>(
   },
 );
 
-export const ChatMessage = mongoose.model<IChatMessage>('ChatMessage', ChatMessageSchema, 'chatMessages');
+export const ChatMessage = mongoose.model<IChatMessage>('ChatMessage', ChatMessageSchema, 'chats');
 
