@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
-    View,
-    Text,
-    ScrollView,
-    TouchableOpacity,
-    TextInput,
-    Image,
-    StyleSheet,
     ActivityIndicator,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, router } from 'expo-router';
 
 interface ServiceOption {
     setting?: string;
@@ -79,6 +79,7 @@ interface Shop {
 }
 
 export default function ShopDetailScreen() {
+    const router = useRouter();
     const { id } = useLocalSearchParams<{ id: string }>();
     const [shop, setShop] = useState<Shop | null>(null);
     const [loading, setLoading] = useState(true);
@@ -92,7 +93,7 @@ export default function ShopDetailScreen() {
     const fetchShopDetail = async () => {
         try {
             // เปลี่ยน IP เป็น localhost หรือ IP ของ backend
-            const response = await fetch(`http://192.168.0.247:3000/api/shops/${id}`);
+            const response = await fetch(`http://10.64.32.117:3000/api/shops/${id}`);
             const data = await response.json();
             // Backend ส่ง shop object โดยตรง (ไม่ได้ wrap ใน { success, data })
             if (data && data._id) {
@@ -371,7 +372,19 @@ export default function ShopDetailScreen() {
 
             {/* Add to Basket Button */}
             <View style={localStyles.bottomBar}>
-                <TouchableOpacity style={localStyles.addToBasketButton}>
+                <TouchableOpacity
+                    style={localStyles.addToBasketButton}
+                    onPress={() =>
+                        router.push({
+                            // ใช้ cast เป็น any เพื่อหลีกเลี่ยงปัญหา type ของ expo-router
+                            pathname: '/shop/chat' as any,
+                            params: {
+                                id: shop._id,
+                                riderId: '6978e0ce8e292dec914a9396',
+                            },
+                        })
+                    }
+                >
                     <Text style={localStyles.addToBasketText}>
                         Add to basket {calculateTotal() > 0 ? `(฿ ${calculateTotal()})` : ''}
                     </Text>

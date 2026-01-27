@@ -4,7 +4,7 @@ import { LaundryShop } from '../components/LaundryShopCard';
 // สำหรับ development: 'http://localhost:3000'
 // สำหรับ production: 'https://your-api-domain.com'
 const API_BASE_URL = __DEV__
-  ? 'http://192.168.0.247:3000/api'  // Development - ใช้ IP จริงสำหรับ device
+  ? 'http://10.64.32.117:3000/api'  // Development - ใช้ IP จริงสำหรับ device
   : 'https://your-api-domain.com/api';  // Production
 
 // สำหรับ Android Emulator ใช้: 'http://10.0.2.2:3000/api'
