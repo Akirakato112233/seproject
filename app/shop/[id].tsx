@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     Image,
     ScrollView,
     StyleSheet,
@@ -13,44 +14,51 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-interface ServiceOption {
-    setting?: string;
-    type?: string;
-    duration?: number;
+import { getShopById } from '../../services/api';
+// Import Type พื้นฐานเดิมมา
+import { LaundryShop } from '../../components/LaundryShopCard';
+
+
+// ---------------------------------------------------------
+// ✅ ส่วนที่เพิ่ม: กำหนดหน้าตาข้อมูล (Interface) ให้ละเอียดขึ้น
+// ---------------------------------------------------------
+
+interface WashDryOption {
+    setting: string;
+    duration: number;
     price: number;
-    pricePerKg?: number;
 }
 
 interface WashService {
     weight: number;
-    options: ServiceOption[];
+    options: WashDryOption[];
 }
 
 interface DryService {
     weight: number;
-    options: ServiceOption[];
+    options: WashDryOption[];
 }
 
-interface IroningServiceOption {
+interface IroningOption {
     type: string;
     price: number;
 }
 
 interface IroningService {
     category: string;
-    options: IroningServiceOption[];
+    options: IroningOption[];
 }
 
-interface FoldingServiceOption {
+interface FoldingOption {
     type: string;
     pricePerKg: number;
 }
 
 interface FoldingService {
-    options: FoldingServiceOption[];
+    options: FoldingOption[];
 }
 
-interface OtherServiceOption {
+interface OtherOption {
     name: string;
     price: number;
     unit: string;
@@ -58,19 +66,12 @@ interface OtherServiceOption {
 
 interface OtherService {
     category: string;
-    options: OtherServiceOption[];
+    options: OtherOption[];
 }
 
-interface Shop {
-    _id: string;
-    name: string;
-    rating: number;
-    reviewCount: number;
-    priceLevel: number;
-    type: 'coin' | 'full';
-    deliveryFee: number;
-    deliveryTime: number;
-    imageUrl?: string;
+// ✅ สร้าง Type ใหม่ชื่อ ShopDetail ที่ "สืบทอด" มาจาก LaundryShop
+// แล้วเพิ่มช่องข้อมูลบริการต่างๆ เข้าไป
+interface ShopDetail extends LaundryShop {
     washServices?: WashService[];
     dryServices?: DryService[];
     ironingServices?: IroningService[];
@@ -78,31 +79,37 @@ interface Shop {
     otherServices?: OtherService[];
 }
 
+// ---------------------------------------------------------
+
 export default function ShopDetailScreen() {
     const router = useRouter();
     const { id } = useLocalSearchParams<{ id: string }>();
-    const [shop, setShop] = useState<Shop | null>(null);
+    
+    // ✅ แก้ตรงนี้: ใช้ ShopDetail แทน LaundryShop
+    const [shop, setShop] = useState<ShopDetail | null>(null);
+    
     const [loading, setLoading] = useState(true);
     const [selectedOptions, setSelectedOptions] = useState<{ [key: string]: number }>({});
     const [additionalRequest, setAdditionalRequest] = useState('');
 
     useEffect(() => {
-        fetchShopDetail();
+        if (id) {
+            fetchShopDetail();
+        }
     }, [id]);
 
     const fetchShopDetail = async () => {
         try {
-            // เปลี่ยน IP เป็น localhost หรือ IP ของ backend
-            const response = await fetch(`http://10.64.32.117:3000/api/shops/${id}`);
-            const data = await response.json();
-            // Backend ส่ง shop object โดยตรง (ไม่ได้ wrap ใน { success, data })
-            if (data && data._id) {
-                setShop(data);
-            } else if (data.error) {
-                console.error('Shop not found:', data.error);
-            }
+
+            setLoading(true);
+            if (!id) return;
+            const data = await getShopById(id);
+            // ✅ Cast ข้อมูลที่ได้มาให้เป็น ShopDetail
+            setShop(data as unknown as ShopDetail);
+
         } catch (error) {
             console.error('Error fetching shop:', error);
+            Alert.alert('Error', 'ไม่สามารถโหลดข้อมูลร้านค้าได้ กรุณาลองใหม่');
         } finally {
             setLoading(false);
         }
@@ -117,34 +124,38 @@ export default function ShopDetailScreen() {
 
     const calculateTotal = () => {
         let total = 0;
+        if (!shop) return 0;
+
         Object.entries(selectedOptions).forEach(([key, optionIndex]) => {
-            if (optionIndex >= 0 && shop) {
-                const [serviceType, weightIndex] = key.split('-');
+            if (optionIndex >= 0) {
+                const [serviceType, weightIndexStr] = key.split('-');
+                const weightIndex = parseInt(weightIndexStr);
+
                 if (serviceType === 'wash' && shop.washServices) {
-                    const service = shop.washServices[parseInt(weightIndex)];
+                    const service = shop.washServices[weightIndex];
                     if (service && service.options[optionIndex]) {
                         total += service.options[optionIndex].price;
                     }
                 } else if (serviceType === 'dry' && shop.dryServices) {
-                    const service = shop.dryServices[parseInt(weightIndex)];
+                    const service = shop.dryServices[weightIndex];
                     if (service && service.options[optionIndex]) {
                         total += service.options[optionIndex].price;
                     }
                 }
                 else if (serviceType === 'ironing' && shop.ironingServices) {
-                    const service = shop.ironingServices[parseInt(weightIndex)];
+                    const service = shop.ironingServices[weightIndex];
                     if (service && service.options[optionIndex]) {
                         total += service.options[optionIndex].price;
                     }
                 }
                 else if (serviceType === 'folding' && shop.foldingServices) {
-                    const service = shop.foldingServices[parseInt(weightIndex)];
+                    const service = shop.foldingServices[weightIndex];
                     if (service && service.options[optionIndex]) {
-                        total += service.options[optionIndex].pricePerKg;
+                        total += service.options[optionIndex].pricePerKg; 
                     }
                 }
-                else if (serviceType == 'other' && shop.otherServices) {
-                    const service = shop.otherServices[parseInt(weightIndex)];
+                else if (serviceType === 'other' && shop.otherServices) {
+                    const service = shop.otherServices[weightIndex];
                     if (service && service.options[optionIndex]) {
                         total += service.options[optionIndex].price;
                     }
@@ -171,6 +182,9 @@ export default function ShopDetailScreen() {
                 <View style={localStyles.loadingContainer}>
                     <Ionicons name="alert-circle-outline" size={48} color="#ff6b6b" />
                     <Text style={localStyles.loadingText}>ไม่พบข้อมูลร้าน</Text>
+                    <TouchableOpacity style={localStyles.retryButton} onPress={router.back}>
+                        <Text style={localStyles.retryText}>ย้อนกลับ</Text>
+                    </TouchableOpacity>
                 </View>
             </SafeAreaView>
         );
@@ -270,7 +284,7 @@ export default function ShopDetailScreen() {
                     </View>
                 )}
 
-                {/* Ironing Services - เฉพาะร้าน full service */}
+                {/* Ironing Services */}
                 {shop.type === 'full' && shop.ironingServices && shop.ironingServices.length > 0 && (
                     <View style={localStyles.servicesSection}>
                         <Text style={localStyles.sectionHeader}>🔥 บริการรีดผ้า (Ironing)</Text>
@@ -298,10 +312,10 @@ export default function ShopDetailScreen() {
                     </View>
                 )}
 
-                {/* Folding Services - เฉพาะร้าน full service */}
+                {/* Folding Services */}
                 {shop.type === 'full' && shop.foldingServices && shop.foldingServices.length > 0 && (
                     <View style={localStyles.servicesSection}>
-                        <Text style={localStyles.sectionHeader}>📦 บริการผับผ้า (Folding)</Text>
+                        <Text style={localStyles.sectionHeader}>📦 บริการพับผ้า (Folding)</Text>
                         {shop.foldingServices.map((service, serviceIndex) => (
                             <View key={`folding-${serviceIndex}`} style={localStyles.serviceGroup}>
                                 {service.options.map((option, optionIndex) => {
@@ -325,7 +339,7 @@ export default function ShopDetailScreen() {
                     </View>
                 )}
 
-                {/* Other Services - เฉพาะร้าน full service */}
+                {/* Other Services */}
                 {shop.type === 'full' && shop.otherServices && shop.otherServices.length > 0 && (
                     <View style={localStyles.servicesSection}>
                         <Text style={localStyles.sectionHeader}>✨ บริการอื่นๆ</Text>
@@ -626,4 +640,14 @@ const localStyles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
     },
+    retryButton: {
+        marginTop: 16,
+        padding: 12,
+        backgroundColor: '#1d4685',
+        borderRadius: 8,
+    },
+    retryText: {
+        color: '#fff',
+        fontWeight: 'bold',
+    }
 });

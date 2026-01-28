@@ -1,20 +1,25 @@
-import React, { useState, useMemo } from 'react';
-import { View, ActivityIndicator, Text } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { styles } from '../style/myStyle';
+import { useLocalSearchParams } from 'expo-router'; // ✅ เพิ่ม import นี้
+import React, { useEffect, useMemo, useState } from 'react'; // ✅ เพิ่ม useEffect
+import { ActivityIndicator, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { styles } from '../style/myStyle';
+
 import {
   BottomSheet,
-  FilterRow,
-  MainFilterModal,
-  SearchBar,
   FilterChips,
+  FilterRow,
   Header,
   LaundryShopList,
+  MainFilterModal,
   PriceSelector,
+  SearchBar,
 } from '../components';
 import { useShops } from '../hooks/useShops';
+
 export default function SearchScreen() {
+  const params = useLocalSearchParams(); // ✅ ดึงค่า params ที่ส่งมาจากหน้า Discover
+  
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isMainModalVisible, setMainModalVisible] = useState(false);
 
@@ -28,8 +33,31 @@ export default function SearchScreen() {
     delivery: 'Any',
   });
 
-  // เรียกข้อมูลจาก API (หรือใช้ mock data ถ้า backend ยังไม่พร้อม)
-  // เปลี่ยน useMockData เป็น false เมื่อ backend พร้อมแล้ว
+  // ✅ เพิ่ม useEffect เพื่อรับค่าจากหน้า Discover
+  useEffect(() => {
+    if (Object.keys(params).length > 0) {
+      console.log("ได้รับคำสั่งกรอง:", params);
+      setFilters((prev) => ({
+        ...prev,
+        // ถ้ามี type ส่งมา ให้ใช้ค่าใหม่ ถ้าไม่มีให้ใช้ค่าเดิม
+        type: params.type ? (params.type as string) : prev.type,
+        
+        // แปลง string 'true' เป็น boolean
+        nearMe: params.nearMe === 'true' ? true : prev.nearMe,
+        
+        // ถ้าส่ง delivery='true' มา (ในที่นี้เราเซ็ตเป็น Any ไว้ก่อนเพื่อให้ User ไปเลือกราคาต่อได้)
+        delivery: params.delivery === 'true' ? 'Any' : prev.delivery,
+        
+        // เช็ค rating
+        rating: params.rating ? Number(params.rating) : prev.rating,
+
+        // เช็คบริการรีด (ถ้ามี filter นี้ในอนาคต)
+        // ironing: params.ironing === 'true', 
+      }));
+    }
+  }, [JSON.stringify(params)]);
+
+  // เรียกข้อมูลจาก API
   const { shops, loading, error } = useShops({
     filters: {
       type: filters.type !== 'coin' ? filters.type : undefined,
@@ -43,10 +71,10 @@ export default function SearchScreen() {
     useMockData: false, // เปลี่ยนเป็น false เมื่อ backend พร้อม
   });
 
-  // กรองร้านตาม filters (ถ้า backend ไม่ได้ filter ให้)
+  // กรองร้านตาม filters (Client-side filtering backup)
   const filteredShops = useMemo(() => {
     return shops.filter((shop) => {
-      // Filter by type - กรองตามประเภทที่เลือก
+      // Filter by type
       if (shop.type !== filters.type) {
         return false;
       }
@@ -180,4 +208,3 @@ export default function SearchScreen() {
     </SafeAreaView>
   );
 }
-

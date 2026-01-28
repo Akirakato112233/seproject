@@ -1,11 +1,11 @@
-import React from 'react';
-import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import React from 'react';
+import { Image, Text, TouchableOpacity, View } from 'react-native';
 import { styles } from '../style/myStyle';
 
 export interface LaundryShop {
-  id: string;
+  _id: string;
   name: string;
   rating: number;
   reviewCount: number;
@@ -35,7 +35,7 @@ export const LaundryShopCard: React.FC<LaundryShopCardProps> = ({ shop, onPress 
   return (
     <TouchableOpacity
       style={styles.shopCard}
-      onPress={() => router.push({ pathname: '/shop/[id]', params: { id: shop.id } })}
+      onPress={() => router.push({ pathname: '/shop/[id]', params: { id: shop._id } })}
       activeOpacity={0.7}
     >
       {/* รูปภาพร้าน */}

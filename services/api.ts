@@ -1,15 +1,10 @@
 import { LaundryShop } from '../components/LaundryShopCard';
+import { Config } from '../constants/config';
 
-// เปลี่ยน URL นี้เป็น URL ของ backend server ของคุณ
-// สำหรับ development: 'http://localhost:3000'
-// สำหรับ production: 'https://your-api-domain.com'
-const API_BASE_URL = __DEV__
-  ? 'http://10.64.32.117:3000/api'  // Development - ใช้ IP จริงสำหรับ device
-  : 'https://your-api-domain.com/api';  // Production
 
-// สำหรับ Android Emulator ใช้: 'http://10.0.2.2:3000/api'
-// สำหรับ iOS Simulator ใช้: 'http://localhost:3000/api'
-// สำหรับ device จริง ใช้ IP address ของคอมพิวเตอร์: 'http://192.168.1.xxx:3000/api'
+// ดึง URL จากไฟล์ Config มาใช้
+const API_BASE_URL = Config.API_URL;
+
 
 export interface FilterParams {
   type?: string;
@@ -22,7 +17,7 @@ export interface FilterParams {
 }
 
 /**
- * ดึงข้อมูลร้านซักรีดทั้งหมด
+ * ดึงข้อมูลร้านซักรีดทั้งหมด (Search/Filter)
  */
 export const getShops = async (filters?: FilterParams): Promise<LaundryShop[]> => {
   try {
@@ -38,7 +33,10 @@ export const getShops = async (filters?: FilterParams): Promise<LaundryShop[]> =
       if (filters.open) queryParams.append('open', 'true');
     }
 
+    // ต่อ String URL ให้ถูกต้อง
     const url = `${API_BASE_URL}/shops${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    
+    console.log('Fetching URL:', url); // log ดูว่ายิงไปถูกที่ไหม
 
     const response = await fetch(url, {
       method: 'GET',
@@ -52,10 +50,11 @@ export const getShops = async (filters?: FilterParams): Promise<LaundryShop[]> =
     }
 
     const data = await response.json();
-    // Map _id จาก MongoDB เป็น id ที่ frontend ใช้
+    
+    // Map _id ของ MongoDB ให้เป็น id ที่ frontend รู้จัก
     return data.map((shop: any) => ({
       ...shop,
-      id: shop._id,
+      id: shop._id, 
     }));
   } catch (error) {
     console.error('Error fetching shops:', error);
@@ -64,11 +63,15 @@ export const getShops = async (filters?: FilterParams): Promise<LaundryShop[]> =
 };
 
 /**
- * ดึงข้อมูลร้านซักรีดตาม ID
+ * ดึงข้อมูลร้านซักรีดรายตัว (Detail)
+ * ใช้สำหรับหน้า shop/[id].tsx
  */
 export const getShopById = async (id: string): Promise<LaundryShop> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/shops/${id}`, {
+    const url = `${API_BASE_URL}/shops/${id}`;
+    console.log('Fetching Detail URL:', url);
+
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -80,9 +83,9 @@ export const getShopById = async (id: string): Promise<LaundryShop> => {
     }
 
     const data = await response.json();
-    return data;
+    return { ...data, id: data._id };
   } catch (error) {
-    console.error('Error fetching shop:', error);
+    console.error('Error fetching shop details:', error);
     throw error;
   }
 };
