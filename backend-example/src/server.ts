@@ -2,6 +2,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
 import { connectDB } from './config/database';
+import authRoutes from './routes/auth';
 import chatRoutes from './routes/chat';
 import redeemRoutes from './routes/redeem';
 import ridersRoutes from './routes/riders';
@@ -17,6 +18,7 @@ app.use(cors()); // อนุญาตให้ React Native เรียก API
 app.use(express.json());
 
 // Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/shops', shopsRoutes);
 app.use('/api/riders', ridersRoutes);
 app.use('/api/chat', chatRoutes);

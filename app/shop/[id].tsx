@@ -301,8 +301,8 @@ export default function ShopDetailScreen() {
     // ไปหน้า Chat (feature จากเพื่อน)
     const handleGoToChat = async () => {
         try {
-            // ดึง riderId สุ่มจากฐานข้อมูล
-            const response = await fetch(`${BASE_URL}/api/riders/random/id`);
+            // ดึง riderId สุ่มจากไรเดอร์ที่ status online
+            const response = await fetch(`${BASE_URL}/api/riders/random/online`);
             const data = await response.json();
 
             router.push({
@@ -313,7 +313,7 @@ export default function ShopDetailScreen() {
                 },
             });
         } catch (error) {
-            console.error('Error getting random rider:', error);
+            console.error('Error getting random online rider:', error);
             // fallback ใช้ค่า default หากเกิดข้อผิดพลาด
             router.push({
                 pathname: '/shop/chat' as any,

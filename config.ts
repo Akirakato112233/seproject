@@ -1,7 +1,7 @@
 // config.ts
 
 // 🔥 แก้ IP ตรงนี้แค่จุดเดียว จบเลย!
-export const BASE_URL = 'http://192.168.2.47:3000'; 
+export const BASE_URL = 'http://10.64.34.19:3000'; 
 
 // ลิ้งค์ย่อยต่างๆ (Optional: จะได้ไม่ต้องพิมพ์ยาวๆ ในหน้าอื่น)
 export const API = {
@@ -10,4 +10,7 @@ export const API = {
     RIDERS: `${BASE_URL}/api/riders`,
     CHAT: `${BASE_URL}/api/chat`,
     SHOPS: `${BASE_URL}/api/shops`,
+    SIGNUP: `${BASE_URL}/api/auth/signup`,
+    REQUEST_OTP: `${BASE_URL}/api/auth/request-otp`, // email OTP
+    VERIFY_OTP: `${BASE_URL}/api/auth/verify-otp`,   // email OTP
 };

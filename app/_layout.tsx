@@ -1,9 +1,13 @@
 import { Stack } from 'expo-router';
-import React from 'react';
 
 export default function RootLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
+      {/* Onboarding */}
+      <Stack.Screen name="create-account" />
+      <Stack.Screen name="signup" />
+      {/* Auth */}
+      <Stack.Screen name="sign-in" />
       {/* Tabs */}
       <Stack.Screen name="(tabs)" />
       {/* Existing shop stack */}
