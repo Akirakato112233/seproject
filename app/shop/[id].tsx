@@ -84,12 +84,14 @@ interface ShopDetail extends LaundryShop {
 export default function ShopDetailScreen() {
     const router = useRouter();
     const { id } = useLocalSearchParams<{ id: string }>();
-    
+
     // ✅ แก้ตรงนี้: ใช้ ShopDetail แทน LaundryShop
     const [shop, setShop] = useState<ShopDetail | null>(null);
-    
+
     const [loading, setLoading] = useState(true);
     const [selectedOptions, setSelectedOptions] = useState<{ [key: string]: number }>({});
+    // สำหรับ multi-select (ironing, folding, other)
+    const [multiSelectedOptions, setMultiSelectedOptions] = useState<{ [key: string]: boolean }>({});
     const [additionalRequest, setAdditionalRequest] = useState('');
 
     useEffect(() => {
@@ -115,6 +117,7 @@ export default function ShopDetailScreen() {
         }
     };
 
+    // สำหรับ single select (wash, dry)
     const handleSelectOption = (serviceKey: string, optionIndex: number) => {
         setSelectedOptions((prev) => ({
             ...prev,
@@ -122,10 +125,19 @@ export default function ShopDetailScreen() {
         }));
     };
 
+    // สำหรับ multi-select (ironing, folding, other)
+    const handleMultiSelectOption = (key: string) => {
+        setMultiSelectedOptions((prev) => ({
+            ...prev,
+            [key]: !prev[key],
+        }));
+    };
+
     const calculateTotal = () => {
         let total = 0;
         if (!shop) return 0;
 
+        // คำนวณจาก single select (wash, dry)
         Object.entries(selectedOptions).forEach(([key, optionIndex]) => {
             if (optionIndex >= 0) {
                 const [serviceType, weightIndexStr] = key.split('-');
@@ -142,27 +154,175 @@ export default function ShopDetailScreen() {
                         total += service.options[optionIndex].price;
                     }
                 }
-                else if (serviceType === 'ironing' && shop.ironingServices) {
-                    const service = shop.ironingServices[weightIndex];
+            }
+        });
+
+        // คำนวณจาก multi-select (ironing, folding, other)
+        Object.entries(multiSelectedOptions).forEach(([key, isSelected]) => {
+            if (isSelected && shop) {
+                const parts = key.split('-');
+                const serviceType = parts[0];
+                const serviceIndex = parseInt(parts[1]);
+                const optionIndex = parseInt(parts[2]);
+
+                if (serviceType === 'ironing' && shop.ironingServices) {
+                    const service = shop.ironingServices[serviceIndex];
                     if (service && service.options[optionIndex]) {
                         total += service.options[optionIndex].price;
                     }
-                }
-                else if (serviceType === 'folding' && shop.foldingServices) {
-                    const service = shop.foldingServices[weightIndex];
+                } else if (serviceType === 'folding' && shop.foldingServices) {
+                    const service = shop.foldingServices[serviceIndex];
                     if (service && service.options[optionIndex]) {
-                        total += service.options[optionIndex].pricePerKg; 
+                        total += service.options[optionIndex].pricePerKg;
                     }
-                }
-                else if (serviceType === 'other' && shop.otherServices) {
-                    const service = shop.otherServices[weightIndex];
+                } else if (serviceType === 'other' && shop.otherServices) {
+                    const service = shop.otherServices[serviceIndex];
                     if (service && service.options[optionIndex]) {
                         total += service.options[optionIndex].price;
                     }
                 }
             }
         });
+
         return total;
+    };
+
+    // สร้าง order items จาก selected options
+    const getOrderItems = () => {
+        const items: { name: string; details: string; price: number; duration: number; additionalRequest?: string }[] = [];
+
+        // จาก single select (wash, dry)
+        Object.entries(selectedOptions).forEach(([key, optionIndex]) => {
+            if (optionIndex >= 0 && shop) {
+                const [serviceType, weightIndex] = key.split('-');
+
+                if (serviceType === 'wash' && shop.washServices) {
+                    const service = shop.washServices[parseInt(weightIndex)];
+                    if (service && service.options[optionIndex]) {
+                        const option = service.options[optionIndex];
+                        items.push({
+                            name: `Wash ${service.weight} kg ${option.setting || ''}`,
+                            details: `${option.duration || 0} min`,
+                            price: option.price,
+                            duration: option.duration || 0,
+                        });
+                    }
+                } else if (serviceType === 'dry' && shop.dryServices) {
+                    const service = shop.dryServices[parseInt(weightIndex)];
+                    if (service && service.options[optionIndex]) {
+                        const option = service.options[optionIndex];
+                        items.push({
+                            name: `Dry ${service.weight} kg ${option.setting || ''}`,
+                            details: `${option.duration || 0} min`,
+                            price: option.price,
+                            duration: option.duration || 0,
+                        });
+                    }
+                }
+            }
+        });
+
+        // จาก multi-select (ironing, folding, other)
+        Object.entries(multiSelectedOptions).forEach(([key, isSelected]) => {
+            if (isSelected && shop) {
+                const parts = key.split('-');
+                const serviceType = parts[0];
+                const serviceIndex = parseInt(parts[1]);
+                const optionIndex = parseInt(parts[2]);
+
+                if (serviceType === 'ironing' && shop.ironingServices) {
+                    const service = shop.ironingServices[serviceIndex];
+                    if (service && service.options[optionIndex]) {
+                        const option = service.options[optionIndex];
+                        items.push({
+                            name: `Ironing - ${option.type}`,
+                            details: service.category,
+                            price: option.price,
+                            duration: 0,
+                        });
+                    }
+                } else if (serviceType === 'folding' && shop.foldingServices) {
+                    const service = shop.foldingServices[serviceIndex];
+                    if (service && service.options[optionIndex]) {
+                        const option = service.options[optionIndex];
+                        items.push({
+                            name: `Folding - ${option.type}`,
+                            details: `${option.pricePerKg}/kg`,
+                            price: option.pricePerKg,
+                            duration: 0,
+                        });
+                    }
+                } else if (serviceType === 'other' && shop.otherServices) {
+                    const service = shop.otherServices[serviceIndex];
+                    if (service && service.options[optionIndex]) {
+                        const option = service.options[optionIndex];
+                        items.push({
+                            name: option.name,
+                            details: `${option.price}/${option.unit}`,
+                            price: option.price,
+                            duration: 0,
+                        });
+                    }
+                }
+            }
+        });
+
+        // เพิ่ม additionalRequest ให้กับ item แรก (หรือจะแยกเป็น item ใหม่ก็ได้)
+        if (items.length > 0 && additionalRequest.trim()) {
+            items[0].additionalRequest = additionalRequest.trim();
+        }
+
+
+        return items;
+    };
+
+    // ไปหน้า Order พร้อมส่งข้อมูล
+    const handleAddToBasket = () => {
+        const orderItems = getOrderItems();
+        if (orderItems.length === 0) {
+            alert('กรุณาเลือกบริการอย่างน้อย 1 รายการ');
+            return;
+        }
+
+        const orderData = {
+            items: orderItems,
+            serviceTotal: calculateTotal(),
+            deliveryFee: shop?.deliveryFee || 0,
+            deliveryTime: shop?.deliveryTime || 30,
+            additionalRequest: additionalRequest.trim() || undefined,
+        };
+
+        router.push({
+            pathname: `/shop/order/${id}` as any,
+            params: { orderData: JSON.stringify(orderData) }
+        });
+    };
+
+    // ไปหน้า Chat (feature จากเพื่อน)
+    const handleGoToChat = async () => {
+        try {
+            // ดึง riderId สุ่มจากฐานข้อมูล
+            const response = await fetch(`${BASE_URL}/api/riders/random/id`);
+            const data = await response.json();
+
+            router.push({
+                pathname: '/shop/chat' as any,
+                params: {
+                    id: shop?._id,
+                    riderId: data.riderId,
+                },
+            });
+        } catch (error) {
+            console.error('Error getting random rider:', error);
+            // fallback ใช้ค่า default หากเกิดข้อผิดพลาด
+            router.push({
+                pathname: '/shop/chat' as any,
+                params: {
+                    id: shop?._id,
+                    riderId: '6978e0ce8e292dec914a9396',
+                },
+            });
+        }
     };
 
     if (loading) {
@@ -208,6 +368,10 @@ export default function ShopDetailScreen() {
                     {/* Back Button */}
                     <TouchableOpacity style={localStyles.backButton} onPress={() => router.back()}>
                         <Ionicons name="arrow-back" size={24} color="#333" />
+                    </TouchableOpacity>
+                    {/* Chat Button (feature จากเพื่อน) */}
+                    <TouchableOpacity style={localStyles.chatButton} onPress={handleGoToChat}>
+                        <Ionicons name="chatbubble-ellipses-outline" size={24} color="#333" />
                     </TouchableOpacity>
                 </View>
 
@@ -284,23 +448,24 @@ export default function ShopDetailScreen() {
                     </View>
                 )}
 
-                {/* Ironing Services */}
+                {/* Ironing Services - เฉพาะร้าน full service (Multi-select) */}
                 {shop.type === 'full' && shop.ironingServices && shop.ironingServices.length > 0 && (
                     <View style={localStyles.servicesSection}>
-                        <Text style={localStyles.sectionHeader}>🔥 บริการรีดผ้า (Ironing)</Text>
+                        <Text style={localStyles.sectionHeader}>🔥 บริการรีดผ้า (Ironing) - เลือกได้หลายรายการ</Text>
                         {shop.ironingServices.map((service, serviceIndex) => (
                             <View key={`ironing-${serviceIndex}`} style={localStyles.serviceGroup}>
                                 <Text style={localStyles.serviceTitle}>{service.category}</Text>
                                 {service.options.map((option, optionIndex) => {
-                                    const isSelected = selectedOptions[`ironing-${serviceIndex}`] === optionIndex;
+                                    const key = `ironing-${serviceIndex}-${optionIndex}`;
+                                    const isSelected = multiSelectedOptions[key] === true;
                                     return (
                                         <TouchableOpacity
                                             key={optionIndex}
                                             style={localStyles.optionRow}
-                                            onPress={() => handleSelectOption(`ironing-${serviceIndex}`, optionIndex)}
+                                            onPress={() => handleMultiSelectOption(key)}
                                         >
-                                            <View style={[localStyles.radio, isSelected && localStyles.radioSelected]}>
-                                                {isSelected && <View style={localStyles.radioInner} />}
+                                            <View style={[localStyles.checkbox, isSelected && localStyles.checkboxSelected]}>
+                                                {isSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
                                             </View>
                                             <Text style={localStyles.optionSetting}>{option.type}</Text>
                                             <Text style={localStyles.optionPrice}>฿ {option.price}</Text>
@@ -312,22 +477,23 @@ export default function ShopDetailScreen() {
                     </View>
                 )}
 
-                {/* Folding Services */}
+                {/* Folding Services - เฉพาะร้าน full service (Multi-select) */}
                 {shop.type === 'full' && shop.foldingServices && shop.foldingServices.length > 0 && (
                     <View style={localStyles.servicesSection}>
-                        <Text style={localStyles.sectionHeader}>📦 บริการพับผ้า (Folding)</Text>
+                        <Text style={localStyles.sectionHeader}>📦 บริการพับผ้า (Folding) - เลือกได้หลายรายการ</Text>
                         {shop.foldingServices.map((service, serviceIndex) => (
                             <View key={`folding-${serviceIndex}`} style={localStyles.serviceGroup}>
                                 {service.options.map((option, optionIndex) => {
-                                    const isSelected = selectedOptions[`folding-${serviceIndex}`] === optionIndex;
+                                    const key = `folding-${serviceIndex}-${optionIndex}`;
+                                    const isSelected = multiSelectedOptions[key] === true;
                                     return (
                                         <TouchableOpacity
                                             key={optionIndex}
                                             style={localStyles.optionRow}
-                                            onPress={() => handleSelectOption(`folding-${serviceIndex}`, optionIndex)}
+                                            onPress={() => handleMultiSelectOption(key)}
                                         >
-                                            <View style={[localStyles.radio, isSelected && localStyles.radioSelected]}>
-                                                {isSelected && <View style={localStyles.radioInner} />}
+                                            <View style={[localStyles.checkbox, isSelected && localStyles.checkboxSelected]}>
+                                                {isSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
                                             </View>
                                             <Text style={localStyles.optionSetting}>{option.type}</Text>
                                             <Text style={localStyles.optionPrice}>฿ {option.pricePerKg}/kg</Text>
@@ -339,23 +505,24 @@ export default function ShopDetailScreen() {
                     </View>
                 )}
 
-                {/* Other Services */}
+                {/* Other Services - เฉพาะร้าน full service (Multi-select) */}
                 {shop.type === 'full' && shop.otherServices && shop.otherServices.length > 0 && (
                     <View style={localStyles.servicesSection}>
-                        <Text style={localStyles.sectionHeader}>✨ บริการอื่นๆ</Text>
+                        <Text style={localStyles.sectionHeader}>✨ บริการอื่นๆ - เลือกได้หลายรายการ</Text>
                         {shop.otherServices.map((service, serviceIndex) => (
                             <View key={`other-${serviceIndex}`} style={localStyles.serviceGroup}>
                                 <Text style={localStyles.serviceTitle}>{service.category}</Text>
                                 {service.options.map((option, optionIndex) => {
-                                    const isSelected = selectedOptions[`other-${serviceIndex}`] === optionIndex;
+                                    const key = `other-${serviceIndex}-${optionIndex}`;
+                                    const isSelected = multiSelectedOptions[key] === true;
                                     return (
                                         <TouchableOpacity
                                             key={optionIndex}
                                             style={localStyles.optionRow}
-                                            onPress={() => handleSelectOption(`other-${serviceIndex}`, optionIndex)}
+                                            onPress={() => handleMultiSelectOption(key)}
                                         >
-                                            <View style={[localStyles.radio, isSelected && localStyles.radioSelected]}>
-                                                {isSelected && <View style={localStyles.radioInner} />}
+                                            <View style={[localStyles.checkbox, isSelected && localStyles.checkboxSelected]}>
+                                                {isSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
                                             </View>
                                             <Text style={localStyles.optionSetting}>{option.name}</Text>
                                             <Text style={localStyles.optionPrice}>฿ {option.price}/{option.unit}</Text>
@@ -388,31 +555,7 @@ export default function ShopDetailScreen() {
             <View style={localStyles.bottomBar}>
                 <TouchableOpacity
                     style={localStyles.addToBasketButton}
-                    onPress={async () => {
-                        try {
-                            // ดึง riderId สุ่มจากฐานข้อมูล
-                            const response = await fetch(`${BASE_URL}/api/riders/random/id`);
-                            const data = await response.json();
-                            
-                            router.push({
-                                pathname: '/shop/chat' as any,
-                                params: {
-                                    id: shop._id,
-                                    riderId: data.riderId,
-                                },
-                            });
-                        } catch (error) {
-                            console.error('Error getting random rider:', error);
-                            // fallback ใช้ค่า default หากเกิดข้อผิดพลาด
-                            router.push({
-                                pathname: '/shop/chat' as any,
-                                params: {
-                                    id: shop._id,
-                                    riderId: '6978e0ce8e292dec914a9396',
-                                },
-                            });
-                        }
-                    }}
+                    onPress={handleAddToBasket}
                 >
                     <Text style={localStyles.addToBasketText}>
                         Add to basket {calculateTotal() > 0 ? `(฿ ${calculateTotal()})` : ''}
@@ -467,6 +610,19 @@ const localStyles = StyleSheet.create({
         position: 'absolute',
         top: 10,
         left: 10,
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        padding: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 4,
+    },
+    chatButton: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
         backgroundColor: '#fff',
         borderRadius: 20,
         padding: 8,
@@ -573,6 +729,20 @@ const localStyles = StyleSheet.create({
         width: 12,
         height: 12,
         borderRadius: 6,
+        backgroundColor: '#1d4685',
+    },
+    checkbox: {
+        width: 22,
+        height: 22,
+        borderRadius: 4,
+        borderWidth: 2,
+        borderColor: '#ddd',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    checkboxSelected: {
+        borderColor: '#1d4685',
         backgroundColor: '#1d4685',
     },
     optionSetting: {

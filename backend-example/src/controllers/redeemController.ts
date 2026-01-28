@@ -6,7 +6,7 @@ import { User } from '../models/User'; // 👈 เรียกใช้ User
 
 puppeteer.use(StealthPlugin());
 
-const MY_WALLET_NUMBER = '0614699730'; //ใส่เบอร์ที่จะรับเงินของtruemoneyตรงนี้นะ อันนี้เบอร์ทดลอง 0649525694
+const MY_WALLET_NUMBER = '0649525694'; //ใส่เบอร์ที่จะรับเงินของtruemoneyตรงนี้นะ อันนี้เบอร์ทดลอง 0649525694
 const CHROME_PATH = 'C:/Program Files/Google/Chrome/Application/chrome.exe'; // เช็ค Path ให้ถูก
 
 // ✅ 1. ฟังก์ชันดึงยอดเงิน (API: GET /api/redeem/balance)
@@ -14,12 +14,12 @@ export const getBalance = async (req: Request, res: Response) => {
     try {
         // ใช้ demo_user ไปก่อน (ระบบจริงค่อยเปลี่ยนเป็น ID จากการ Login)
         let user = await User.findOne({ username: 'demo_user' });
-        
+
         // ถ้ายังไม่มี User ให้สร้างใหม่ และเริ่มที่ 0 บาท
         if (!user) {
             user = await User.create({ username: 'demo_user', balance: 0.00 });
         }
-        
+
         res.json({ balance: user.balance });
     } catch (error) {
         console.error('Get Balance Error:', error);
@@ -46,7 +46,7 @@ export const redeemGift = async (req: Request, res: Response) => {
 
         const page = await browser.newPage();
         await page.setViewport({ width: 414, height: 896 });
-        
+
         // --- เริ่มขั้นตอน Puppeteer ---
         await page.goto(link, { waitUntil: 'networkidle2' });
 
@@ -59,7 +59,7 @@ export const redeemGift = async (req: Request, res: Response) => {
                 const index = lines.findIndex((l: any) => l.includes('ส่งของทรูมันนี่ให้คุณ'));
                 return index > 0 ? lines[index - 1].trim() : "Unknown";
             });
-        } catch (e) {}
+        } catch (e) { }
 
         // กรอกเบอร์
         const inputSelector = '#mobile-text-field';
@@ -71,10 +71,10 @@ export const redeemGift = async (req: Request, res: Response) => {
         const btnClicked = await page.evaluate(() => {
             const btns = Array.from(document.querySelectorAll('button'));
             const b = btns.find((btn: any) => btn.innerText.includes('รับซองเลย'));
-            if(b) { (b as HTMLElement).click(); return true; }
+            if (b) { (b as HTMLElement).click(); return true; }
             return false;
         });
-        if(!btnClicked) throw new Error('Button not found');
+        if (!btnClicked) throw new Error('Button not found');
 
         // รอและฉีกซอง
         await new Promise(r => setTimeout(r, 4000));
@@ -101,7 +101,7 @@ export const redeemGift = async (req: Request, res: Response) => {
             // 1. อัปเดตยอดเงินใน User
             let user = await User.findOne({ username: 'demo_user' });
             if (!user) user = await User.create({ username: 'demo_user', balance: 0 });
-            
+
             user.balance += amount;
             await user.save();
 
