@@ -1,0 +1,46 @@
+import mongoose, { Document, Schema } from 'mongoose';
+
+export interface IOrder extends Document {
+    userId: string;          // username ของ user (เช่น demo_user)
+    userDisplayName: string; // ชื่อที่แสดงของ user (เช่น Bakugoa ku)
+    userAddress: string;     // ที่อยู่ของ user
+    shopId: string;          // _id ของร้าน
+    shopName: string;        // ชื่อร้าน
+    items: {
+        name: string;
+        details: string;
+        price: number;
+    }[];
+    serviceTotal: number;    // ราคาบริการรวม
+    deliveryFee: number;     // ค่าส่ง
+    total: number;           // ราคารวมทั้งหมด
+    paymentMethod: 'wallet' | 'cash';
+    status: 'rider_coming' | 'at_shop' | 'out_for_delivery' | 'completed' | 'cancelled';
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+const OrderSchema: Schema = new Schema({
+    userId: { type: String, required: true, default: 'demo_user' },
+    userDisplayName: { type: String, default: '' },
+    userAddress: { type: String, default: '' },
+    shopId: { type: String, required: true },
+    shopName: { type: String, required: true },
+    items: [{
+        name: { type: String, required: true },
+        details: { type: String },
+        price: { type: Number, required: true }
+    }],
+    serviceTotal: { type: Number, required: true },
+    deliveryFee: { type: Number, required: true },
+    total: { type: Number, required: true },
+    paymentMethod: { type: String, enum: ['wallet', 'cash'], default: 'cash' },
+    status: {
+        type: String,
+        enum: ['rider_coming', 'at_shop', 'out_for_delivery', 'completed', 'cancelled'],
+        default: 'rider_coming'
+    }
+}, { timestamps: true });
+
+export const Order = mongoose.model<IOrder>('Order', OrderSchema);
+

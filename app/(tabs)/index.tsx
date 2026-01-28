@@ -28,26 +28,41 @@ function ActionButton({
 export default function HomeScreen() {
   const router = useRouter();
   const [balance, setBalance] = useState('0.00');
+  const [activeOrder, setActiveOrder] = useState<any>(null);
 
-useFocusEffect(
-  useCallback(() => {
-    const fetchBalance = async () => {
-      try {
-        const res = await fetch(API.BALANCE);
-        
-        const data = await res.json();
-        console.log('Balance loaded:', data); // ดู Log ใน Terminal ฝั่ง Metro (Expo)
-        
-        // แปลงตัวเลขให้มีทศนิยม 2 ตำแหน่ง
-        setBalance(data.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-      } catch (error) {
-        console.log('Error loading balance:', error);
-        // alert('ดึงยอดเงินไม่สำเร็จ: ' + error); // เปิดบรรทัดนี้เพื่อดู error บนหน้าจอมือถือ
-      }
-    };
-    fetchBalance();
-  }, [])
-);
+  useFocusEffect(
+    useCallback(() => {
+      const fetchBalance = async () => {
+        try {
+          const res = await fetch(API.BALANCE);
+          const data = await res.json();
+          console.log('Balance loaded:', data);
+          setBalance(data.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+        } catch (error) {
+          console.log('Error loading balance:', error);
+        }
+      };
+
+      const fetchActiveOrder = async () => {
+        try {
+          const res = await fetch(API.ORDERS_ACTIVE);
+          const data = await res.json();
+          console.log('Active Order:', data);
+          if (data.hasActiveOrder) {
+            setActiveOrder(data.order);
+          } else {
+            setActiveOrder(null);
+          }
+        } catch (error) {
+          console.log('Error loading active order:', error);
+          setActiveOrder(null);
+        }
+      };
+
+      fetchBalance();
+      fetchActiveOrder();
+    }, [])
+  );
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
       <LinearGradient
@@ -68,10 +83,10 @@ useFocusEffect(
         </View>
 
         {/* ✅ แก้ไข: เปลี่ยน Search Box ให้เป็นปุ่มกดไปหน้า Discover */}
-        <TouchableOpacity 
-          style={s.searchBox} 
+        <TouchableOpacity
+          style={s.searchBox}
           activeOpacity={0.9}
-          onPress={() => router.push('/discover')} 
+          onPress={() => router.push('/discover')}
         >
           <Ionicons name="search" size={18} color="rgba(255,255,255,0.9)" />
           <Text style={s.searchInputPlaceholder}>
@@ -107,13 +122,13 @@ useFocusEffect(
           <ActionButton
             icon={<MaterialCommunityIcons name="iron" size={22} color="#2E6BE8" />}
             label="IRONING"
-             // ✅ ส่งค่า type='full' (หรือ ironing='true' ถ้ามี)
+            // ✅ ส่งค่า type='full' (หรือ ironing='true' ถ้ามี)
             onPress={() => router.push({ pathname: '/search', params: { type: 'full' } })}
           />
           <ActionButton
             icon={<MaterialCommunityIcons name="hanger" size={22} color="#2E6BE8" />}
             label="DRY CLEAN"
-             // ✅ ไปหน้า Search แบบ Full Service
+            // ✅ ไปหน้า Search แบบ Full Service
             onPress={() => router.push({ pathname: '/search', params: { type: 'full' } })}
           />
           <ActionButton
@@ -134,6 +149,13 @@ useFocusEffect(
           <ActionButton
             icon={<Ionicons name="time-outline" size={22} color="#2E6BE8" />}
             label="CHECK STATUS"
+            onPress={() => {
+              if (activeOrder) {
+                router.push(`/shop/order/status/${activeOrder._id}?step=1` as any);
+              } else {
+                alert('ไม่มี Order ที่กำลังดำเนินการ');
+              }
+            }}
           />
           <ActionButton
             icon={<Ionicons name="grid-outline" size={22} color="#2E6BE8" />}
@@ -265,5 +287,37 @@ const s = StyleSheet.create({
     fontWeight: '800',
     color: '#2A2A2A',
     textAlign: 'center',
+  },
+  // Active Order Card
+  activeOrderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E3F2FD',
+    marginHorizontal: 16,
+    marginTop: 8,
+    padding: 14,
+    borderRadius: 14,
+    gap: 12,
+  },
+  activeOrderIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#1976D2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeOrderContent: {
+    flex: 1,
+  },
+  activeOrderTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1976D2',
+  },
+  activeOrderSubtitle: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
   },
 });
