@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BASE_URL } from '../../config';
 
 type Sender = 'user' | 'rider';
 
@@ -51,7 +52,7 @@ export default function ChatScreen() {
 
     // ส่งข้อความไป backend เพื่อบันทึกลง MongoDB
     try {
-      await fetch('http://10.64.32.117:3000/api/chat/messages', {
+      await fetch(`${BASE_URL}/api/chat/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -78,7 +79,7 @@ export default function ChatScreen() {
           return;
         }
 
-        const response = await fetch(`http://10.64.32.117:3000/api/riders/${riderId}`);
+        const response = await fetch(`${BASE_URL}/api/riders/${riderId}`);
         if (!response.ok) {
           throw new Error('Failed to fetch rider');
         }
@@ -112,7 +113,7 @@ export default function ChatScreen() {
           params.append('shopId', String(id));
         }
 
-        const response = await fetch(`http://10.64.32.117:3000/api/chat/messages?${params.toString()}`);
+        const response = await fetch(`${BASE_URL}/api/chat/messages?${params.toString()}`);
         if (!response.ok) {
           throw new Error('Failed to fetch messages');
         }

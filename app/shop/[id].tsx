@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { getShopById } from '../../services/api';
 // Import Type พื้นฐานเดิมมา
 import { LaundryShop } from '../../components/LaundryShopCard';
-
+import { BASE_URL } from '../../config';
 
 // ---------------------------------------------------------
 // ✅ ส่วนที่เพิ่ม: กำหนดหน้าตาข้อมูล (Interface) ให้ละเอียดขึ้น
@@ -391,7 +391,7 @@ export default function ShopDetailScreen() {
                     onPress={async () => {
                         try {
                             // ดึง riderId สุ่มจากฐานข้อมูล
-                            const response = await fetch('http://10.64.32.117:3000/api/riders/random/id');
+                            const response = await fetch(`${BASE_URL}/api/riders/random/id`);
                             const data = await response.json();
                             
                             router.push({

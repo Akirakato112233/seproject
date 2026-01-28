@@ -1,10 +1,11 @@
-import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import express from 'express';
 import { connectDB } from './config/database';
-import shopsRoutes from './routes/shops';
-import ridersRoutes from './routes/riders';
 import chatRoutes from './routes/chat';
+import redeemRoutes from './routes/redeem';
+import ridersRoutes from './routes/riders';
+import shopsRoutes from './routes/shops';
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ app.use(express.json());
 app.use('/api/shops', shopsRoutes);
 app.use('/api/riders', ridersRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/redeem', redeemRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

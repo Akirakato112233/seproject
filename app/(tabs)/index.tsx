@@ -1,9 +1,12 @@
+// app/(tabs)/index.tsx
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import React from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { API } from '../../config';
+
 
 function ActionButton({
   icon,
@@ -24,7 +27,27 @@ function ActionButton({
 
 export default function HomeScreen() {
   const router = useRouter();
+  const [balance, setBalance] = useState('0.00');
 
+useFocusEffect(
+  useCallback(() => {
+    const fetchBalance = async () => {
+      try {
+        const res = await fetch(API.BALANCE);
+        
+        const data = await res.json();
+        console.log('Balance loaded:', data); // ดู Log ใน Terminal ฝั่ง Metro (Expo)
+        
+        // แปลงตัวเลขให้มีทศนิยม 2 ตำแหน่ง
+        setBalance(data.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+      } catch (error) {
+        console.log('Error loading balance:', error);
+        // alert('ดึงยอดเงินไม่สำเร็จ: ' + error); // เปิดบรรทัดนี้เพื่อดู error บนหน้าจอมือถือ
+      }
+    };
+    fetchBalance();
+  }, [])
+);
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
       <LinearGradient
@@ -63,11 +86,11 @@ export default function HomeScreen() {
             </View>
             <View>
               <Text style={s.walletLabel}>WIT WALLET BALANCE</Text>
-              <Text style={s.walletValue}>฿ 1,250.00</Text>
+              <Text style={s.walletValue}>฿ {balance}</Text>
             </View>
           </View>
 
-          <TouchableOpacity style={s.topUpBtn} activeOpacity={0.85}>
+          <TouchableOpacity style={s.topUpBtn} activeOpacity={0.85} onPress={() => router.push('/wallet' as any)}>
             <Text style={s.topUpText}>TOP UP</Text>
           </TouchableOpacity>
         </View>
