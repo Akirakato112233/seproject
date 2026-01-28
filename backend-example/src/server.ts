@@ -7,6 +7,7 @@ import chatRoutes from './routes/chat';
 import redeemRoutes from './routes/redeem';
 import ridersRoutes from './routes/riders';
 import shopsRoutes from './routes/shops';
+import orderRoutes from './routes/orderRoutes';
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ app.use('/api/shops', shopsRoutes);
 app.use('/api/riders', ridersRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/redeem', redeemRoutes);
+app.use('/api/orders', orderRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

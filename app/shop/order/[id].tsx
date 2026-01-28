@@ -6,10 +6,12 @@ import {
     TouchableOpacity,
     StyleSheet,
     ActivityIndicator,
+    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
+import { API } from '../../../config';
 
 interface DeliveryOption {
     id: string;
@@ -48,6 +50,7 @@ export default function OrderScreen() {
     const [selectedDelivery, setSelectedDelivery] = useState<string>('priority');
     const [selectedPayment, setSelectedPayment] = useState<string>('cash');
     const [userLocation] = useState('The One Place Building');
+    const [walletBalance, setWalletBalance] = useState<number>(0);
 
     // Parse order data from params
     const orderData: OrderData | null = useMemo(() => {
@@ -90,7 +93,19 @@ export default function OrderScreen() {
 
     useEffect(() => {
         fetchShopDetail();
+        fetchWalletBalance();
     }, [id]);
+
+    const fetchWalletBalance = async () => {
+        try {
+            const response = await fetch(API.BALANCE);
+            const data = await response.json();
+            setWalletBalance(data.balance || 0);
+        } catch (error) {
+            console.error('Error fetching wallet balance:', error);
+            setWalletBalance(0);
+        }
+    };
 
     const fetchShopDetail = async () => {
         try {
@@ -313,9 +328,62 @@ export default function OrderScreen() {
 
             {/* Order Now Button */}
             <View style={styles.bottomBar}>
-                <TouchableOpacity style={styles.orderButton} onPress={() => {
-                    // TODO: ส่ง order ไป backend
-                    alert('Order placed successfully!');
+                <TouchableOpacity style={styles.orderButton} onPress={async () => {
+                    const total = calculateTotal();
+                    const serviceTotal = calculateServiceTotal();
+                    const deliveryFee = calculateDeliveryFee();
+
+                    // ถ้าเลือก WIT wallet ต้องเช็คยอดเงิน
+                    if (selectedPayment === 'wallet') {
+                        if (walletBalance < total) {
+                            const shortage = total - walletBalance;
+                            const message = `💰 ยอดเงินไม่เพียงพอ!\n\nยอดเงินในกระเป๋า: ฿${walletBalance.toFixed(2)}\nยอดที่ต้องชำระ: ฿${total.toFixed(2)}\n\n⚠️ กรุณาเติมเงินอีก ฿${shortage.toFixed(2)}\n\nกด OK เพื่อไปเติมเงิน`;
+
+                            const goToTopUp = confirm(message);
+                            if (goToTopUp) {
+                                router.push('/wallet/transfer');
+                            }
+                            return;
+                        }
+                    }
+
+                    try {
+                        // สร้าง Order ผ่าน API
+                        const response = await fetch(API.ORDERS, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                shopId: id,
+                                shopName: shop?.name || 'Unknown Shop',
+                                items: orderItems.map(item => ({
+                                    name: item.name,
+                                    details: item.details,
+                                    price: item.price
+                                })),
+                                serviceTotal,
+                                deliveryFee,
+                                total,
+                                paymentMethod: selectedPayment
+                            })
+                        });
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            // ไป Order Status page พร้อม orderId
+                            router.push({
+                                pathname: `/shop/order/status/${data.order._id}` as any,
+                                params: { step: '1' },
+                            });
+                        } else {
+                            alert('❌ สร้าง Order ไม่สำเร็จ: ' + data.message);
+                        }
+                    } catch (error) {
+                        console.error('Create Order Error:', error);
+                        alert('❌ เกิดข้อผิดพลาดในการสร้าง Order');
+                    }
                 }}>
                     <Text style={styles.orderButtonText}>Order Now</Text>
                 </TouchableOpacity>
