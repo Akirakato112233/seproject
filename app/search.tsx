@@ -19,9 +19,10 @@ import { useShops } from '../hooks/useShops';
 
 export default function SearchScreen() {
   const params = useLocalSearchParams(); // ✅ ดึงค่า params ที่ส่งมาจากหน้า Discover
-  
+
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isMainModalVisible, setMainModalVisible] = useState(false);
+  const [searchText, setSearchText] = useState('');
 
   const [filters, setFilters] = useState({
     open: true,
@@ -41,19 +42,24 @@ export default function SearchScreen() {
         ...prev,
         // ถ้ามี type ส่งมา ให้ใช้ค่าใหม่ ถ้าไม่มีให้ใช้ค่าเดิม
         type: params.type ? (params.type as string) : prev.type,
-        
+
         // แปลง string 'true' เป็น boolean
         nearMe: params.nearMe === 'true' ? true : prev.nearMe,
-        
+
         // ถ้าส่ง delivery='true' มา (ในที่นี้เราเซ็ตเป็น Any ไว้ก่อนเพื่อให้ User ไปเลือกราคาต่อได้)
         delivery: params.delivery === 'true' ? 'Any' : prev.delivery,
-        
+
         // เช็ค rating
         rating: params.rating ? Number(params.rating) : prev.rating,
 
         // เช็คบริการรีด (ถ้ามี filter นี้ในอนาคต)
         // ironing: params.ironing === 'true', 
       }));
+
+      // เซ็ตค่า search text จาก params
+      if (params.search) {
+        setSearchText(params.search as string);
+      }
     }
   }, [JSON.stringify(params)]);
 
@@ -74,6 +80,14 @@ export default function SearchScreen() {
   // กรองร้านตาม filters (Client-side filtering backup)
   const filteredShops = useMemo(() => {
     return shops.filter((shop) => {
+      // Filter by search text (ชื่อร้าน)
+      if (searchText.trim()) {
+        const searchLower = searchText.toLowerCase();
+        if (!shop.name.toLowerCase().includes(searchLower)) {
+          return false;
+        }
+      }
+
       // Filter by type
       if (shop.type !== filters.type) {
         return false;
@@ -99,12 +113,16 @@ export default function SearchScreen() {
 
       return true;
     });
-  }, [shops, filters]);
+  }, [shops, filters, searchText]);
 
   return (
     <SafeAreaView style={styles.container}>
       <Header />
-      <SearchBar />
+      <SearchBar
+        value={searchText}
+        onChangeText={setSearchText}
+        placeholder="พิมพ์ชื่อร้านเพื่อค้นหา..."
+      />
       <FilterChips
         filters={filters}
         setFilters={setFilters}

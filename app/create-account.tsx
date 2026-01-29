@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { makeRedirectUri } from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { useRouter } from 'expo-router';
@@ -25,12 +26,15 @@ export default function CreateAccountScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  // Google OAuth Client ID from Google Cloud Console
+  // Hardcode redirect URI to match Google Cloud Console exactly
   const redirectUri = 'https://auth.expo.io/@0822189639/WIT';
+
+  console.log('Using redirectUri:', redirectUri);
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     clientId: '175156025290-idein8g931p1i11thdq1hinpor4umrej.apps.googleusercontent.com',
-    redirectUri: redirectUri,
+    redirectUri,
+    scopes: ['profile', 'email'],
   });
 
   // Debug: show actual redirect URI
@@ -43,7 +47,13 @@ export default function CreateAccountScreen() {
   }, [request]);
 
   useEffect(() => {
+    console.log('=== AUTH RESPONSE ===');
+    console.log('Response type:', response?.type);
+    console.log('Full response:', JSON.stringify(response, null, 2));
+    console.log('=====================');
+
     if (response?.type === 'success') {
+      console.log('Access token:', response.authentication?.accessToken);
       handleGoogleResponse(response.authentication?.accessToken);
     } else if (response?.type === 'error') {
       console.log('Google error:', response);
@@ -142,6 +152,21 @@ export default function CreateAccountScreen() {
             )}
           </TouchableOpacity>
 
+          {/* DEV MODE: Test User Login */}
+          {__DEV__ && (
+            <TouchableOpacity
+              style={[s.btn, s.btnDev]}
+              activeOpacity={0.85}
+              onPress={() => {
+                console.log('DEV: Logging in as test user');
+                router.replace('/(tabs)');
+              }}
+            >
+              <Ionicons name="bug-outline" size={20} color="#fff" />
+              <Text style={s.btnText}>Login as Test User (DEV)</Text>
+            </TouchableOpacity>
+          )}
+
           <Text style={s.terms}>
             By continuing, you agree to our Terms of Service and Privacy Policy
           </Text>
@@ -196,6 +221,12 @@ const s = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
+  },
+  btnDev: {
+    backgroundColor: '#FF6B35',
+    borderWidth: 2,
+    borderColor: '#FF6B35',
+    borderStyle: 'dashed',
   },
   googleIconWrapper: {
     width: 28,

@@ -15,49 +15,64 @@ export const createOrder = async (req: Request, res: Response) => {
             paymentMethod
         } = req.body;
 
+        console.log('=== CREATE ORDER REQUEST ===');
+        console.log('Body:', JSON.stringify(req.body, null, 2));
+
         // ใช้ demo_user สำหรับตอนนี้
         const userId = 'demo_user';
 
         // ดึงข้อมูล user (displayName, address)
         const user = await User.findOne({ username: userId });
+        console.log('User found:', user ? 'Yes' : 'No');
 
         // ถ้าจ่ายด้วย wallet ต้องหักเงิน
         if (paymentMethod === 'wallet') {
             if (!user) {
-                return res.status(404).json({ success: false, message: 'User not found' });
+                return res.status(404).json({ success: false, message: 'User not found - cannot use wallet payment' });
             }
             if (user.balance < total) {
                 return res.status(400).json({ success: false, message: 'Insufficient balance' });
             }
 
-            // หักเงินจาก wallet
-            user.balance -= total;
-            await user.save();
+            // หักเงินจาก wallet ใช้ findOneAndUpdate แทน save() เพื่อหลีกเลี่ยง validation error
+            await User.findOneAndUpdate(
+                { username: userId },
+                { $inc: { balance: -total } }
+            );
+            console.log('Wallet deducted:', total);
         }
 
         // สร้าง order ใหม่ (รวม user info)
-        const order = await Order.create({
+        const orderData = {
             userId,
-            userDisplayName: user?.displayName || 'Customer',
-            userAddress: user?.address || '',
+            userDisplayName: user?.displayName || 'Test User',
+            userAddress: user?.address || 'No address set',
             shopId,
             shopName,
             items,
             serviceTotal,
             deliveryFee,
             total,
-            paymentMethod,
+            paymentMethod: paymentMethod || 'cash',
             status: 'rider_coming' // เริ่มต้นที่สถานะ rider กำลังมา
-        });
+        };
+
+        console.log('Creating order with data:', JSON.stringify(orderData, null, 2));
+
+        const order = await Order.create(orderData);
+        console.log('Order created successfully:', order._id);
 
         res.status(201).json({
             success: true,
             order,
             message: 'Order created successfully!'
         });
-    } catch (error) {
-        console.error('Create Order Error:', error);
-        res.status(500).json({ success: false, message: 'Failed to create order' });
+    } catch (error: any) {
+        console.error('=== CREATE ORDER ERROR ===');
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        res.status(500).json({ success: false, message: 'Failed to create order', error: error.message });
     }
 };
 

@@ -2,6 +2,7 @@
   "expo": {
     "name": "WIT",
     "slug": "WIT",
+    "owner": "0822189639",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",

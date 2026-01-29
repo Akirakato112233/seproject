@@ -25,10 +25,10 @@ export default function DiscoverScreen() {
             params: {
                 // ส่งค่าประเภท (ถ้าเลือก all ไม่ต้องส่งค่าไป)
                 type: serviceType !== 'all' ? serviceType : undefined,
-                
+
                 // ส่งค่าว่าต้องการ Delivery ไหม
                 delivery: needsDelivery ? 'true' : undefined,
-                
+
                 // ส่งค่าการเรียงลำดับ (ใกล้ฉัน หรือ เรตติ้ง)
                 nearMe: sortBy === 'nearMe' ? 'true' : undefined,
                 rating: sortBy === 'rating' ? '4' : undefined, // สมมติว่าถ้าเลือก rating คือเอา 4 ดาวขึ้นไป
@@ -39,7 +39,7 @@ export default function DiscoverScreen() {
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="dark-content" />
-            
+
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
@@ -49,11 +49,11 @@ export default function DiscoverScreen() {
             </View>
 
             <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-                
+
                 {/* 1. เลือกประเภทบริการ (Main Choice) */}
                 <Text style={styles.sectionTitle}>ประเภทบริการ</Text>
                 <View style={styles.typeContainer}>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={[styles.typeCard, serviceType === 'coin' && styles.typeCardSelected]}
                         onPress={() => setServiceType(serviceType === 'coin' ? 'all' : 'coin')}
                     >
@@ -68,7 +68,7 @@ export default function DiscoverScreen() {
                         )}
                     </TouchableOpacity>
 
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={[styles.typeCard, serviceType === 'full' && styles.typeCardSelected]}
                         onPress={() => setServiceType(serviceType === 'full' ? 'all' : 'full')}
                     >
@@ -78,7 +78,7 @@ export default function DiscoverScreen() {
                         <Text style={[styles.typeText, serviceType === 'full' && styles.typeTextSelected]}>
                             ซัก อบ รีด{'\n'}(Full Service)
                         </Text>
-                         {serviceType === 'full' && (
+                        {serviceType === 'full' && (
                             <Ionicons name="checkmark-circle" size={24} color="#1d4685" style={styles.checkIcon} />
                         )}
                     </TouchableOpacity>
@@ -87,7 +87,7 @@ export default function DiscoverScreen() {
                 {/* 2. ตัวเลือกเพิ่มเติม (Add-ons) */}
                 <Text style={styles.sectionTitle}>ตัวเลือกเสริม</Text>
                 <View style={styles.optionsContainer}>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={[styles.optionChip, needsDelivery && styles.optionChipSelected]}
                         onPress={() => setNeedsDelivery(!needsDelivery)}
                     >
@@ -99,7 +99,7 @@ export default function DiscoverScreen() {
                 {/* 3. จัดเรียงตาม (Sort By) */}
                 <Text style={styles.sectionTitle}>เน้นอะไรเป็นพิเศษ?</Text>
                 <View style={styles.sortContainer}>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={[styles.sortCard, sortBy === 'nearMe' && styles.sortCardSelected]}
                         onPress={() => setSortBy(sortBy === 'nearMe' ? null : 'nearMe')}
                     >
@@ -107,7 +107,7 @@ export default function DiscoverScreen() {
                         <Text style={[styles.sortText, sortBy === 'nearMe' && styles.sortTextSelected]}>ใกล้ฉันที่สุด</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={[styles.sortCard, sortBy === 'rating' && styles.sortCardSelected]}
                         onPress={() => setSortBy(sortBy === 'rating' ? null : 'rating')}
                     >

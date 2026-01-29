@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { API } from '../../../../config';
 
+
 type OrderStep = 1 | 2 | 3;
 
 interface OrderData {
@@ -24,6 +25,7 @@ interface OrderData {
     paymentMethod: string;
     status: string;
     items: { name: string; details: string; price: number }[];
+    createdAt?: string;
 }
 
 const STEP_CONFIG: Record<OrderStep, { title: string; description: string }> = {
@@ -49,6 +51,48 @@ export default function OrderStatusScreen() {
     // Parse step จาก params (default = 1)
     const currentStep: OrderStep = (parseInt(stepParam || '1') as OrderStep) || 1;
     const stepInfo = STEP_CONFIG[currentStep] || STEP_CONFIG[1];
+
+    // คำนวณเวลาจริง
+    const getEstimatedTime = () => {
+        if (!order?.createdAt) {
+            return 'Calculating...';
+        }
+
+        const createdDate = new Date(order.createdAt);
+
+        // กำหนดเวลาโดยประมาณตาม step
+        // Step 1: Rider coming (15-30 min)
+        // Step 2: At shop processing (30-60 min)
+        // Step 3: Delivery back (15-30 min)
+        let minMinutes = 15;
+        let maxMinutes = 30;
+
+        if (currentStep === 1) {
+            minMinutes = 15;
+            maxMinutes = 30;
+        } else if (currentStep === 2) {
+            minMinutes = 45; // Step 1 + Step 2 start
+            maxMinutes = 90; // Step 1 + Step 2 end
+        } else if (currentStep === 3) {
+            minMinutes = 60;  // All steps almost done
+            maxMinutes = 90;
+        }
+
+        const minTime = new Date(createdDate.getTime() + minMinutes * 60000);
+        const maxTime = new Date(createdDate.getTime() + maxMinutes * 60000);
+
+        const formatTime = (date: Date) => {
+            let hours = date.getHours();
+            const minutes = date.getMinutes();
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12; // 0 -> 12
+            const minutesStr = minutes < 10 ? '0' + minutes : minutes;
+            return `${hours}:${minutesStr} ${ampm}`;
+        };
+
+        return `${formatTime(minTime)} - ${formatTime(maxTime)}`;
+    };
 
     useEffect(() => {
         fetchOrder();
@@ -132,7 +176,7 @@ export default function OrderStatusScreen() {
                 {/* Time Range & Status */}
                 <View style={styles.timeSection}>
                     <View style={styles.timeRow}>
-                        <Text style={styles.timeText}>5:30 - 5:45 PM</Text>
+                        <Text style={styles.timeText}>{getEstimatedTime()}</Text>
                         <View style={styles.riderIcon}>
                             <Ionicons name="bicycle" size={24} color="#1976D2" />
                         </View>
