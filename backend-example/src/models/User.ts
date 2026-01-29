@@ -1,19 +1,29 @@
 // backend-example/src/models/User.ts
-//ยอดเงินของผู้ใช้
+// ข้อมูลผู้ใช้ รวมถึง Google Auth
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IUser extends Document {
+  email: string;
   username: string;
   displayName: string;
+  phone: string;
   address: string;
   balance: number;
+  googleId?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const UserSchema: Schema = new Schema({
+  email: { type: String, required: true, unique: true },
   username: { type: String, required: true, unique: true },
-  displayName: { type: String, default: '' },  // ชื่อที่แสดง เช่น "Bakugoa ku"
-  address: { type: String, default: '' },      // ที่อยู่ เช่น "The One Place Sriracha (ร้า พอม)"
-  balance: { type: Number, default: 0.00 },    // ยอดเงิน wallet
+  displayName: { type: String, default: '' },
+  phone: { type: String, default: '' },
+  address: { type: String, default: '' },
+  balance: { type: Number, default: 0.00 },
+  googleId: { type: String },
+}, {
+  timestamps: true, // adds createdAt and updatedAt
 });
 
 export const User = mongoose.model<IUser>('User', UserSchema);

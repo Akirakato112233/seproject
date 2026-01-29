@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import nodemailer from 'nodemailer';
 import { EmailOtp } from '../models/EmailOtp';
 import { Signup } from '../models/Signup';
+import { User } from '../models/User';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
@@ -151,3 +152,90 @@ export const signup = async (req: Request, res: Response) => {
   }
 };
 
+// ========== Google Auth Functions ==========
+
+/**
+ * Check if a user exists by email
+ * Used after Google Sign-In to determine if user needs to register
+ */
+export const checkUserByEmail = async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body ?? {};
+
+    if (!email || typeof email !== 'string' || !emailRegex.test(email)) {
+      return res.status(400).json({ message: 'Invalid email' });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (user) {
+      return res.json({
+        exists: true,
+        user: {
+          id: user._id,
+          email: user.email,
+          displayName: user.displayName,
+          phone: user.phone,
+          address: user.address,
+          balance: user.balance,
+        },
+      });
+    } else {
+      return res.json({ exists: false });
+    }
+  } catch (error: any) {
+    console.error('Check user error:', error);
+    return res.status(500).json({ message: error?.message ?? 'Check user failed' });
+  }
+};
+
+/**
+ * Register a new user from Google Sign-In
+ */
+export const registerGoogleUser = async (req: Request, res: Response) => {
+  try {
+    const { email, displayName, phone, address, googleId } = req.body ?? {};
+
+    if (!email || typeof email !== 'string' || !emailRegex.test(email)) {
+      return res.status(400).json({ message: 'Invalid email' });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
+
+    // Create new user
+    const user = await User.create({
+      email: normalizedEmail,
+      username: normalizedEmail, // Use email as username
+      displayName: displayName || '',
+      phone: phone || '',
+      address: address || '',
+      balance: 0,
+      googleId: googleId || '',
+    });
+
+    return res.json({
+      success: true,
+      user: {
+        id: user._id,
+        email: user.email,
+        displayName: user.displayName,
+        phone: user.phone,
+        address: user.address,
+        balance: user.balance,
+      },
+    });
+  } catch (error: any) {
+    console.error('Register Google user error:', error);
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'Email already registered' });
+    }
+    return res.status(500).json({ message: error?.message ?? 'Registration failed' });
+  }
+};
