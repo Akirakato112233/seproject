@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { makeRedirectUri } from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { useRouter } from 'expo-router';
@@ -14,49 +13,35 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { API } from '../config';
+import { useAuth } from '../context/AuthContext';
+import { auth, signInWithGoogleCredential } from '../services/firebase';
 
 // Complete auth session when returning from browser
 WebBrowser.maybeCompleteAuthSession();
 
 /**
- * Create Account Screen - Real Google Sign-In
- * Uses expo-auth-session to open actual Google login page
+ * Create Account Screen - Google Sign-In with Firebase
  */
 export default function CreateAccountScreen() {
   const router = useRouter();
+  const { setDevMode } = useAuth();
   const [loading, setLoading] = useState(false);
 
-  // Hardcode redirect URI to match Google Cloud Console exactly
+  // Hardcoded redirect URI (must match Google Cloud Console)
   const redirectUri = 'https://auth.expo.io/@0822189639/WIT';
 
-  console.log('Using redirectUri:', redirectUri);
+  console.log('Using Redirect URI:', redirectUri);
 
   const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: '175156025290-idein8g931p1i11thdq1hinpor4umrej.apps.googleusercontent.com',
+    clientId: '543704041787-hp11jtovnoufjfkchdcb78g1bo8kk90q.apps.googleusercontent.com',
     redirectUri,
     scopes: ['profile', 'email'],
   });
 
-  // Debug: show actual redirect URI
   useEffect(() => {
-    if (request) {
-      console.log('=== Redirect URI ===');
-      console.log(request.redirectUri);
-      console.log('====================');
-    }
-  }, [request]);
-
-  useEffect(() => {
-    console.log('=== AUTH RESPONSE ===');
-    console.log('Response type:', response?.type);
-    console.log('Full response:', JSON.stringify(response, null, 2));
-    console.log('=====================');
-
     if (response?.type === 'success') {
-      console.log('Access token:', response.authentication?.accessToken);
-      handleGoogleResponse(response.authentication?.accessToken);
+      handleGoogleResponse(response.authentication);
     } else if (response?.type === 'error') {
-      console.log('Google error:', response);
       Alert.alert('Error', 'Google Sign-In failed');
       setLoading(false);
     } else if (response?.type === 'cancel') {
@@ -64,8 +49,8 @@ export default function CreateAccountScreen() {
     }
   }, [response]);
 
-  const handleGoogleResponse = async (accessToken: string | undefined) => {
-    if (!accessToken) {
+  const handleGoogleResponse = async (authentication: any) => {
+    if (!authentication?.accessToken) {
       Alert.alert('Error', 'No access token received');
       setLoading(false);
       return;
@@ -75,7 +60,7 @@ export default function CreateAccountScreen() {
       // Get user info from Google using access token
       const userInfoResponse = await fetch(
         'https://www.googleapis.com/userinfo/v2/me',
-        { headers: { Authorization: `Bearer ${accessToken}` } }
+        { headers: { Authorization: `Bearer ${authentication.accessToken}` } }
       );
       const userInfo = await userInfoResponse.json();
 
@@ -159,6 +144,7 @@ export default function CreateAccountScreen() {
               activeOpacity={0.85}
               onPress={() => {
                 console.log('DEV: Logging in as test user');
+                setDevMode(true);
                 router.replace('/(tabs)');
               }}
             >
