@@ -6,11 +6,11 @@ import {
     Modal, Platform, SafeAreaView, StyleSheet, Text, TextInput,
     TouchableOpacity, View
 } from 'react-native';
-import { API } from '../../config';
+import { API } from '@/config';
 
 // 🔥 Import รูป (ตรวจสอบ path ให้ถูก)
-const trueIconImg = require('../../assets/images/Trueicon.jpg');
-const wDigitalImg = require('../../assets/images/Wdigita.png'); 
+const trueIconImg = require('@/assets/images/Trueicon.jpg');
+const wDigitalImg = require('@/assets/images/Wdigita.png');
 
 export default function TransferScreen() {
   const router = useRouter();

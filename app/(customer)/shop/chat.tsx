@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BASE_URL } from '../../config';
+import { BASE_URL } from '@/config';
 
 type Sender = 'user' | 'rider';
 

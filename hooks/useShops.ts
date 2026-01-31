@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { LaundryShop } from '../components/LaundryShopCard';
-import { getShops, FilterParams } from '../services/api';
-import { mockShops } from '../data/mockShops';
+import { getShops, FilterParams } from '@/services/api';
+import { mockShops } from '@/data/mockShops';
 
 interface UseShopsOptions {
   filters?: FilterParams;

@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
-import { API } from '../../../../config';
+import { API } from '@/config';
 
 
 type OrderStep = 1 | 2 | 3;

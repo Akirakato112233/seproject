@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
-import { API } from '../../../config';
+import { API } from '@/config';
 
 interface DeliveryOption {
     id: string;
@@ -109,7 +109,7 @@ export default function OrderScreen() {
 
     const fetchShopDetail = async () => {
         try {
-            const response = await fetch(`http://192.168.0.247:3000/api/shops/${id}`);
+            const response = await fetch(`http://192.168.1.30:3000/api/shops/${id}`);
             const data = await response.json();
             if (data && data._id) {
                 setShop(data);

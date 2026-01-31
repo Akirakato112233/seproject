@@ -12,9 +12,9 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { API } from '../config';
-import { useAuth } from '../context/AuthContext';
-import { auth, signInWithGoogleCredential } from '../services/firebase';
+import { API } from '@/config';
+import { useAuth } from '@/context/AuthContext';
+import { auth, signInWithGoogleCredential } from '@/services/firebase';
 
 // Complete auth session when returning from browser
 WebBrowser.maybeCompleteAuthSession();
@@ -81,7 +81,7 @@ export default function CreateAccountScreen() {
       if (data.exists) {
         // User exists - go to home
         console.log('User found:', data.user);
-        router.replace('/(tabs)');
+        router.replace('/(customer)/(tabs)');
       } else {
         // User doesn't exist - go to register
         router.push({
@@ -145,7 +145,7 @@ export default function CreateAccountScreen() {
               onPress={() => {
                 console.log('DEV: Logging in as test user');
                 setDevMode(true);
-                router.replace('/(tabs)');
+                router.replace('/(customer)/(tabs)');
               }}
             >
               <Ionicons name="bug-outline" size={20} color="#fff" />

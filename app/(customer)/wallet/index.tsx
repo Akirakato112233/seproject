@@ -2,9 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router'; // ✅ เพิ่ม useFocusEffect
 import { useCallback, useState } from 'react'; // ✅ เพิ่ม useState, useCallback
 import { Image, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { API } from '../../config';
+import { API } from '@/config';
 // เช็ค path รูปให้ถูก (ถ้าแดงให้แก้ path)
-const wDigitalImg = require('../../assets/images/Wdigita.png'); 
+const wDigitalImg = require('@/assets/images/Wdigita.png'); 
 
 export default function WalletScreen() {
   const router = useRouter();

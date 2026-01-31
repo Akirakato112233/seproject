@@ -3,7 +3,7 @@ import { useLocalSearchParams } from 'expo-router'; // ✅ เพิ่ม impor
 import React, { useEffect, useMemo, useState } from 'react'; // ✅ เพิ่ม useEffect
 import { ActivityIndicator, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { styles } from '../style/myStyle';
+import { styles } from '@/style/myStyle';
 
 import {
   BottomSheet,
@@ -14,8 +14,8 @@ import {
   MainFilterModal,
   PriceSelector,
   SearchBar,
-} from '../components';
-import { useShops } from '../hooks/useShops';
+} from '@/components';
+import { useShops } from '@/hooks/useShops';
 
 export default function SearchScreen() {
   const params = useLocalSearchParams(); // ✅ ดึงค่า params ที่ส่งมาจากหน้า Discover

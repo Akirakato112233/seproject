@@ -1,5 +1,5 @@
 import { LaundryShop } from '../components/LaundryShopCard';
-import { Config } from '../constants/config';
+import { Config } from '@/constants/config';
 
 
 // ดึง URL จากไฟล์ Config มาใช้

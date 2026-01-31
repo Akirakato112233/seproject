@@ -14,10 +14,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { getShopById } from '../../services/api';
+import { getShopById } from '@/services/api';
 // Import Type พื้นฐานเดิมมา
-import { LaundryShop } from '../../components/LaundryShopCard';
-import { BASE_URL } from '../../config';
+import { LaundryShop } from '../../../components/LaundryShopCard';
+import { BASE_URL } from '@/config';
 
 // ---------------------------------------------------------
 // ✅ ส่วนที่เพิ่ม: กำหนดหน้าตาข้อมูล (Interface) ให้ละเอียดขึ้น
