@@ -1,10 +1,10 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 
-export default function AccountScreen() {
+export default function WalletScreen() {
   return (
     <View style={s.container}>
-      <Text style={s.title}>Account</Text>
+      <Text style={s.title}>Wallet</Text>
       <Text style={s.sub}>Coming soon</Text>
     </View>
   );
