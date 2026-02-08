@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region } from "react-native-maps";
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region } from "../components/MapView";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import { LatLng, useDelivery } from "../context/DeliveryContext";
@@ -138,7 +138,7 @@ async function fetchRoute(origin: LatLng, destination: LatLng): Promise<LatLng[]
 
 export default function JobScreen() {
   const router = useRouter();
-  const mapRef = useRef<MapView | null>(null);
+  const mapRef = useRef<any>(null);
 
   const { active, markPickedUp, markDelivered } = useDelivery();
 

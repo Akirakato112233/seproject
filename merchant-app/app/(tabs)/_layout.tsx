@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
+import { Colors } from '../../constants/colors';
 
 export default function TabsLayout() {
   return (
@@ -8,7 +9,7 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: true,
-        tabBarActiveTintColor: '#0E3A78',
+        tabBarActiveTintColor: Colors.primaryBlue,
       }}
     >
       <Tabs.Screen
@@ -21,32 +22,26 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="orders"
+        name="history"
         options={{
-          title: 'Orders',
+          title: 'History',
           tabBarIcon: ({ size, color }) => (
-            <Ionicons name="receipt-outline" size={size} color={color} />
+            <Ionicons name="time-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="shop"
+        name="settings"
         options={{
-          title: 'My Shop',
+          title: 'Settings',
           tabBarIcon: ({ size, color }) => (
-            <Ionicons name="storefront-outline" size={size} color={color} />
+            <Ionicons name="settings-outline" size={size} color={color} />
           ),
         }}
       />
-      <Tabs.Screen
-        name="account"
-        options={{
-          title: 'Account',
-          tabBarIcon: ({ size, color }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="orders" options={{ href: null }} />
+      <Tabs.Screen name="shop" options={{ href: null }} />
+      <Tabs.Screen name="account" options={{ href: null }} />
     </Tabs>
   );
 }

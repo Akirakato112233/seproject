@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
-import MapView, { PROVIDER_GOOGLE, Region } from "react-native-maps";
+import MapView, { PROVIDER_GOOGLE, Region } from "../../components/MapView";
 import * as Location from "expo-location";
 import { useDelivery, Order } from "../../context/DeliveryContext";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -57,7 +57,7 @@ type OrderWithDetails = Order & { details?: string };
 export default function HomeScreen() {
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
-  const mapRef = useRef<MapView | null>(null);
+  const mapRef = useRef<any>(null);
 
   const {
     available,
