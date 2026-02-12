@@ -133,12 +133,30 @@ export default function CreateAccountScreen() {
             <Text style={s.btnText}>Continue with Google</Text>
           </TouchableOpacity>
 
+          <View style={s.entryRow}>
+            <TouchableOpacity
+              style={[s.entryBtn, s.entryBtnLaundry]}
+              onPress={() => router.replace('/(tabs)')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="shirt-outline" size={20} color="#fff" />
+              <Text style={s.entryBtnText}>ร้านรับซัก</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.entryBtn, s.entryBtnCoin]}
+              onPress={() => router.replace('/(coin)')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="hardware-chip-outline" size={20} color="#fff" />
+              <Text style={s.entryBtnText}>ร้านหยอดเหรียญ</Text>
+            </TouchableOpacity>
+          </View>
           <TouchableOpacity
             style={s.skipBtn}
             onPress={() => router.replace('/(tabs)')}
             activeOpacity={0.7}
           >
-            <Text style={s.skipText}>ข้าม เข้าใช้งานเลย</Text>
+            <Text style={s.skipText}>ข้าม เข้าใช้งานเลย (ร้านรับซัก)</Text>
           </TouchableOpacity>
 
           <Text style={s.terms}>
@@ -207,6 +225,31 @@ const s = StyleSheet.create({
   btnText: {
     fontSize: 16,
     fontWeight: '700',
+    color: '#fff',
+  },
+  entryRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  entryBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+    borderRadius: 12,
+  },
+  entryBtnLaundry: {
+    backgroundColor: '#0E3A78',
+  },
+  entryBtnCoin: {
+    backgroundColor: '#0d9488',
+  },
+  entryBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
     color: '#fff',
   },
   skipBtn: {

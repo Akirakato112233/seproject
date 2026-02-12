@@ -42,6 +42,9 @@ export default function TabsLayout() {
       <Tabs.Screen name="orders" options={{ href: null }} />
       <Tabs.Screen name="shop" options={{ href: null }} />
       <Tabs.Screen name="account" options={{ href: null }} />
+      <Tabs.Screen name="contact" options={{ href: null }} />
+      <Tabs.Screen name="wallet" options={{ href: null }} />
+      <Tabs.Screen name="transfer" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
   FlatList,
@@ -23,6 +24,7 @@ const formatDate = (date: Date) => {
 };
 
 export default function HistoryScreen() {
+  const router = useRouter();
   const [selectedDate] = useState(new Date());
   const { completedOrders } = useOrders();
 
@@ -36,7 +38,7 @@ export default function HistoryScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
-      <MerchantHeader shopName="ร้านasukhai" />
+      <MerchantHeader shopName="ร้านasukhai" onWalletPress={() => router.push('/(tabs)/wallet')} />
 
       <View style={s.content}>
         <Text style={s.title}>History</Text>
