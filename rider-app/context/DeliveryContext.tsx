@@ -64,85 +64,74 @@ const DeliveryContext = createContext<DeliveryContextType>(null as any);
 
 // NOTE: ปลายทางล็อคที่มหาวิทยาลัยเกษตรศาสตร์ วิทยาเขตศรีราชา
 // 199 ตำบลทุ่งสุขลา อำเภอศรีราชา ชลบุรี 20230
+// ... imports
+import { API } from '../config';
+
+// ... types ...
+
+// NOTE: ปลายทางล็อคที่มหาวิทยาลัยเกษตรศาสตร์ วิทยาเขตศรีราชา
+// 199 ตำบลทุ่งสุขลา อำเภอศรีราชา ชลบุรี 20230
 const KU_SRIRACHA_COORDS = { latitude: 13.1219, longitude: 100.9209 };
 
-const MOCK_AVAILABLE: Order[] = [
-  {
-    id: "1",
-    shopName: "WashPro Laundry",
-    shopAddress: "100 Shop St, Bangkok",
-    customerName: "John Doe",
-    customerAddress: "123 Main St, Bangkok",
-    distance: "2.5 km",
-    fee: 150,
-    items: 3,
-    pickup: { latitude: 13.0918, longitude: 100.9036 },
-    dropoff: KU_SRIRACHA_COORDS, // มหาวิทยาลัยเกษตรศาสตร์ วิทยาเขตศรีราชา
-    note: "แยกขาว/สี",
-    timeWindow: "Today, 2:00 PM - 4:00 PM",
-    paymentMethod: "cash",
-    customerPhone: "+66800000001",
-    shopPhone: "+66800000011",
-  },
-  {
-    id: "2",
-    shopName: "Clean Express",
-    shopAddress: "22 Oak Ave, Bangkok",
-    customerName: "Jane Smith",
-    customerAddress: "456 Oak Ave, Bangkok",
-    distance: "3.2 km",
-    fee: 200,
-    items: 5,
-    pickup: { latitude: 13.0672, longitude: 100.9196 },
-    dropoff: KU_SRIRACHA_COORDS, // มหาวิทยาลัยเกษตรศาสตร์ วิทยาเขตศรีราชา
-    note: "เสื้อเชิ้ตรีดเรียบ",
-    timeWindow: "Today, 1:00 PM - 3:00 PM",
-    paymentMethod: "cash",
-    customerPhone: "+66800000002",
-    shopPhone: "+66800000012",
-  },
-  {
-    id: "3",
-    shopName: "Fresh & Clean",
-    shopAddress: "9 Pine Rd, Bangkok",
-    customerName: "Mike Johnson",
-    customerAddress: "789 Pine Rd, Bangkok",
-    distance: "1.8 km",
-    fee: 120,
-    items: 2,
-    pickup: { latitude: 13.0827, longitude: 100.9274 },
-    dropoff: KU_SRIRACHA_COORDS, // มหาวิทยาลัยเกษตรศาสตร์ วิทยาเขตศรีราชา
-    note: "ผ้าเปราะบาง",
-    timeWindow: "Today, 3:00 PM - 5:00 PM",
-    paymentMethod: "cash",
-    customerPhone: "+66800000003",
-    shopPhone: "+66800000013",
-  },
-];
+import { useAuth } from './AuthContext';
 
 export function DeliveryProvider({ children }: { children: React.ReactNode }) {
-  const [available, setAvailable] = useState<Order[]>(MOCK_AVAILABLE);
+  const [available, setAvailable] = useState<Order[]>([]);
   const [active, setActive] = useState<ActiveOrder | null>(null);
   const [history, setHistory] = useState<CompletedOrder[]>([]);
 
   const [isOnline, setIsOnline] = useState(false);
   const [autoAccept, setAutoAccept] = useState(false);
 
+  // Auth
+  const { token } = useAuth();
+
   const toggleOnline = () => {
     setIsOnline((v) => {
       const next = !v;
-      // ปิด autoAccept ทุกครั้งที่ offline
       if (!next) setAutoAccept(false);
       return next;
     });
   };
-  // อนุญาตให้เปลี่ยน autoAccept เฉพาะตอน online
+
   const toggleAutoAccept = () => {
     if (!isOnline) return;
     setAutoAccept((v) => !v);
   };
 
-  // load
+  // Fetch pending orders from API
+  const fetchAvailableOrders = async () => {
+    try {
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const response = await fetch(API.ORDERS_PENDING, { headers });
+      const data = await response.json();
+      if (data.success) {
+        // Filter out active order if exists
+        const pending = data.orders.filter((o: any) => o.id !== active?.id);
+        setAvailable(pending);
+      }
+    } catch (error) {
+      console.log('Error fetching orders:', error);
+    }
+  };
+
+  // Poll for orders when online
+  useEffect(() => {
+    if (!isOnline) {
+      setAvailable([]);
+      return;
+    }
+
+    fetchAvailableOrders(); // Initial fetch
+    const interval = setInterval(fetchAvailableOrders, 5000); // Poll every 5s
+
+    return () => clearInterval(interval);
+  }, [isOnline, active]);
+
+  // Load state from storage
   useEffect(() => {
     (async () => {
       try {
@@ -150,19 +139,9 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
         if (!raw) return;
 
         const parsed = JSON.parse(raw);
-
-        // ถ้า available ว่าง ให้ใช้ mock data ใหม่ (กัน order หมดจากการทดสอบครั้งก่อน)
-        if (Array.isArray(parsed.available) && parsed.available.length > 0) {
-          setAvailable(parsed.available);
-        } else {
-          setAvailable(MOCK_AVAILABLE);
-        }
-
-        // ไม่โหลด active เก่า ถ้ามันค้างจากเซสชั่นก่อน (กัน state ค้าง)
         if (Array.isArray(parsed.history)) setHistory(parsed.history);
 
-        // ไม่โหลด isOnline / autoAccept — เริ่มต้น Offline เสมอ
-        // isOnline = false, autoAccept = false (ค่า default)
+        // Don't load available/active from storage to avoid stale data
       } catch {
         // ignore
       }

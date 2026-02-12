@@ -16,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LatLng, useDelivery } from "../context/DeliveryContext";
 
 // Longdo Map API Key
-const LONGDO_API_KEY = process.env.EXPO_PUBLIC_LONGDO_MAP_API_KEY || "YOUR_LONGDO_API_KEY";
+const LONGDO_API_KEY = process.env.EXPO_PUBLIC_LONGDO_MAP_API_KEY || "d4ceb6847662fe82cb2411759980ffa4";
 
 const DEFAULT_COORDS = {
   latitude: 13.0827,
@@ -134,54 +134,33 @@ export default function JobScreen() {
     }
   };
 
-  // Open navigation app (Google Maps, Apple Maps, or Longdo)
+  // Open navigation app (Longdo Map)
   const openNavigation = async () => {
     if (!target) return;
 
     const destLat = target.latitude;
     const destLon = target.longitude;
-    const label = active?.status === "picking_up" ? "Pickup" : "Dropoff";
 
-    // Try Longdo Map app first
-    const longdoUrl = `longdo://route?flat=${myCoord.latitude}&flon=${myCoord.longitude}&tlat=${destLat}&tlon=${destLon}`;
+    // Longdo Map URL Scheme
+    // App: longdo://route?flat=...&flon=...&tlat=...&tlon=...&mode=...
+    // Web: https://map.longdo.com/?route=...
 
-    // Google Maps URL
-    const googleMapsUrl = Platform.select({
-      ios: `comgooglemaps://?saddr=${myCoord.latitude},${myCoord.longitude}&daddr=${destLat},${destLon}&directionsmode=driving`,
-      android: `google.navigation:q=${destLat},${destLon}&mode=d`,
-      default: `https://www.google.com/maps/dir/?api=1&origin=${myCoord.latitude},${myCoord.longitude}&destination=${destLat},${destLon}&travelmode=driving`,
-    });
-
-    // Apple Maps URL (iOS only)
-    const appleMapsUrl = `maps://?saddr=${myCoord.latitude},${myCoord.longitude}&daddr=${destLat},${destLon}&dirflg=d`;
-
-    // Web fallback
-    const webUrl = `https://www.google.com/maps/dir/?api=1&origin=${myCoord.latitude},${myCoord.longitude}&destination=${destLat},${destLon}&travelmode=driving`;
+    const longdoAppUrl = `longdo://route?flat=${myCoord.latitude}&flon=${myCoord.longitude}&tlat=${destLat}&tlon=${destLon}&mode=drive`;
+    const longdoWebUrl = `https://map.longdo.com/mobile?lat=${destLat}&long=${destLon}`;
 
     try {
-      // Try Google Maps first on Android
-      if (Platform.OS === "android") {
-        const canOpenGoogle = await Linking.canOpenURL(googleMapsUrl);
-        if (canOpenGoogle) {
-          await Linking.openURL(googleMapsUrl);
-          return;
-        }
+      // Try opening Longdo Map App first
+      const canOpenApp = await Linking.canOpenURL(longdoAppUrl);
+      if (canOpenApp) {
+        await Linking.openURL(longdoAppUrl);
+        return;
       }
 
-      // Try Apple Maps on iOS
-      if (Platform.OS === "ios") {
-        const canOpenApple = await Linking.canOpenURL(appleMapsUrl);
-        if (canOpenApple) {
-          await Linking.openURL(appleMapsUrl);
-          return;
-        }
-      }
-
-      // Fallback to web
-      await Linking.openURL(webUrl);
+      // Fallback to Longdo Map Web
+      await Linking.openURL(longdoWebUrl);
     } catch {
-      // Last resort: open web URL
-      await Linking.openURL(webUrl);
+      // Last resort
+      await Linking.openURL(longdoWebUrl);
     }
   };
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -32,13 +32,17 @@ function formatMMSS(ms: number) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+function formatOrderId(id: string) {
+  return `#${id.slice(-8).toUpperCase()}`;
+}
+
 // ✅ เพิ่ม type ครอบเพื่อให้มี details ได้ (เฉพาะ demo)
 type OrderWithDetails = Order & { details?: string };
 
 export default function HomeScreen() {
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
-  const webViewRef = useRef<WebView | null>(null);
+
 
   const {
     available,
@@ -52,13 +56,11 @@ export default function HomeScreen() {
   } = useDelivery();
 
   // --- Demo order (typed) ---
-  const [simulatedOrder, setSimulatedOrder] = useState<OrderWithDetails | null>(null);
-  const demoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const demoOnceRef = useRef(false); // กันเด้งซ้ำๆ จนกว่าจะ offline
+  // const [simulatedOrder, setSimulatedOrder] = useState<OrderWithDetails | null>(null);
 
-  // รวมงานจริงกับงาน demo
+  // รวมงานจริง (ไม่ต้องใช้ simulatedOrder แล้ว)
   const firstRequest: OrderWithDetails | null =
-    (!active && available.length > 0 ? (available[0] as OrderWithDetails) : null) || simulatedOrder;
+    !active && available.length > 0 ? (available[0] as OrderWithDetails) : null;
 
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [myCoord, setMyCoord] = useState<LatLng>(DEFAULT_COORDS);
@@ -79,54 +81,7 @@ export default function HomeScreen() {
     return Math.max(0, offerExpiresAt - nowTick);
   }, [offerExpiresAt, nowTick]);
 
-  // ✅ Demo logic (ไม่ใช้ any) + กันเด้งซ้ำ
-  useEffect(() => {
-    // เคลียร์ timer เก่าทุกครั้ง
-    if (demoTimerRef.current) {
-      clearTimeout(demoTimerRef.current);
-      demoTimerRef.current = null;
-    }
 
-    // reset วงรอบ demo เมื่อ offline
-    if (!isOnline) {
-      demoOnceRef.current = false;
-      setSimulatedOrder(null);
-      return;
-    }
-
-    // ถ้ามีงานจริง/มีงาน active แล้ว ไม่ต้อง demo
-    if (active || available.length > 0) {
-      setSimulatedOrder(null);
-      return;
-    }
-
-    // demo แค่ครั้งเดียวต่อรอบ online
-    if (demoOnceRef.current) return;
-
-    demoTimerRef.current = setTimeout(() => {
-      demoOnceRef.current = true;
-      setSimulatedOrder({
-        id: "#ORD-DEMO",
-        customerName: "K. Somsak",
-        distance: "2.5 km",
-        fee: 85.0,
-        shopName: "Wash & Dry Station",
-        shopAddress: "Pattaya Sai 3",
-        customerAddress: "Unixx Condo",
-        items: 10,
-        pickup: { latitude: 12.9478, longitude: 100.8884 },
-        dropoff: { latitude: 12.9266, longitude: 100.8789 },
-        details: "ซักอบรีด (10 ชิ้น)",
-      });
-    }, 2500);
-
-    return () => {
-      if (demoTimerRef.current) {
-        clearTimeout(demoTimerRef.current);
-        demoTimerRef.current = null;
-      }
-    };
-  }, [isOnline, active, available.length]);
 
   // ขอ Permission + ตำแหน่ง
   useEffect(() => {
@@ -165,17 +120,7 @@ export default function HomeScreen() {
         latitude: loc.coords.latitude,
         longitude: loc.coords.longitude,
       });
-
-      if (webViewRef.current) {
-        const script = `
-          if (window.map) {
-            window.map.location({ lat: ${loc.coords.latitude}, lon: ${loc.coords.longitude} }, true);
-            window.map.zoom(16, true);
-          }
-          true;
-        `;
-        webViewRef.current.injectJavaScript(script);
-      }
+      // WebView ref removed, simplified to just updating state
     } catch {
       // ignore
     }
@@ -249,11 +194,7 @@ export default function HomeScreen() {
         const id = firstRequest?.id;
         if (!id) return;
 
-        if (id === "#ORD-DEMO") {
-          setSimulatedOrder(null);
-        } else {
-          declineOrder(id);
-        }
+        declineOrder(id);
       }
     }, 250);
 
@@ -273,9 +214,6 @@ export default function HomeScreen() {
   const handleConfirmJob = () => {
     if (!pendingOrder) return;
 
-    // demo รับแล้วให้หายไปด้วย (กัน popup กลับมา)
-    if (pendingOrder.id === "#ORD-DEMO") setSimulatedOrder(null);
-
     // ✅ ให้ demo/ของจริง กลายเป็น active เหมือนกัน
     startOrder(pendingOrder);
 
@@ -288,11 +226,7 @@ export default function HomeScreen() {
     const id = firstRequest?.id;
     if (!id) return;
 
-    if (id === "#ORD-DEMO") {
-      setSimulatedOrder(null);
-    } else {
-      declineOrder(id);
-    }
+    declineOrder(id);
   };
 
   const hideOverlays = showOffer || showSuccessModal;
@@ -301,7 +235,6 @@ export default function HomeScreen() {
     <View style={s.container}>
       <WebView
         key={`map-${myCoord.latitude}-${myCoord.longitude}`}
-        ref={webViewRef}
         source={{ html: generateMapHTML() }}
         style={s.map}
         scrollEnabled={false}
@@ -384,7 +317,7 @@ export default function HomeScreen() {
                   <Ionicons name="navigate-outline" size={14} color="#666" />
                   <Text style={s.distanceText}>
                     {" "}
-                    {firstRequest.distance || "1 KM"} away • {firstRequest.id}
+                    {firstRequest.distance || "1 KM"} away • {formatOrderId(firstRequest.id)}
                   </Text>
                 </View>
               </View>
