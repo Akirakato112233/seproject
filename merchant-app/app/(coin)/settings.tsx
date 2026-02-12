@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { useAuth } from '../../context/AuthContext';
 
-export default function SettingsScreen() {
+export default function CoinSettingsScreen() {
   const router = useRouter();
   const { logout } = useAuth();
 
@@ -32,10 +32,7 @@ export default function SettingsScreen() {
 
       <ScrollView style={s.content} contentContainerStyle={s.contentInner}>
         <Text style={s.sectionLink}>Your Store Link</Text>
-        <TouchableOpacity
-          style={s.menuItem}
-          onPress={() => router.push('/services')}
-        >
+        <TouchableOpacity style={s.menuItem} onPress={() => router.push('/(coin)/machine-settings')}>
           <View style={[s.iconWrap, s.iconGreen]}>
             <Ionicons name="share-social" size={22} color={Colors.white} />
           </View>
@@ -53,7 +50,7 @@ export default function SettingsScreen() {
         </TouchableOpacity>
 
         <Text style={s.sectionTitle}>Account Management</Text>
-        <TouchableOpacity style={s.menuItem} onPress={() => router.push('/(tabs)/contact')}>
+        <TouchableOpacity style={s.menuItem} onPress={() => router.push('/(coin)/contact')}>
           <View style={[s.iconWrap, s.iconPurple]}>
             <Ionicons name="headset-outline" size={22} color={Colors.white} />
           </View>
@@ -68,6 +65,25 @@ export default function SettingsScreen() {
           <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Bottom nav */}
+      <View style={s.bottomNav}>
+        <TouchableOpacity style={s.navItem} onPress={() => router.replace('/(coin)')}>
+          <Ionicons name="grid-outline" size={24} color={Colors.textMuted} />
+          <Text style={s.navLabel}>Monitor</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={s.addButton}
+          onPress={() => router.push('/(coin)/monitor')}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={28} color={Colors.white} />
+        </TouchableOpacity>
+        <TouchableOpacity style={s.navItem}>
+          <Ionicons name="settings-outline" size={24} color={Colors.primaryBlue} />
+          <Text style={[s.navLabel, s.navLabelActive]}>System</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -92,14 +108,7 @@ const s = StyleSheet.create({
     marginTop: 4,
   },
   content: { flex: 1 },
-  contentInner: { padding: 16, paddingBottom: 40 },
-  sectionLink: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.primaryBlue,
-    textDecorationLine: 'underline',
-    marginBottom: 8,
-  },
+  contentInner: { padding: 16, paddingBottom: 100 },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
@@ -125,10 +134,44 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
+  sectionLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primaryBlue,
+    textDecorationLine: 'underline',
+    marginBottom: 8,
+  },
   iconGreen: { backgroundColor: Colors.successGreen },
   iconBlue: { backgroundColor: Colors.primaryBlue },
   iconPurple: { backgroundColor: '#8b5cf6' },
   iconRed: { backgroundColor: '#dc2626' },
   menuText: { flex: 1, fontSize: 16, color: Colors.textPrimary },
   logoutText: { color: '#dc2626' },
+  bottomNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: 12,
+    paddingBottom: 24,
+    borderTopWidth: 1,
+    borderTopColor: Colors.cardBorder,
+    backgroundColor: Colors.white,
+  },
+  navItem: { alignItems: 'center', gap: 4, flex: 1 },
+  navLabel: { fontSize: 12, fontWeight: '500', color: Colors.textMuted },
+  navLabelActive: { color: Colors.primaryBlue },
+  addButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.primaryBlue,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 20,
+    shadowColor: Colors.primaryBlue,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
 });

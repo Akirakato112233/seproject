@@ -39,6 +39,10 @@ interface OrdersContextType {
   addOrder: (order: Omit<MerchantOrder, 'status' | 'pickupText'>) => void;
   setOrderReady: (orderId: string) => void;
   completeOrder: (orderId: string) => void;
+  /** ยอดเงินในกระเป๋า (รายได้ - ยอดถอน) */
+  walletBalance: number;
+  /** ถอนเงิน — คืน true ถ้าสำเร็จ */
+  withdraw: (amount: number) => boolean;
 }
 
 const OrdersContext = createContext<OrdersContextType | null>(null);
@@ -46,6 +50,7 @@ const OrdersContext = createContext<OrdersContextType | null>(null);
 export function OrdersProvider({ children }: { children: React.ReactNode }) {
   const [currentOrders, setCurrentOrders] = useState<MerchantOrder[]>(defaultOrders);
   const [completedOrders, setCompletedOrders] = useState<MerchantOrder[]>([]);
+  const [totalWithdrawn, setTotalWithdrawn] = useState(0);
 
   const addOrder = useCallback((order: Omit<MerchantOrder, 'status' | 'pickupText'>) => {
     setCurrentOrders((prev) => [
@@ -80,6 +85,15 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const walletBalance = completedOrders.reduce((sum, o) => sum + o.total, 0) - totalWithdrawn;
+
+  const withdraw = useCallback((amount: number): boolean => {
+    const currentBalance = completedOrders.reduce((sum, o) => sum + o.total, 0) - totalWithdrawn;
+    if (amount > currentBalance) return false;
+    setTotalWithdrawn((prev) => prev + amount);
+    return true;
+  }, [completedOrders, totalWithdrawn]);
+
   return (
     <OrdersContext.Provider
       value={{
@@ -88,6 +102,8 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
         addOrder,
         setOrderReady,
         completeOrder,
+        walletBalance,
+        withdraw,
       }}
     >
       {children}

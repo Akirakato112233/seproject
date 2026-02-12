@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/colors';
+
+const shopAvatarImg = require('../assets/images/shop-avatar.png');
 
 interface MerchantHeaderProps {
   shopName?: string;
@@ -15,7 +17,7 @@ export function MerchantHeader({
   return (
     <View style={s.header}>
       <View style={s.headerLeft}>
-        <View style={s.avatar} />
+        <Image source={shopAvatarImg} style={s.avatar} />
         <Text style={s.shopName}>{shopName}</Text>
       </View>
       <TouchableOpacity onPress={onWalletPress}>

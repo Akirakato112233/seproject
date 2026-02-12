@@ -140,7 +140,7 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
-      <MerchantHeader shopName="ร้านasukhai" />
+      <MerchantHeader shopName="ร้านasukhai" onWalletPress={() => router.push('/(tabs)/wallet')} />
 
       {hasNewOrderNotification && (
         <TouchableOpacity
