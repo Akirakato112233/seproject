@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { useCoinShop, type WashService, type DryService } from './CoinShopContext';
 
 /** สถานะเครื่องซัก */
 export type MachineStatus = 'running' | 'available' | 'finished' | 'offline';
@@ -45,22 +46,77 @@ interface MachineContextType {
 
 const MachineContext = createContext<MachineContextType | null>(null);
 
-const WASH_DURATION_SEC = 60 * 60; // 60 นาที
+/** แปลง washServices + dryServices จาก backend เป็น Machine[] */
+function buildMachinesFromShop(
+  washServices?: WashService[],
+  dryServices?: DryService[],
+): Machine[] {
+  const machines: Machine[] = [];
+  let wIdx = 1;
+  let dIdx = 1;
 
-const INITIAL_MACHINES: Machine[] = [
-  { id: 'W-01', name: 'W-01', status: 'running', type: 'washer', capacity: '15', price: '40', cycleTime: '45', enabled: true, program: 'Cotton', secondsLeft: 12 * 60 },
-  { id: 'W-02', name: 'W-02', status: 'available', type: 'washer', capacity: '15', price: '40', cycleTime: '45', enabled: true, program: 'Ready' },
-  { id: 'W-03', name: 'W-03', status: 'finished', type: 'washer', capacity: '10', price: '30', cycleTime: '45', enabled: true, program: 'Quick' },
-  { id: 'W-04', name: 'W-04', status: 'offline', type: 'washer', capacity: '10', price: '30', cycleTime: '45', enabled: false, program: 'Maintenance' },
-  { id: 'W-05', name: 'W-05', status: 'running', type: 'washer', capacity: '15', price: '40', cycleTime: '45', enabled: true, program: 'Cotton', secondsLeft: 25 * 60 },
-  { id: 'W-06', name: 'W-06', status: 'available', type: 'washer', capacity: '10', price: '30', cycleTime: '45', enabled: true, program: 'Ready' },
-  { id: 'W-07', name: 'W-07', status: 'running', type: 'washer', capacity: '15', price: '40', cycleTime: '45', enabled: true, program: 'Quick', secondsLeft: 8 * 60 },
-  { id: 'W-08', name: 'W-08', status: 'finished', type: 'washer', capacity: '10', price: '30', cycleTime: '45', enabled: true, program: 'Cotton' },
-];
+  if (washServices) {
+    for (const ws of washServices) {
+      const firstOption = ws.options?.[0];
+      machines.push({
+        id: `W-${String(wIdx).padStart(2, '0')}`,
+        name: `W-${String(wIdx).padStart(2, '0')}`,
+        status: 'available',
+        type: 'washer',
+        capacity: String(ws.weight),
+        price: String(firstOption?.price ?? 0),
+        cycleTime: String(firstOption?.duration ?? 45),
+        enabled: true,
+        program: 'Ready',
+      });
+      wIdx++;
+    }
+  }
+
+  if (dryServices) {
+    for (const ds of dryServices) {
+      const firstOption = ds.options?.[0];
+      machines.push({
+        id: `D-${String(dIdx).padStart(2, '0')}`,
+        name: `D-${String(dIdx).padStart(2, '0')}`,
+        status: 'available',
+        type: 'dryer',
+        capacity: String(ds.weight),
+        price: String(firstOption?.price ?? 0),
+        cycleTime: String(firstOption?.duration ?? 45),
+        enabled: true,
+        program: 'Ready',
+      });
+      dIdx++;
+    }
+  }
+
+  // ถ้าไม่มีข้อมูลจาก backend ให้ใช้เครื่องเริ่มต้น
+  if (machines.length === 0) {
+    return [
+      { id: 'W-01', name: 'W-01', status: 'available', type: 'washer', capacity: '15', price: '40', cycleTime: '45', enabled: true, program: 'Ready' },
+      { id: 'W-02', name: 'W-02', status: 'available', type: 'washer', capacity: '10', price: '30', cycleTime: '45', enabled: true, program: 'Ready' },
+    ];
+  }
+
+  return machines;
+}
 
 export function MachineProvider({ children }: { children: React.ReactNode }) {
-  const [machines, setMachines] = useState<Machine[]>(() => [...INITIAL_MACHINES]);
+  const { shop, updateShop } = useCoinShop();
+  const [machines, setMachines] = useState<Machine[]>([]);
   const [todayRevenue, setTodayRevenue] = useState(0);
+  const initialized = useRef(false);
+
+  // โหลดเครื่องจาก backend shop data
+  useEffect(() => {
+    if (shop && !initialized.current) {
+      const built = buildMachinesFromShop(shop.washServices, shop.dryServices);
+      setMachines(built);
+      initialized.current = true;
+      console.log('Machines loaded from backend:', built.length);
+    }
+  }, [shop]);
 
   // นับถอยหลังจริงทุก 1 วินาที
   useEffect(() => {
@@ -79,11 +135,39 @@ export function MachineProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(timer);
   }, []);
 
+  // sync machines กลับไป backend เป็น washServices + dryServices
+  const syncToBackend = useCallback((updatedMachines: Machine[]) => {
+    if (!updateShop) return;
+    const washServices: WashService[] = updatedMachines
+      .filter((m) => m.type === 'washer' && m.enabled)
+      .map((m) => ({
+        weight: parseInt(m.capacity, 10) || 0,
+        options: [
+          { setting: 'Cold', duration: parseInt(m.cycleTime, 10) || 45, price: parseInt(m.price, 10) || 0 },
+          { setting: 'Warm', duration: parseInt(m.cycleTime, 10) || 45, price: (parseInt(m.price, 10) || 0) + 10 },
+          { setting: 'Hot', duration: parseInt(m.cycleTime, 10) || 45, price: (parseInt(m.price, 10) || 0) + 20 },
+        ],
+      }));
+    const dryServices: DryService[] = updatedMachines
+      .filter((m) => m.type === 'dryer' && m.enabled)
+      .map((m) => ({
+        weight: parseInt(m.capacity, 10) || 0,
+        options: [
+          { setting: 'Low Heat', duration: parseInt(m.cycleTime, 10) || 45, price: parseInt(m.price, 10) || 0 },
+          { setting: 'Medium Heat', duration: parseInt(m.cycleTime, 10) || 45, price: (parseInt(m.price, 10) || 0) + 10 },
+          { setting: 'High Heat', duration: parseInt(m.cycleTime, 10) || 45, price: (parseInt(m.price, 10) || 0) + 20 },
+        ],
+      }));
+    updateShop({ washServices, dryServices } as any);
+  }, [updateShop]);
+
   const updateMachineConfig = useCallback((id: string, updates: { price?: string; capacity?: string; cycleTime?: string }) => {
-    setMachines((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, ...updates } : m))
-    );
-  }, []);
+    setMachines((prev) => {
+      const updated = prev.map((m) => (m.id === id ? { ...m, ...updates } : m));
+      syncToBackend(updated);
+      return updated;
+    });
+  }, [syncToBackend]);
 
   const toggleMachineEnabled = useCallback((id: string) => {
     setMachines((prev) =>
@@ -102,8 +186,12 @@ export function MachineProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addMachine = useCallback((machine: Machine) => {
-    setMachines((prev) => [...prev, machine]);
-  }, []);
+    setMachines((prev) => {
+      const updated = [...prev, machine];
+      syncToBackend(updated);
+      return updated;
+    });
+  }, [syncToBackend]);
 
   const startMachine = useCallback((id: string, washMode: WashMode, waterTemp: WaterTemp) => {
     setMachines((prev) =>
@@ -123,8 +211,12 @@ export function MachineProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const removeMachine = useCallback((id: string) => {
-    setMachines((prev) => prev.filter((m) => m.id !== id));
-  }, []);
+    setMachines((prev) => {
+      const updated = prev.filter((m) => m.id !== id);
+      syncToBackend(updated);
+      return updated;
+    });
+  }, [syncToBackend]);
 
   const skipMachine = useCallback((id: string) => {
     setMachines((prev) =>

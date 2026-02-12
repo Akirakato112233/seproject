@@ -1,4 +1,5 @@
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { API } from '../config';
 
 export interface MerchantOrder {
   id: string;
@@ -39,18 +40,44 @@ interface OrdersContextType {
   addOrder: (order: Omit<MerchantOrder, 'status' | 'pickupText'>) => void;
   setOrderReady: (orderId: string) => void;
   completeOrder: (orderId: string) => void;
-  /** ยอดเงินในกระเป๋า (รายได้ - ยอดถอน) */
   walletBalance: number;
-  /** ถอนเงิน — คืน true ถ้าสำเร็จ */
-  withdraw: (amount: number) => boolean;
+  withdraw: (amount: number) => Promise<boolean>;
+  refreshBalance: () => Promise<void>;
 }
 
 const OrdersContext = createContext<OrdersContextType | null>(null);
 
+// shopId will be set from ShopContext
+let _shopId: string | null = null;
+export function setWalletShopId(id: string) {
+  _shopId = id;
+}
+
 export function OrdersProvider({ children }: { children: React.ReactNode }) {
   const [currentOrders, setCurrentOrders] = useState<MerchantOrder[]>(defaultOrders);
   const [completedOrders, setCompletedOrders] = useState<MerchantOrder[]>([]);
-  const [totalWithdrawn, setTotalWithdrawn] = useState(0);
+  const [walletBalance, setWalletBalance] = useState(0);
+
+  // Fetch balance from backend
+  const refreshBalance = useCallback(async () => {
+    if (!_shopId) return;
+    try {
+      const res = await fetch(`${API.WALLET}/${_shopId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setWalletBalance(data.balance ?? 0);
+      }
+    } catch (err) {
+      console.error('Error fetching wallet balance:', err);
+    }
+  }, []);
+
+  // Refresh balance periodically and on mount
+  useEffect(() => {
+    refreshBalance();
+    const interval = setInterval(refreshBalance, 10000);
+    return () => clearInterval(interval);
+  }, [refreshBalance]);
 
   const addOrder = useCallback((order: Omit<MerchantOrder, 'status' | 'pickupText'>) => {
     setCurrentOrders((prev) => [
@@ -79,20 +106,46 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
           ...done,
           { ...order, completedAt: new Date() },
         ]);
+        // Deposit to backend wallet
+        if (_shopId) {
+          fetch(`${API.WALLET}/${_shopId}/deposit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount: order.total }),
+          })
+            .then((res) => res.json())
+            .then((data) => {
+              if (data.success) {
+                setWalletBalance(data.balance);
+              }
+            })
+            .catch((err) => console.error('Error depositing:', err));
+        }
         return prev.filter((o) => o.id !== orderId);
       }
       return prev;
     });
   }, []);
 
-  const walletBalance = completedOrders.reduce((sum, o) => sum + o.total, 0) - totalWithdrawn;
-
-  const withdraw = useCallback((amount: number): boolean => {
-    const currentBalance = completedOrders.reduce((sum, o) => sum + o.total, 0) - totalWithdrawn;
-    if (amount > currentBalance) return false;
-    setTotalWithdrawn((prev) => prev + amount);
-    return true;
-  }, [completedOrders, totalWithdrawn]);
+  const withdraw = useCallback(async (amount: number): Promise<boolean> => {
+    if (!_shopId) return false;
+    try {
+      const res = await fetch(`${API.WALLET}/${_shopId}/withdraw`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setWalletBalance(data.balance);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Error withdrawing:', err);
+      return false;
+    }
+  }, []);
 
   return (
     <OrdersContext.Provider
@@ -104,6 +157,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
         completeOrder,
         walletBalance,
         withdraw,
+        refreshBalance,
       }}
     >
       {children}

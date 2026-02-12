@@ -3,6 +3,7 @@ import React from 'react';
 import { AuthProvider } from '../context/AuthContext';
 import { OrdersProvider } from '../context/OrdersContext';
 import { ServicesProvider } from '../context/ServicesContext';
+import { ShopProvider } from '../context/ShopContext';
 
 function RootLayoutNav() {
   return <Slot />;
@@ -11,11 +12,13 @@ function RootLayoutNav() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <OrdersProvider>
-        <ServicesProvider>
-          <RootLayoutNav />
-        </ServicesProvider>
-      </OrdersProvider>
+      <ShopProvider>
+        <OrdersProvider>
+          <ServicesProvider>
+            <RootLayoutNav />
+          </ServicesProvider>
+        </OrdersProvider>
+      </ShopProvider>
     </AuthProvider>
   );
 }

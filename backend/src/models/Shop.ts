@@ -75,6 +75,7 @@ export interface IShop extends Document {
   ironingServices?: IIroningService[];
   foldingServices?: IFoldingService[];
   otherServices?: IOtherService[];
+  balance: number;
 }
 
 const WashServiceOptionSchema = new Schema({
@@ -150,10 +151,10 @@ const ShopSchema = new Schema<IShop>({
   ironingServices: [IroningServiceSchema],
   foldingServices: [FoldingServiceSchema],
   otherServices: [OtherServiceSchema],
+  balance: { type: Number, default: 0 },
 }, {
   timestamps: true, // เพิ่ม createdAt, updatedAt อัตโนมัติ
 });
 
-// ใช้ collection name "ร้านซักผ้า" ที่มีอยู่ใน MongoDB Atlas
-// ถ้าต้องการใช้ชื่ออื่น แก้ไข parameter ที่ 3
+// ใช้ collection name "ร้านซักผ้า" ที่มีข้อมูลจริงใน MongoDB Atlas
 export const Shop = mongoose.model<IShop>('Shop', ShopSchema, 'ร้านซักผ้า');

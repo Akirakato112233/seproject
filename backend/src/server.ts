@@ -9,6 +9,7 @@ import redeemRoutes from './routes/redeem';
 import ridersRoutes from './routes/riders';
 import shopsRoutes from './routes/shops';
 import orderRoutes from './routes/orderRoutes';
+import walletRoutes from './routes/wallet';
 import { Order } from './models/Order';
 
 dotenv.config();
@@ -54,6 +55,7 @@ app.post('/api/orders/pending/dev-create', async (req, res) => {
 });
 
 app.use('/api/orders', orderRoutes);
+app.use('/api/wallet', walletRoutes);
 app.use('/api/google', googleAuthRoutes);
 
 // Health check
