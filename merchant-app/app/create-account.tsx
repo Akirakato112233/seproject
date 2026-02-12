@@ -40,6 +40,8 @@ export default function CreateAccountScreen() {
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     expoClientId: GOOGLE_CLIENT_ID,
+    iosClientId: GOOGLE_CLIENT_ID,
+    androidClientId: GOOGLE_CLIENT_ID,
     webClientId: GOOGLE_CLIENT_ID, // Required for web platform
     scopes: ['profile', 'email'],
     redirectUri,

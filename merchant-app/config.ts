@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 // Web ใช้ localhost ได้เลย, มือถือต้องใช้ IP จริงของเครื่อง
 export const BASE_URL = Platform.OS === 'web'
   ? 'http://localhost:3000'
-  : 'http://10.64.33.150:3000';
+  : 'http://192.168.2.40:3000';
 
 // ลิ้งค์ย่อยต่างๆ (Optional: จะได้ไม่ต้องพิมพ์ยาวๆ ในหน้าอื่น)
 export const API = {
