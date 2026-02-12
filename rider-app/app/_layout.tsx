@@ -1,9 +1,9 @@
-import { Slot } from "expo-router";
+import { Stack } from "expo-router";
 import { AuthProvider } from "../context/AuthContext";
 import { DeliveryProvider } from "../context/DeliveryContext";
 
 function RootLayoutNav() {
-  return <Slot />;
+  return <Stack screenOptions={{ headerShown: false }} />;
 }
 
 export default function RootLayout() {
