@@ -10,146 +10,29 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region } from "react-native-maps";
+import { WebView } from "react-native-webview";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import { LatLng, useDelivery } from "../context/DeliveryContext";
 
-// --- Silver map style (เหมือนหน้า Home) ---
-const silverMapStyle = [
-  { elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
-  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#f5f5f5" }] },
-  { featureType: "poi", elementType: "geometry", stylers: [{ color: "#eeeeee" }] },
-  { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
-  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#dadada" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9c9c9" }] },
-];
+// Longdo Map API Key
+const LONGDO_API_KEY = process.env.EXPO_PUBLIC_LONGDO_MAP_API_KEY || "YOUR_LONGDO_API_KEY";
 
-const DEFAULT_REGION: Region = {
+const DEFAULT_COORDS = {
   latitude: 13.0827,
   longitude: 100.9274,
-  latitudeDelta: 0.04,
-  longitudeDelta: 0.04,
 };
-
-// NOTE:
-// - โปรเจกต์ใหม่ของ Google Maps Platform มักต้องใช้ Routes API แทน Directions (legacy)
-// - เราใช้ key เดียวกันจาก .env เพื่อเรียก Routes API
-// - ถ้าไม่มี key (หรือเรียกไม่สำเร็จ) จะ fallback ไปเส้นตรงเหมือนเดิม
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
-
-const ROUTES_API_ENDPOINT = "https://routes.googleapis.com/directions/v2:computeRoutes";
-
-function decodePolyline(encoded: string): LatLng[] {
-  // Google Encoded Polyline Algorithm Format
-  let index = 0;
-  let lat = 0;
-  let lng = 0;
-  const coordinates: LatLng[] = [];
-
-  while (index < encoded.length) {
-    let b = 0;
-    let shift = 0;
-    let result = 0;
-
-    do {
-      b = encoded.charCodeAt(index++) - 63;
-      result |= (b & 0x1f) << shift;
-      shift += 5;
-    } while (b >= 0x20);
-
-    const dlat = (result & 1) ? ~(result >> 1) : result >> 1;
-    lat += dlat;
-
-    shift = 0;
-    result = 0;
-
-    do {
-      b = encoded.charCodeAt(index++) - 63;
-      result |= (b & 0x1f) << shift;
-      shift += 5;
-    } while (b >= 0x20);
-
-    const dlng = (result & 1) ? ~(result >> 1) : result >> 1;
-    lng += dlng;
-
-    coordinates.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
-  }
-
-  return coordinates;
-}
-
-async function fetchRoute(origin: LatLng, destination: LatLng): Promise<LatLng[] | null> {
-  // ถ้าไม่มี key -> ไม่ fetch (แสดงเส้นตรงแทน)
-  if (!GOOGLE_MAPS_API_KEY) return null;
-
-  // ✅ Routes API (แนะนำ)
-  // ต้องส่ง X-Goog-FieldMask ไม่งั้นจะ error
-  try {
-    const res = await fetch(ROUTES_API_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
-        "X-Goog-FieldMask": "routes.polyline.encodedPolyline",
-      },
-      body: JSON.stringify({
-        origin: { location: { latLng: { latitude: origin.latitude, longitude: origin.longitude } } },
-        destination: {
-          location: { latLng: { latitude: destination.latitude, longitude: destination.longitude } },
-        },
-        travelMode: "DRIVE",
-      }),
-    });
-
-    if (res.ok) {
-      const json = await res.json();
-      const encoded: string | undefined = json?.routes?.[0]?.polyline?.encodedPolyline;
-      if (encoded) return decodePolyline(encoded);
-    } else {
-      // เผื่อไว้ debug ใน dev
-      const txt = await res.text();
-      console.warn("Routes API error", res.status, txt);
-    }
-  } catch (e) {
-    console.warn("Routes API fetch failed", e);
-  }
-
-  // (ทางเลือก) Fallback: Directions (legacy) เผื่อโปรเจกต์เก่าเปิดไว้แล้ว
-  // ถ้าเป็นโปรเจกต์ใหม่ อันนี้อาจโดน REQUEST_DENIED/ไม่เปิดให้ใช้
-  try {
-    const url =
-      `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}` +
-      `&destination=${destination.latitude},${destination.longitude}` +
-      `&mode=driving&key=${GOOGLE_MAPS_API_KEY}`;
-
-    const res = await fetch(url);
-    const json = await res.json();
-    const points: string | undefined = json?.routes?.[0]?.overview_polyline?.points;
-    if (points) return decodePolyline(points);
-  } catch {
-    // ignore
-  }
-
-  return null;
-}
 
 export default function JobScreen() {
   const router = useRouter();
-  const mapRef = useRef<MapView | null>(null);
+  const webViewRef = useRef<WebView | null>(null);
+  const locationSubscription = useRef<Location.LocationSubscription | null>(null);
 
   const { active, markPickedUp, markDelivered } = useDelivery();
 
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
-  const [myRegion, setMyRegion] = useState<Region>(DEFAULT_REGION);
-  const [myCoord, setMyCoord] = useState<LatLng>({
-    latitude: DEFAULT_REGION.latitude,
-    longitude: DEFAULT_REGION.longitude,
-  });
-
-  const [routeCoords, setRouteCoords] = useState<LatLng[]>([]);
+  const [myCoord, setMyCoord] = useState<LatLng>(DEFAULT_COORDS);
+  const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
 
   const stage = active?.status === "picking_up" ? "pickup" : "dropoff";
   const target = useMemo<LatLng | null>(() => {
@@ -157,8 +40,10 @@ export default function JobScreen() {
     return stage === "pickup" ? active.pickup : active.dropoff;
   }, [active, stage]);
 
-  // location permission + initial position
+  // location permission + real-time tracking
   useEffect(() => {
+    let isMounted = true;
+
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
@@ -168,73 +53,137 @@ export default function JobScreen() {
         }
         setHasLocationPermission(true);
 
+        // Get initial position
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-
-        const region: Region = {
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-          latitudeDelta: 0.02,
-          longitudeDelta: 0.02,
-        };
-
-        setMyRegion(region);
-        setMyCoord({ latitude: region.latitude, longitude: region.longitude });
-        mapRef.current?.animateToRegion(region, 600);
-      } catch {
-        // ignore
-      }
-    })();
-  }, []);
-
-  const centerToMe = async () => {
-    try {
-      if (!hasLocationPermission) return;
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const region: Region = {
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-        latitudeDelta: 0.02,
-        longitudeDelta: 0.02,
-      };
-      setMyRegion(region);
-      setMyCoord({ latitude: region.latitude, longitude: region.longitude });
-      mapRef.current?.animateToRegion(region, 600);
-    } catch {
-      // ignore
-    }
-  };
-
-  // build route (directions polyline if key exists; otherwise straight line)
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!target) return;
-
-      const origin: LatLng = { latitude: myCoord.latitude, longitude: myCoord.longitude };
-      const route = await fetchRoute(origin, target);
-
-      if (cancelled) return;
-
-      const coords = route ?? [origin, target];
-      setRouteCoords(coords);
-
-      // fit camera
-      try {
-        if (coords.length >= 2) {
-          mapRef.current?.fitToCoordinates(coords, {
-            edgePadding: { top: 90, right: 60, bottom: 280, left: 60 },
-            animated: true,
-          });
+        if (isMounted) {
+          setMyCoord({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
         }
+
+        // Start real-time tracking
+        locationSubscription.current = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 3000, // Update every 3 seconds
+            distanceInterval: 10, // Or every 10 meters
+          },
+          (location) => {
+            if (isMounted) {
+              setMyCoord({
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+              });
+            }
+          }
+        );
       } catch {
         // ignore
       }
     })();
 
     return () => {
-      cancelled = true;
+      isMounted = false;
+      if (locationSubscription.current) {
+        locationSubscription.current.remove();
+      }
     };
-  }, [target?.latitude, target?.longitude, myCoord.latitude, myCoord.longitude]);
+  }, []);
+
+  // Update map when coordinates change
+  useEffect(() => {
+    if (webViewRef.current && target) {
+      const script = `
+        if (window.map && window.updateMyLocation) {
+          window.updateMyLocation({ lat: ${myCoord.latitude}, lon: ${myCoord.longitude} });
+        }
+        true;
+      `;
+      webViewRef.current.injectJavaScript(script);
+    }
+  }, [myCoord.latitude, myCoord.longitude]);
+
+  // Handle messages from WebView (route info)
+  const handleWebViewMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === "routeInfo") {
+        setRouteInfo({ distance: data.distance, duration: data.duration });
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const centerToMe = async () => {
+    try {
+      if (!hasLocationPermission) return;
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setMyCoord({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+
+      if (webViewRef.current) {
+        const script = `
+          if (window.map) {
+            window.map.location({ lat: ${loc.coords.latitude}, lon: ${loc.coords.longitude} }, true);
+            window.map.zoom(16, true);
+          }
+          true;
+        `;
+        webViewRef.current.injectJavaScript(script);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  // Open navigation app (Google Maps, Apple Maps, or Longdo)
+  const openNavigation = async () => {
+    if (!target) return;
+
+    const destLat = target.latitude;
+    const destLon = target.longitude;
+    const label = active?.status === "picking_up" ? "Pickup" : "Dropoff";
+
+    // Try Longdo Map app first
+    const longdoUrl = `longdo://route?flat=${myCoord.latitude}&flon=${myCoord.longitude}&tlat=${destLat}&tlon=${destLon}`;
+
+    // Google Maps URL
+    const googleMapsUrl = Platform.select({
+      ios: `comgooglemaps://?saddr=${myCoord.latitude},${myCoord.longitude}&daddr=${destLat},${destLon}&directionsmode=driving`,
+      android: `google.navigation:q=${destLat},${destLon}&mode=d`,
+      default: `https://www.google.com/maps/dir/?api=1&origin=${myCoord.latitude},${myCoord.longitude}&destination=${destLat},${destLon}&travelmode=driving`,
+    });
+
+    // Apple Maps URL (iOS only)
+    const appleMapsUrl = `maps://?saddr=${myCoord.latitude},${myCoord.longitude}&daddr=${destLat},${destLon}&dirflg=d`;
+
+    // Web fallback
+    const webUrl = `https://www.google.com/maps/dir/?api=1&origin=${myCoord.latitude},${myCoord.longitude}&destination=${destLat},${destLon}&travelmode=driving`;
+
+    try {
+      // Try Google Maps first on Android
+      if (Platform.OS === "android") {
+        const canOpenGoogle = await Linking.canOpenURL(googleMapsUrl);
+        if (canOpenGoogle) {
+          await Linking.openURL(googleMapsUrl);
+          return;
+        }
+      }
+
+      // Try Apple Maps on iOS
+      if (Platform.OS === "ios") {
+        const canOpenApple = await Linking.canOpenURL(appleMapsUrl);
+        if (canOpenApple) {
+          await Linking.openURL(appleMapsUrl);
+          return;
+        }
+      }
+
+      // Fallback to web
+      await Linking.openURL(webUrl);
+    } catch {
+      // Last resort: open web URL
+      await Linking.openURL(webUrl);
+    }
+  };
 
   const callPhone = async (phone?: string) => {
     if (!phone) return;
@@ -252,6 +201,150 @@ export default function JobScreen() {
     } catch {
       // ignore
     }
+  };
+
+  // Generate HTML for Longdo Map with real-time tracking
+  const generateMapHTML = () => {
+    const startLat = myCoord.latitude;
+    const startLon = myCoord.longitude;
+    const endLat = target?.latitude || startLat;
+    const endLon = target?.longitude || startLon;
+    const isPickupStage = active?.status === "picking_up";
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <script src="https://api.longdo.com/map/?key=${LONGDO_API_KEY}"></script>
+        <style>
+          * { margin: 0; padding: 0; }
+          html, body { width: 100%; height: 100%; overflow: hidden; }
+          #map { width: 100%; height: 100%; }
+        </style>
+      </head>
+      <body>
+        <div id="map"></div>
+        <script>
+          var map;
+          var routeLine;
+          var targetMarker;
+          var myMarker;
+
+          function init() {
+            map = new longdo.Map({
+              placeholder: document.getElementById('map'),
+              zoom: 15,
+              location: { lat: ${startLat}, lon: ${startLon} }
+            });
+
+            // Add current location marker (blue dot style)
+            myMarker = new longdo.Marker(
+              { lat: ${startLat}, lon: ${startLon} },
+              {
+                title: 'ตำแหน่งของฉัน',
+                icon: {
+                  html: '<div style="width:20px;height:20px;background:#4285F4;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>',
+                  offset: { x: 10, y: 10 }
+                }
+              }
+            );
+            map.Overlays.add(myMarker);
+
+            // Add target marker
+            targetMarker = new longdo.Marker(
+              { lat: ${endLat}, lon: ${endLon} },
+              {
+                title: '${isPickupStage ? "Pickup" : "Dropoff"}',
+                icon: {
+                  html: '<div style="width:30px;height:30px;background:${isPickupStage ? "#FF9800" : "#4CAF50"};border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;"><span style="color:white;font-size:14px;font-weight:bold;">${isPickupStage ? "P" : "D"}</span></div>',
+                  offset: { x: 15, y: 15 }
+                }
+              }
+            );
+            map.Overlays.add(targetMarker);
+
+            // Draw route
+            drawRoute({ lat: ${startLat}, lon: ${startLon} }, { lat: ${endLat}, lon: ${endLon} });
+          }
+
+          function drawRoute(start, end) {
+            // Remove old route
+            if (routeLine) {
+              map.Overlays.remove(routeLine);
+            }
+
+            // Use Longdo Routing API
+            longdo.Util.route([start, end], {
+              mode: longdo.RouteMode.Cost,
+              type: longdo.RouteType.Drive
+            }, function(result) {
+              if (result && result.path && result.path.length > 0) {
+                routeLine = new longdo.Polyline(result.path, {
+                  lineWidth: 6,
+                  lineColor: 'rgba(66, 133, 244, 0.9)',
+                  borderWidth: 2,
+                  borderColor: 'rgba(255, 255, 255, 0.9)'
+                });
+                map.Overlays.add(routeLine);
+
+                // Send route info back to React Native
+                if (result.data && result.data.length > 0) {
+                  var info = result.data[0];
+                  var distanceKm = (info.distance / 1000).toFixed(1);
+                  var durationMin = Math.ceil(info.interval / 60);
+                  window.ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'routeInfo',
+                    distance: distanceKm + ' km',
+                    duration: durationMin + ' min'
+                  }));
+                }
+
+                // Fit bounds
+                var bounds = {
+                  minLat: Math.min(start.lat, end.lat) - 0.005,
+                  maxLat: Math.max(start.lat, end.lat) + 0.005,
+                  minLon: Math.min(start.lon, end.lon) - 0.005,
+                  maxLon: Math.max(start.lon, end.lon) + 0.005
+                };
+                map.bound(bounds);
+              } else {
+                // Fallback: draw straight line
+                routeLine = new longdo.Polyline([start, end], {
+                  lineWidth: 6,
+                  lineColor: 'rgba(66, 133, 244, 0.9)',
+                  borderWidth: 2,
+                  borderColor: 'rgba(255, 255, 255, 0.9)'
+                });
+                map.Overlays.add(routeLine);
+              }
+            });
+          }
+
+          window.updateMyLocation = function(newPos) {
+            if (myMarker) {
+              myMarker.move(newPos);
+            }
+            // Redraw route from new position
+            var targetPos = targetMarker ? targetMarker.location() : null;
+            if (targetPos) {
+              drawRoute(newPos, targetPos);
+            }
+          };
+
+          window.updateRoute = function(start, end) {
+            drawRoute(start, end);
+            if (targetMarker) {
+              targetMarker.move(end);
+            }
+          };
+
+          init();
+        </script>
+      </body>
+      </html>
+    `;
   };
 
   // ถ้าไม่มีงาน active จริง ๆ
@@ -278,7 +371,6 @@ export default function JobScreen() {
 
   const onPrimary = () => {
     if (isPickupStage) {
-      // ไปต่อขั้น Deliver
       markPickedUp();
       return;
     }
@@ -300,41 +392,17 @@ export default function JobScreen() {
 
   return (
     <View style={s.container}>
-      <MapView
-        ref={mapRef}
-        provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
+      <WebView
+        ref={webViewRef}
+        source={{ html: generateMapHTML() }}
         style={s.map}
-        initialRegion={myRegion}
-        customMapStyle={silverMapStyle}
-        showsUserLocation={hasLocationPermission}
-        showsMyLocationButton={false}
-      >
-        {!!target && (
-          <Marker coordinate={target} title={isPickupStage ? "Pickup" : "Dropoff"} />
-        )}
-
-        {/* เส้นทาง (Google-like) */}
-        {routeCoords.length >= 2 && (
-          <>
-            {/* outline */}
-            <Polyline
-              coordinates={routeCoords}
-              strokeWidth={9}
-              strokeColor="rgba(255,255,255,0.92)"
-              lineCap="round"
-              lineJoin="round"
-            />
-            {/* main */}
-            <Polyline
-              coordinates={routeCoords}
-              strokeWidth={5}
-              strokeColor="#2F80ED"
-              lineCap="round"
-              lineJoin="round"
-            />
-          </>
-        )}
-      </MapView>
+        scrollEnabled={false}
+        bounces={false}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+        originWhitelist={['*']}
+        onMessage={handleWebViewMessage}
+      />
 
       {/* Top bar */}
       <SafeAreaView style={s.topBar} pointerEvents="box-none">
@@ -352,6 +420,14 @@ export default function JobScreen() {
             <Ionicons name="locate-outline" size={20} color="#0F172A" />
           </TouchableOpacity>
         </View>
+
+        {/* Route info badge */}
+        {routeInfo && (
+          <View style={s.routeInfoBadge}>
+            <Ionicons name="navigate" size={14} color="#4285F4" />
+            <Text style={s.routeInfoText}>{routeInfo.distance} • {routeInfo.duration}</Text>
+          </View>
+        )}
       </SafeAreaView>
 
       {/* Bottom sheet */}
@@ -378,7 +454,6 @@ export default function JobScreen() {
             disabled={!phone}
           >
             <Ionicons name="chatbubble-ellipses-outline" size={18} color="#0F172A" />
-            <Text style={s.actionChipText}>Messages</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -387,7 +462,12 @@ export default function JobScreen() {
             disabled={!phone}
           >
             <Ionicons name="call-outline" size={18} color="#0F172A" />
-            <Text style={s.actionChipText}>Call</Text>
+          </TouchableOpacity>
+
+          {/* Navigate button - opens external map app */}
+          <TouchableOpacity style={s.navigateBtn} onPress={openNavigation} activeOpacity={0.8}>
+            <Ionicons name="navigate" size={18} color="#fff" />
+            <Text style={s.navigateBtnText}>นำทาง</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={s.primaryBtnWide} onPress={onPrimary} activeOpacity={0.9}>
@@ -398,12 +478,6 @@ export default function JobScreen() {
         <TouchableOpacity style={s.backLink} onPress={() => router.replace("/(tabs)")}>
           <Text style={s.backLinkText}>Back to Home</Text>
         </TouchableOpacity>
-
-        {!GOOGLE_MAPS_API_KEY && (
-          <Text style={s.hintText}>
-            * ถ้าอยากได้เส้นทางวิ่งตามถนนแบบรูป ให้ใส่ EXPO_PUBLIC_GOOGLE_MAPS_API_KEY (เปิด Routes API)
-          </Text>
-        )}
       </View>
     </View>
   );
@@ -425,13 +499,35 @@ const s = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: "rgba(255,255,255,0.92)",
+    backgroundColor: "rgba(255,255,255,0.95)",
     alignItems: "center",
     justifyContent: "center",
     elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
   },
   topTitle: { fontSize: 16, fontWeight: "900", color: "#0F172A" },
   topSub: { marginTop: 2, fontSize: 12, fontWeight: "800", color: "#64748B" },
+
+  routeInfoBadge: {
+    alignSelf: "center",
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(255,255,255,0.95)",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+  },
+  routeInfoText: { fontSize: 14, fontWeight: "800", color: "#0F172A" },
 
   bottomCard: {
     position: "absolute",
@@ -442,6 +538,10 @@ const s = StyleSheet.create({
     borderRadius: 22,
     padding: 16,
     elevation: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
 
   placeName: { fontSize: 18, fontWeight: "900", color: "#0F172A" },
@@ -467,21 +567,30 @@ const s = StyleSheet.create({
   actionsRow: {
     marginTop: 14,
     flexDirection: "row",
-    gap: 10,
+    gap: 8,
     alignItems: "center",
   },
   actionChip: {
+    width: 46,
     height: 46,
-    paddingHorizontal: 12,
     borderRadius: 14,
     backgroundColor: "#EEF2F7",
     alignItems: "center",
     justifyContent: "center",
-    flexDirection: "row",
-    gap: 8,
   },
   actionChipDisabled: { opacity: 0.45 },
-  actionChipText: { fontWeight: "900", color: "#0F172A" },
+
+  navigateBtn: {
+    height: 46,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: "#4285F4",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 6,
+  },
+  navigateBtnText: { color: "#fff", fontWeight: "900", fontSize: 14 },
 
   primaryBtnWide: {
     flex: 1,
@@ -510,8 +619,6 @@ const s = StyleSheet.create({
     paddingVertical: 8,
   },
   backLinkText: { color: "#64748B", fontWeight: "800" },
-
-  hintText: { marginTop: 6, color: "#94A3B8", fontWeight: "700", fontSize: 12, textAlign: "center" },
 
   emptyWrap: { flex: 1, alignItems: "center", justifyContent: "center", padding: 20, gap: 10 },
   emptyTitle: { fontSize: 18, fontWeight: "900", color: "#0F172A" },

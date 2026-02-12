@@ -10,38 +10,19 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
-import MapView, { PROVIDER_GOOGLE, Region } from "react-native-maps";
+import { WebView } from "react-native-webview";
 import * as Location from "expo-location";
-import { useDelivery, Order } from "../../context/DeliveryContext";
+import { useDelivery, Order, LatLng } from "../../context/DeliveryContext";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 
-// --- Silver/Retro map style ---
-const silverMapStyle = [
-  { elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
-  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#f5f5f5" }] },
-  { featureType: "administrative.land_parcel", elementType: "labels.text.fill", stylers: [{ color: "#bdbdbd" }] },
-  { featureType: "poi", elementType: "geometry", stylers: [{ color: "#eeeeee" }] },
-  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
-  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#e5e5e5" }] },
-  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
-  { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
-  { featureType: "road.arterial", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
-  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#dadada" }] },
-  { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
-  { featureType: "road.local", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
-  { featureType: "transit.line", elementType: "geometry", stylers: [{ color: "#e5e5e5" }] },
-  { featureType: "transit.station", elementType: "geometry", stylers: [{ color: "#eeeeee" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9c9c9" }] },
-  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
-];
+// Longdo Map API Key
+const LONGDO_API_KEY = process.env.EXPO_PUBLIC_LONGDO_MAP_API_KEY || "YOUR_LONGDO_API_KEY";
 
-const DEFAULT_REGION: Region = {
-  latitude: 13.0827,
-  longitude: 100.9274,
-  latitudeDelta: 0.04,
-  longitudeDelta: 0.04,
+// พิกัดมหาวิทยาลัยเกษตรศาสตร์ วิทยาเขตศรีราชา
+// 199 ตำบลทุ่งสุขลา อำเภอศรีราชา ชลบุรี 20230
+const DEFAULT_COORDS: LatLng = {
+  latitude: 13.1219,
+  longitude: 100.9209,
 };
 
 function formatMMSS(ms: number) {
@@ -57,7 +38,7 @@ type OrderWithDetails = Order & { details?: string };
 export default function HomeScreen() {
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
-  const mapRef = useRef<MapView | null>(null);
+  const webViewRef = useRef<WebView | null>(null);
 
   const {
     available,
@@ -80,7 +61,8 @@ export default function HomeScreen() {
     (!active && available.length > 0 ? (available[0] as OrderWithDetails) : null) || simulatedOrder;
 
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
-  const [myRegion, setMyRegion] = useState<Region>(DEFAULT_REGION);
+  const [myCoord, setMyCoord] = useState<LatLng>(DEFAULT_COORDS);
+  const [locationReady, setLocationReady] = useState(false);
 
   // Success Modal
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -153,6 +135,7 @@ export default function HomeScreen() {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== "granted") {
           setHasLocationPermission(false);
+          setLocationReady(true); // แสดงแผนที่แม้ไม่ได้ permission
           return;
         }
         setHasLocationPermission(true);
@@ -161,17 +144,13 @@ export default function HomeScreen() {
           accuracy: Location.Accuracy.Balanced,
         });
 
-        const region: Region = {
+        setMyCoord({
           latitude: loc.coords.latitude,
           longitude: loc.coords.longitude,
-          latitudeDelta: 0.02,
-          longitudeDelta: 0.02,
-        };
-
-        setMyRegion(region);
-        mapRef.current?.animateToRegion(region, 600);
+        });
+        setLocationReady(true);
       } catch {
-        // ignore
+        setLocationReady(true); // แสดงแผนที่แม้เกิด error
       }
     })();
   }, []);
@@ -182,17 +161,69 @@ export default function HomeScreen() {
       const loc = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-      const region: Region = {
+      setMyCoord({
         latitude: loc.coords.latitude,
         longitude: loc.coords.longitude,
-        latitudeDelta: 0.02,
-        longitudeDelta: 0.02,
-      };
-      setMyRegion(region);
-      mapRef.current?.animateToRegion(region, 600);
+      });
+
+      if (webViewRef.current) {
+        const script = `
+          if (window.map) {
+            window.map.location({ lat: ${loc.coords.latitude}, lon: ${loc.coords.longitude} }, true);
+            window.map.zoom(16, true);
+          }
+          true;
+        `;
+        webViewRef.current.injectJavaScript(script);
+      }
     } catch {
       // ignore
     }
+  };
+
+  // Generate Longdo Map HTML
+  const generateMapHTML = () => {
+    const lat = myCoord.latitude;
+    const lon = myCoord.longitude;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <script src="https://api.longdo.com/map/?key=${LONGDO_API_KEY}"></script>
+        <style>
+          * { margin: 0; padding: 0; }
+          html, body { width: 100%; height: 100%; overflow: hidden; }
+          #map { width: 100%; height: 100%; }
+        </style>
+      </head>
+      <body>
+        <div id="map"></div>
+        <script>
+          var map = new longdo.Map({
+            placeholder: document.getElementById('map'),
+            zoom: 15,
+            location: { lat: ${lat}, lon: ${lon} }
+          });
+
+          // Add blue dot marker for current location
+          var myMarker = new longdo.Marker(
+            { lat: ${lat}, lon: ${lon} },
+            {
+              title: 'ตำแหน่งของฉัน',
+              icon: {
+                html: '<div style="width:20px;height:20px;background:#4285F4;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>',
+                offset: { x: 10, y: 10 }
+              }
+            }
+          );
+          map.Overlays.add(myMarker);
+        </script>
+      </body>
+      </html>
+    `;
   };
 
   // เริ่มนับเวลา offer เมื่อโชว์งานเข้า
@@ -275,14 +306,16 @@ export default function HomeScreen() {
 
   return (
     <View style={s.container}>
-      <MapView
-        ref={mapRef}
-        provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
+      <WebView
+        key={`map-${myCoord.latitude}-${myCoord.longitude}`}
+        ref={webViewRef}
+        source={{ html: generateMapHTML() }}
         style={s.map}
-        initialRegion={myRegion}
-        customMapStyle={silverMapStyle}
-        showsUserLocation={hasLocationPermission}
-        showsMyLocationButton={false}
+        scrollEnabled={false}
+        bounces={false}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+        originWhitelist={['*']}
       />
 
       {/* Overlay */}

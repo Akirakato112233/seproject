@@ -62,7 +62,10 @@ type DeliveryContextType = {
 const STORAGE_KEY = "rider_delivery_state_v1";
 const DeliveryContext = createContext<DeliveryContextType>(null as any);
 
-// NOTE: พิกัดเดโมแถวชลบุรี/พัทยา (ปรับได้)
+// NOTE: ปลายทางล็อคที่มหาวิทยาลัยเกษตรศาสตร์ วิทยาเขตศรีราชา
+// 199 ตำบลทุ่งสุขลา อำเภอศรีราชา ชลบุรี 20230
+const KU_SRIRACHA_COORDS = { latitude: 13.1219, longitude: 100.9209 };
+
 const MOCK_AVAILABLE: Order[] = [
   {
     id: "1",
@@ -74,7 +77,7 @@ const MOCK_AVAILABLE: Order[] = [
     fee: 150,
     items: 3,
     pickup: { latitude: 13.0918, longitude: 100.9036 },
-    dropoff: { latitude: 13.0805, longitude: 100.9152 },
+    dropoff: KU_SRIRACHA_COORDS, // มหาวิทยาลัยเกษตรศาสตร์ วิทยาเขตศรีราชา
     note: "แยกขาว/สี",
     timeWindow: "Today, 2:00 PM - 4:00 PM",
     paymentMethod: "cash",
@@ -91,7 +94,7 @@ const MOCK_AVAILABLE: Order[] = [
     fee: 200,
     items: 5,
     pickup: { latitude: 13.0672, longitude: 100.9196 },
-    dropoff: { latitude: 13.0589, longitude: 100.9352 },
+    dropoff: KU_SRIRACHA_COORDS, // มหาวิทยาลัยเกษตรศาสตร์ วิทยาเขตศรีราชา
     note: "เสื้อเชิ้ตรีดเรียบ",
     timeWindow: "Today, 1:00 PM - 3:00 PM",
     paymentMethod: "cash",
@@ -108,7 +111,7 @@ const MOCK_AVAILABLE: Order[] = [
     fee: 120,
     items: 2,
     pickup: { latitude: 13.0827, longitude: 100.9274 },
-    dropoff: { latitude: 13.0952, longitude: 100.9391 },
+    dropoff: KU_SRIRACHA_COORDS, // มหาวิทยาลัยเกษตรศาสตร์ วิทยาเขตศรีราชา
     note: "ผ้าเปราะบาง",
     timeWindow: "Today, 3:00 PM - 5:00 PM",
     paymentMethod: "cash",
@@ -154,7 +157,7 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({ available, active, history, isOnline, autoAccept })
-    ).catch(() => {});
+    ).catch(() => { });
   }, [available, active, history, isOnline, autoAccept]);
 
   // ✅ เริ่มงานด้วย object (รองรับ demo ที่ไม่ได้อยู่ใน available)
