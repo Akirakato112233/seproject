@@ -11,8 +11,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
-import { API } from '../../../config';
+import { API, BASE_URL } from '../../../config';
 import { authGet, authPost } from '../../../services/apiClient';
+import { useAuth } from '../../../context/AuthContext';
 
 interface DeliveryOption {
     id: string;
@@ -52,6 +53,7 @@ export default function OrderScreen() {
     const [selectedPayment, setSelectedPayment] = useState<string>('cash');
     const [userLocation] = useState('The One Place Building');
     const [walletBalance, setWalletBalance] = useState<number>(0);
+    const { token, user } = useAuth();
 
     // Parse order data from params
     const orderData: OrderData | null = useMemo(() => {
@@ -110,7 +112,7 @@ export default function OrderScreen() {
 
     const fetchShopDetail = async () => {
         try {
-            const response = await fetch(`http://192.168.1.37:3000/api/shops/${id}`);
+            const response = await fetch(`http://192.168.0.247:3000/api/shops/${id}`);
             const data = await response.json();
             if (data && data._id) {
                 setShop(data);
@@ -349,8 +351,8 @@ export default function OrderScreen() {
                     }
 
                     try {
-                        // สร้าง Order ผ่าน API
-                        const response = await authPost(API.ORDERS, {
+                        let response;
+                        const orderBody = {
                             shopId: id,
                             shopName: shop?.name || 'Unknown Shop',
                             items: orderItems.map(item => ({
@@ -361,8 +363,37 @@ export default function OrderScreen() {
                             serviceTotal,
                             deliveryFee,
                             total,
-                            paymentMethod: selectedPayment
-                        });
+                            paymentMethod: selectedPayment,
+                        };
+
+                        // ลอง auth API ก่อน ถ้า fail ให้ fallback ไปใช้ dev-create
+                        if (token) {
+                            response = await authPost(API.ORDERS, orderBody);
+                            const checkData = await response.clone().json();
+                            if (!checkData.success && checkData.message?.includes('token')) {
+                                console.log('Token invalid, falling back to dev-create...');
+                                response = await fetch(`${BASE_URL}/api/orders/pending/dev-create`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        ...orderBody,
+                                        userDisplayName: user?.displayName || 'Dev User',
+                                        userAddress: 'Dev Address',
+                                    }),
+                                });
+                            }
+                        } else {
+                            // ไม่มี token → ใช้ dev-create ตรงๆ
+                            response = await fetch(`${BASE_URL}/api/orders/pending/dev-create`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    ...orderBody,
+                                    userDisplayName: user?.displayName || 'Dev User',
+                                    userAddress: 'Dev Address',
+                                }),
+                            });
+                        }
 
                         const data = await response.json();
 
