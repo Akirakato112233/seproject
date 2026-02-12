@@ -182,13 +182,29 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
 
         // Map ข้อมูลให้ตรงกับ Rider App Order type
         const enrichedOrders = await Promise.all(orders.map(async (order) => {
-            const defaultCoords = { latitude: 13.1219, longitude: 100.9209 };
+            const defaultPickup = { latitude: 13.117191, longitude: 100.926279 }; // ค่า default เดียวกัน
+            const defaultDropoff = { latitude: 13.116573, longitude: 100.921823 }; // ค่า default dropoff
 
             // เช็คว่า shopId เป็น valid ObjectId ก่อน (ป้องกัน dev/mock data)
             let shop = null;
+            console.log(`📍 Order ${order._id}: shopId = ${order.shopId}, shopName = ${order.shopName}`);
+
             if (order.shopId && /^[0-9a-fA-F]{24}$/.test(String(order.shopId))) {
                 shop = await Shop.findById(order.shopId);
+                console.log(`🏪 Shop found:`, shop ? `${shop.name} at (${shop.location?.lat}, ${shop.location?.lng})` : 'null');
+            } else {
+                console.log(`⚠️ shopId is not valid ObjectId`);
             }
+
+            // Pickup: ใช้พิกัดร้าน หรือ default
+            const pickup = shop?.location
+                ? { latitude: shop.location.lat, longitude: shop.location.lng }
+                : defaultPickup;
+
+            // Dropoff: ใช้ userLocation ถ้ามี ไม่งั้นใช้ default
+            const dropoff = order.userLocation && order.userLocation.lat && order.userLocation.lng
+                ? { latitude: order.userLocation.lat, longitude: order.userLocation.lng }
+                : defaultDropoff;
 
             return {
                 id: String(order._id),
@@ -199,8 +215,8 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
                 distance: '1.5 km', // TODO: คำนวณจริงจากพิกัด
                 fee: order.total || 0,
                 items: Array.isArray(order.items) ? order.items.length : 0,
-                pickup: shop?.location ? { latitude: shop.location.lat, longitude: shop.location.lng } : defaultCoords,
-                dropoff: defaultCoords, // TODO: ใช้พิกัดจริงจาก User
+                pickup,
+                dropoff,
                 paymentMethod: order.paymentMethod || 'cash',
             };
         }));

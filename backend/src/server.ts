@@ -29,13 +29,13 @@ app.use('/api/redeem', redeemRoutes);
 // DEV: สร้าง test order โดยไม่ต้อง auth (ต้องวางก่อน orderRoutes เพราะ orderRoutes ต้อง auth ทุก route)
 app.post('/api/orders/pending/dev-create', async (req, res) => {
   try {
-    const { shopName, shopAddress, userDisplayName, userAddress, items, serviceTotal, deliveryFee, total, paymentMethod } = req.body;
+    const { shopId, shopName, shopAddress, userDisplayName, userAddress, items, serviceTotal, deliveryFee, total, paymentMethod } = req.body;
 
     const order = await Order.create({
       userId: 'dev-test-user',
       userDisplayName: userDisplayName || 'Test User',
       userAddress: userAddress || 'Test Address',
-      shopId: 'dev-shop-id',
+      shopId: shopId || 'dev-shop-id', // ใช้ shopId จาก request หรือ fallback
       shopName: shopName || 'Test Shop',
       items: items || [],
       serviceTotal: serviceTotal || 0,
