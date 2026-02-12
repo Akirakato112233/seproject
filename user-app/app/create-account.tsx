@@ -37,6 +37,8 @@ export default function CreateAccountScreen() {
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     expoClientId: GOOGLE_CLIENT_ID,
+    iosClientId: GOOGLE_CLIENT_ID,
+    androidClientId: GOOGLE_CLIENT_ID,
     webClientId: GOOGLE_CLIENT_ID, // Required for web platform
     scopes: ['profile', 'email'],
     redirectUri,
@@ -106,6 +108,12 @@ export default function CreateAccountScreen() {
     promptAsync({ useProxy: Platform.OS !== 'web', showInRecents: false });
   };
 
+  // DEV: ข้ามหน้า login ไปหน้า Home เลย
+  const devSkipLogin = async () => {
+    await login('dev_token', { _id: 'dev_user', displayName: 'Dev User', email: 'dev@test.com' } as any);
+    router.replace('/(tabs)');
+  };
+
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.container}>
@@ -128,6 +136,17 @@ export default function CreateAccountScreen() {
             </View>
             <Text style={s.btnText}>Continue with Google</Text>
           </TouchableOpacity>
+
+          {/* DEV: Skip Login Button */}
+          {__DEV__ && (
+            <TouchableOpacity
+              style={[s.btn, { backgroundColor: '#FF6B00' }]}
+              activeOpacity={0.85}
+              onPress={devSkipLogin}
+            >
+              <Text style={s.btnText}>DEV: Skip Login</Text>
+            </TouchableOpacity>
+          )}
 
           <Text style={s.terms}>
             By continuing, you agree to our Terms of Service and Privacy Policy

@@ -128,8 +128,19 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
   const [isOnline, setIsOnline] = useState(false);
   const [autoAccept, setAutoAccept] = useState(false);
 
-  const toggleOnline = () => setIsOnline((v) => !v);
-  const toggleAutoAccept = () => setAutoAccept((v) => !v);
+  const toggleOnline = () => {
+    setIsOnline((v) => {
+      const next = !v;
+      // ปิด autoAccept ทุกครั้งที่ offline
+      if (!next) setAutoAccept(false);
+      return next;
+    });
+  };
+  // อนุญาตให้เปลี่ยน autoAccept เฉพาะตอน online
+  const toggleAutoAccept = () => {
+    if (!isOnline) return;
+    setAutoAccept((v) => !v);
+  };
 
   // load
   useEffect(() => {
@@ -140,12 +151,18 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
 
         const parsed = JSON.parse(raw);
 
-        if (Array.isArray(parsed.available)) setAvailable(parsed.available);
-        if (parsed.active) setActive(parsed.active);
+        // ถ้า available ว่าง ให้ใช้ mock data ใหม่ (กัน order หมดจากการทดสอบครั้งก่อน)
+        if (Array.isArray(parsed.available) && parsed.available.length > 0) {
+          setAvailable(parsed.available);
+        } else {
+          setAvailable(MOCK_AVAILABLE);
+        }
+
+        // ไม่โหลด active เก่า ถ้ามันค้างจากเซสชั่นก่อน (กัน state ค้าง)
         if (Array.isArray(parsed.history)) setHistory(parsed.history);
 
-        if (typeof parsed.isOnline === "boolean") setIsOnline(parsed.isOnline);
-        if (typeof parsed.autoAccept === "boolean") setAutoAccept(parsed.autoAccept);
+        // ไม่โหลด isOnline / autoAccept — เริ่มต้น Offline เสมอ
+        // isOnline = false, autoAccept = false (ค่า default)
       } catch {
         // ignore
       }
@@ -182,15 +199,8 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
     setAvailable((prev) => prev.filter((o) => o.id !== id));
   };
 
-  // ✅ Auto accept ทำงานกับ "available" เท่านั้น
-  useEffect(() => {
-    if (!isOnline) return;
-    if (!autoAccept) return;
-    if (active) return;
-    if (available.length === 0) return;
-
-    acceptOrder(available[0].id);
-  }, [isOnline, autoAccept, active, available]);
+  // NOTE: Auto-accept logic moved to HomeScreen (index.tsx)
+  // เพื่อให้แสดง popup ก่อนรับงานอัตโนมัติ
 
   const markPickedUp = () => {
     if (!active) return;

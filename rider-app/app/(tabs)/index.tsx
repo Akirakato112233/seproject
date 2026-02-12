@@ -72,7 +72,7 @@ export default function HomeScreen() {
   const [offerExpiresAt, setOfferExpiresAt] = useState<number | null>(null);
   const [nowTick, setNowTick] = useState(Date.now());
 
-  const showOffer = isOnline && !!firstRequest && !active && !showSuccessModal;
+  const showOffer = isOnline && autoAccept && !!firstRequest && !active && !showSuccessModal;
 
   const remainingMs = useMemo(() => {
     if (!offerExpiresAt) return 0;
@@ -260,15 +260,8 @@ export default function HomeScreen() {
     return () => clearInterval(t);
   }, [showOffer, offerExpiresAt, firstRequest?.id, declineOrder]);
 
-  // AutoAccept: ถ้าเปิดไว้แล้ว active โผล่ ให้เด้งไป /job อัตโนมัติ (กันวน)
-  const lastNavIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!autoAccept) return;
-    if (!active?.id) return;
-    if (lastNavIdRef.current === active.id) return;
-    lastNavIdRef.current = active.id;
-    router.push("/job");
-  }, [autoAccept, active?.id]);
+  // AutoAccept: เมื่อเปิด autoAccept งานจะเด้งขึ้นมาให้เลือก Accept/Decline เอง
+  // (ไม่มี timer อัตโนมัติ ผู้ใช้ต้องกดเลือกเอง)
 
   const handlePressAccept = () => {
     const id = firstRequest?.id;
@@ -351,11 +344,15 @@ export default function HomeScreen() {
                 )}
               </View>
 
-              <TouchableOpacity style={s.cardAutoAccept} onPress={toggleAutoAccept} activeOpacity={0.85}>
+              <TouchableOpacity
+                style={s.cardAutoAccept}
+                onPress={() => router.push("/settings")}
+                activeOpacity={0.85}
+              >
                 <View style={s.autoAcceptContent}>
-                  <Ionicons name="flash" size={24} color="#1E3A8A" />
+                  <Ionicons name="settings-outline" size={24} color="#1E3A8A" />
                   <Text style={s.textAutoAccept}>Auto Accept</Text>
-                  <Text style={s.autoState}>{autoAccept ? "On" : "Off"}</Text>
+                  <Ionicons name="chevron-forward" size={20} color="#94A3B8" style={{ marginLeft: 4 }} />
                 </View>
               </TouchableOpacity>
             </View>
@@ -434,6 +431,30 @@ export default function HomeScreen() {
                   <Text style={s.detailSub}>{firstRequest.customerAddress}</Text>
                 </View>
               </View>
+
+              {!!firstRequest.timeWindow && (
+                <View style={s.detailItem}>
+                  <View style={s.iconCircleLight}>
+                    <Ionicons name="time-outline" size={20} color="#0E3A78" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.detailTitle}>{firstRequest.timeWindow}</Text>
+                    <Text style={s.detailSub}>Pickup</Text>
+                  </View>
+                </View>
+              )}
+
+              {!!firstRequest.note && (
+                <View style={s.detailItem}>
+                  <View style={s.iconCircleLight}>
+                    <Ionicons name="document-text-outline" size={18} color="#0E3A78" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.detailTitle}>Note</Text>
+                    <Text style={s.detailSub}>{firstRequest.note}</Text>
+                  </View>
+                </View>
+              )}
             </View>
 
             <View style={s.btnRow}>

@@ -111,7 +111,6 @@ export default function TabLayout() {
       />
 
       {/* ซ่อนหน้าที่ไม่ควรเป็นแท็บ (ถ้ามีไฟล์อยู่ใน (tabs)) */}
-      <Tabs.Screen name="job" options={{ href: null }} />
       <Tabs.Screen name="active" options={{ href: null }} />
     </Tabs>
   );
