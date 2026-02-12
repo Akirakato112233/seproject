@@ -3,7 +3,8 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BASE_URL } from '../../config';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { API } from '../../config';
 import { authGet } from '../../services/apiClient';
@@ -32,6 +33,42 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const [balance, setBalance] = useState('0.00');
   const [activeOrder, setActiveOrder] = useState<any>(null);
+  const [devLoading, setDevLoading] = useState(false);
+
+  // DEV: สร้าง test order ตรงๆ ไปที่ backend (ไม่ต้อง auth)
+  const devCreateTestOrder = async () => {
+    setDevLoading(true);
+    try {
+      const res = await fetch(`${BASE_URL}/api/orders/pending/dev-create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shopName: 'WashPro Laundry (Test)',
+          shopAddress: 'WashPro Laundry',
+          userDisplayName: user?.displayName || 'Test User',
+          userAddress: 'KU Sriracha',
+          items: [
+            { name: 'Wash 9kg', details: 'Cold wash', price: 60 },
+            { name: 'Dry 15kg', details: 'Medium heat', price: 40 },
+          ],
+          serviceTotal: 100,
+          deliveryFee: 30,
+          total: 130,
+          paymentMethod: 'cash',
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        Alert.alert('Test Order Created!', 'Open Rider App and go Online to see this order');
+      } else {
+        Alert.alert('Error', data.message || 'Failed');
+      }
+    } catch (err: any) {
+      Alert.alert('Network Error', err.message);
+    } finally {
+      setDevLoading(false);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -171,6 +208,20 @@ export default function HomeScreen() {
           <View style={[s.action, { opacity: 0 }]} />
         </View>
       </View>
+
+      {/* DEV MODE BUTTON */}
+      {__DEV__ && (
+        <TouchableOpacity
+          style={s.devBtn}
+          activeOpacity={0.8}
+          onPress={devCreateTestOrder}
+          disabled={devLoading}
+        >
+          <Text style={s.devBtnText}>
+            {devLoading ? 'Creating...' : 'DEV: Create Test Order'}
+          </Text>
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
@@ -324,5 +375,18 @@ const s = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     marginTop: 2,
+  },
+  devBtn: {
+    backgroundColor: '#FF6B00',
+    marginHorizontal: 16,
+    marginTop: 16,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  devBtnText: {
+    color: '#fff',
+    fontWeight: '900',
+    fontSize: 14,
   },
 });
