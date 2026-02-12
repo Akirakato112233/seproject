@@ -4,13 +4,17 @@ import {
     getOrderById,
     getActiveOrder,
     updateOrderStatus,
-    getOrderHistory
+    getOrderHistory,
+    getPendingOrders
 } from '../controllers/orderController';
 import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
-// Apply auth middleware to all order routes
+// GET /api/orders/pending - ดึง order ที่รอ Rider (ไม่ต้อง auth เพื่อให้ dev mode ใช้ได้)
+router.get('/pending', getPendingOrders);
+
+// Apply auth middleware to remaining order routes
 router.use(authenticateToken);
 
 // POST /api/orders - สร้าง order ใหม่

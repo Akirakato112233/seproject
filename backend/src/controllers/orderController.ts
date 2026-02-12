@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { Order } from '../models/Order';
 import { User } from '../models/User';
+import { Shop } from '../models/Shop';
 
 // สร้าง Order ใหม่
 export const createOrder = async (req: AuthRequest, res: Response) => {
@@ -166,5 +167,48 @@ export const getOrderHistory = async (req: AuthRequest, res: Response) => {
     } catch (error) {
         console.error('Get Order History Error:', error);
         res.status(500).json({ success: false, message: 'Failed to get order history' });
+    }
+};
+
+// ดึง Order ที่รอ Rider รับงาน (status = 'rider_coming')
+export const getPendingOrders = async (req: AuthRequest, res: Response) => {
+    try {
+        console.log('📦 Fetching pending orders...');
+        const orders = await Order.find({
+            status: { $in: ['rider_coming', 'pending'] }
+        }).sort({ createdAt: -1 });
+
+        console.log(`✅ Found ${orders.length} pending orders`);
+
+        // Map ข้อมูลให้ตรงกับ Rider App Order type
+        const enrichedOrders = await Promise.all(orders.map(async (order) => {
+            const defaultCoords = { latitude: 13.1219, longitude: 100.9209 };
+
+            // เช็คว่า shopId เป็น valid ObjectId ก่อน (ป้องกัน dev/mock data)
+            let shop = null;
+            if (order.shopId && /^[0-9a-fA-F]{24}$/.test(String(order.shopId))) {
+                shop = await Shop.findById(order.shopId);
+            }
+
+            return {
+                id: String(order._id),
+                shopName: order.shopName || shop?.name || 'Unknown Shop',
+                shopAddress: shop?.name || 'ไม่ระบุที่อยู่ร้าน',
+                customerName: order.userDisplayName || 'Customer',
+                customerAddress: order.userAddress || 'ไม่ระบุที่อยู่',
+                distance: '1.5 km', // TODO: คำนวณจริงจากพิกัด
+                fee: order.total || 0,
+                items: Array.isArray(order.items) ? order.items.length : 0,
+                pickup: shop?.location ? { latitude: shop.location.lat, longitude: shop.location.lng } : defaultCoords,
+                dropoff: defaultCoords, // TODO: ใช้พิกัดจริงจาก User
+                paymentMethod: order.paymentMethod || 'cash',
+            };
+        }));
+
+        console.log('✅ Orders enriched successfully');
+        res.json({ success: true, orders: enrichedOrders });
+    } catch (error) {
+        console.error('❌ Get Pending Orders Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to get pending orders' });
     }
 };
