@@ -1,18 +1,21 @@
-import { Slot, useRouter, useSegments, useRootNavigationState } from 'expo-router';
-import { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
-import { AuthProvider, useAuth } from '../context/AuthContext';
+import { Slot } from 'expo-router';
+import React from 'react';
+import { AuthProvider } from '../context/AuthContext';
+import { OrdersProvider } from '../context/OrdersContext';
+import { ServicesProvider } from '../context/ServicesContext';
 
 function RootLayoutNav() {
-  // Frontend-only mode: No auth checks required.
-  // Simply render the slot to allow navigation to any screen.
   return <Slot />;
 }
 
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <RootLayoutNav />
+      <OrdersProvider>
+        <ServicesProvider>
+          <RootLayoutNav />
+        </ServicesProvider>
+      </OrdersProvider>
     </AuthProvider>
   );
 }

@@ -133,6 +133,14 @@ export default function CreateAccountScreen() {
             <Text style={s.btnText}>Continue with Google</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={s.skipBtn}
+            onPress={() => router.replace('/(tabs)')}
+            activeOpacity={0.7}
+          >
+            <Text style={s.skipText}>ข้าม เข้าใช้งานเลย</Text>
+          </TouchableOpacity>
+
           <Text style={s.terms}>
             By continuing, you agree to our Terms of Service and Privacy Policy
           </Text>
@@ -200,6 +208,16 @@ const s = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#fff',
+  },
+  skipBtn: {
+    marginTop: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  skipText: {
+    fontSize: 14,
+    color: '#666',
+    textDecorationLine: 'underline',
   },
   terms: {
     textAlign: 'center',
