@@ -1,7 +1,11 @@
 // config.ts
+import { Platform } from 'react-native';
 
 // 🔥 แก้ IP ตรงนี้แค่จุดเดียว จบเลย!
-export const BASE_URL = 'http://192.168.0.247:3000';
+// Web ใช้ localhost ได้เลย, มือถือต้องใช้ IP จริงของเครื่อง
+export const BASE_URL = Platform.OS === 'web'
+  ? 'http://localhost:3000'
+  : 'http://10.64.33.150:3000';
 
 // ลิ้งค์ย่อยต่างๆ (Optional: จะได้ไม่ต้องพิมพ์ยาวๆ ในหน้าอื่น)
 export const API = {
@@ -24,4 +28,6 @@ export const API = {
     ORDERS: `${BASE_URL}/api/orders`,
     ORDERS_ACTIVE: `${BASE_URL}/api/orders/active`,
     ORDERS_HISTORY: `${BASE_URL}/api/orders/history`,
+    // Wallet APIs
+    WALLET: `${BASE_URL}/api/wallet`,
 };

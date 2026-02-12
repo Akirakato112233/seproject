@@ -1,6 +1,24 @@
 import { Request, Response } from 'express';
 import { Shop } from '../models/Shop';
 
+// PUT /api/shops/:id — อัปเดตข้อมูลร้าน (services, name, etc.)
+export const updateShop = async (req: Request, res: Response) => {
+  try {
+    const shop = await Shop.findByIdAndUpdate(
+      req.params.id,
+      { $set: req.body },
+      { new: true, runValidators: true }
+    );
+    if (!shop) {
+      return res.status(404).json({ error: 'Shop not found' });
+    }
+    res.json(shop);
+  } catch (error) {
+    console.error('Error updating shop:', error);
+    res.status(500).json({ error: 'Failed to update shop' });
+  }
+};
+
 export const getShops = async (req: Request, res: Response) => {
   try {
     const {

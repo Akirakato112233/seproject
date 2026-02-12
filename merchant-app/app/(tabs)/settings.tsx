@@ -31,27 +31,20 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView style={s.content} contentContainerStyle={s.contentInner}>
-        <Text style={s.sectionLink}>Your Store Link</Text>
+        {/* Services / Options */}
+        <Text style={s.sectionTitle}>Services</Text>
         <TouchableOpacity
           style={s.menuItem}
           onPress={() => router.push('/services')}
         >
           <View style={[s.iconWrap, s.iconGreen]}>
-            <Ionicons name="share-social" size={22} color={Colors.white} />
+            <Ionicons name="list-outline" size={22} color={Colors.white} />
           </View>
-          <Text style={s.menuText}>Option</Text>
+          <Text style={s.menuText}>จัดการบริการ (Options)</Text>
           <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
         </TouchableOpacity>
 
-        <Text style={s.sectionTitle}>Your Personal Information</Text>
-        <TouchableOpacity style={s.menuItem}>
-          <View style={[s.iconWrap, s.iconBlue]}>
-            <Ionicons name="person-outline" size={22} color={Colors.white} />
-          </View>
-          <Text style={s.menuText}>Personal Profile</Text>
-          <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
-        </TouchableOpacity>
-
+        {/* Account Management */}
         <Text style={s.sectionTitle}>Account Management</Text>
         <TouchableOpacity style={s.menuItem} onPress={() => router.push('/(tabs)/contact')}>
           <View style={[s.iconWrap, s.iconPurple]}>
@@ -93,13 +86,6 @@ const s = StyleSheet.create({
   },
   content: { flex: 1 },
   contentInner: { padding: 16, paddingBottom: 40 },
-  sectionLink: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.primaryBlue,
-    textDecorationLine: 'underline',
-    marginBottom: 8,
-  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',

@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { getShops, getShopById } from '../controllers/shopController';
+import { getShops, getShopById, updateShop } from '../controllers/shopController';
 
 const router = Router();
 
 router.get('/', getShops);
 router.get('/:id', getShopById);
+router.put('/:id', updateShop);
 
 export default router;

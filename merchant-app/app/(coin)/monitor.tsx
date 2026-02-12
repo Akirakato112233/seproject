@@ -17,6 +17,7 @@ import {
 const shopAvatarImg = require('../../assets/images/shop-avatar.png');
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import { useCoinShop } from '../../context/CoinShopContext';
 import { useMachines, type Machine, type MachineStatus, type WashMode, type WaterTemp } from '../../context/MachineContext';
 
 type FilterKey = 'all' | 'available' | 'running' | 'finished';
@@ -40,6 +41,7 @@ function formatCountdown(seconds: number): { time: string; label: string } {
 export default function LiveMonitorScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ openAdd?: string }>();
+  const { shop } = useCoinShop();
   const { machines, addMachine, startMachine, skipMachine, collectMachine, todayRevenue } = useMachines();
   const [filter, setFilter] = useState<FilterKey>('all');
   const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
@@ -178,7 +180,7 @@ export default function LiveMonitorScreen() {
           <Text style={s.headerTitle}>Live Monitor</Text>
         </View>
         <View style={s.headerRight}>
-          <Text style={s.shopName}>ร้านsukhai</Text>
+          <Text style={s.shopName}>{shop?.name ?? 'Loading...'}</Text>
           <Image source={shopAvatarImg} style={s.avatar} />
         </View>
       </View>

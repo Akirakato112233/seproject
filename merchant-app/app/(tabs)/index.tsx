@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { useOrders } from '../../context/OrdersContext';
+import { useShop } from '../../context/ShopContext';
 import { MerchantHeader } from '../../components/MerchantHeader';
 import { NewOrderModal, type NewOrderData } from '../../components/NewOrderModal';
 import {
@@ -46,6 +47,7 @@ function generateRandomNewOrder(): NewOrderData {
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const { shop } = useShop();
   const { currentOrders, addOrder, setOrderReady, completeOrder } = useOrders();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<OrderFilter>('all');
@@ -140,7 +142,7 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
-      <MerchantHeader shopName="ร้านasukhai" onWalletPress={() => router.push('/(tabs)/wallet')} />
+      <MerchantHeader shopName={shop?.name ?? 'Loading...'} onWalletPress={() => router.push('/(tabs)/wallet')} />
 
       {hasNewOrderNotification && (
         <TouchableOpacity

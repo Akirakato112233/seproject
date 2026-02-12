@@ -23,7 +23,7 @@ export default function MerchantTransferScreen() {
   const [error, setError] = useState('');
   const [successVisible, setSuccessVisible] = useState(false);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     Keyboard.dismiss();
     const num = parseFloat(amount);
     if (!amount || isNaN(num) || num <= 0) return;
@@ -41,7 +41,7 @@ export default function MerchantTransferScreen() {
     }
 
     setError('');
-    const success = withdraw(num);
+    const success = await withdraw(num);
     if (success) {
       setSuccessVisible(true);
     } else {
