@@ -6,6 +6,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,11 +16,14 @@ import {
 } from 'react-native';
 
 const shopAvatarImg = require('../../assets/images/shop-avatar.png');
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import { useCoinShop } from '../../context/CoinShopContext';
 import { useMachines, type Machine, type MachineStatus, type WashMode, type WaterTemp } from '../../context/MachineContext';
 
 type FilterKey = 'all' | 'available' | 'running' | 'finished';
+
+const CYCLE_TIME_OPTIONS = ['30 minutes', '45 minutes', '60 minutes', '90 minutes'];
 
 const STATUS_LABEL: Record<MachineStatus, string> = {
   available: 'ว่าง',
@@ -40,6 +44,8 @@ function formatCountdown(seconds: number): { time: string; label: string } {
 export default function LiveMonitorScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ openAdd?: string }>();
+  const insets = useSafeAreaInsets();
+  const { shop } = useCoinShop();
   const { machines, addMachine, startMachine, skipMachine, collectMachine, todayRevenue } = useMachines();
   const [filter, setFilter] = useState<FilterKey>('all');
   const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
@@ -55,6 +61,9 @@ export default function LiveMonitorScreen() {
   const [newCapacity, setNewCapacity] = useState('12');
   const [newPrice, setNewPrice] = useState('40');
   const [newCycleTime, setNewCycleTime] = useState('45 minutes');
+  const [cycleTimePickerVisible, setCycleTimePickerVisible] = useState(false);
+
+  const CYCLE_TIME_OPTIONS = ['30 minutes', '45 minutes', '60 minutes', '90 minutes'];
 
   // เปิด add machine modal อัตโนมัติถ้ามา param openAdd=1 จากหน้าหลัก
   useEffect(() => {
@@ -87,6 +96,7 @@ export default function LiveMonitorScreen() {
   const handleAddMachine = () => setAddMachineVisible(true);
   const closeAddMachine = () => {
     setAddMachineVisible(false);
+    setCycleTimePickerVisible(false);
     setNewMachineId('');
     setNewMachineType('washer');
     setNewCapacity('12');
@@ -109,6 +119,7 @@ export default function LiveMonitorScreen() {
       return;
     }
     setAddMachineError('');
+    const cycleMins = newCycleTime.replace(/\D/g, '') || '45';
     const newMachine: Machine = {
       id,
       name: id,
@@ -116,7 +127,7 @@ export default function LiveMonitorScreen() {
       type: newMachineType,
       capacity: newCapacity,
       price: newPrice,
-      cycleTime: '45',
+      cycleTime: cycleMins,
       enabled: true,
       program: 'Ready',
     };
@@ -178,7 +189,7 @@ export default function LiveMonitorScreen() {
           <Text style={s.headerTitle}>Live Monitor</Text>
         </View>
         <View style={s.headerRight}>
-          <Text style={s.shopName}>ร้านsukhai</Text>
+          <Text style={s.shopName}>{shop?.name ?? 'Loading...'}</Text>
           <Image source={shopAvatarImg} style={s.avatar} />
         </View>
       </View>
@@ -416,21 +427,15 @@ export default function LiveMonitorScreen() {
         transparent
         animationType="slide"
         onRequestClose={closeAddMachine}
+        statusBarTranslucent={Platform.OS === 'android'}
       >
-        <TouchableOpacity
-          style={s.sheetOverlay}
-          activeOpacity={1}
-          onPress={closeAddMachine}
-        >
+        <View style={s.sheetOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeAddMachine} />
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={s.sheetWrap}
           >
-            <TouchableOpacity
-              style={s.addMachineSheet}
-              activeOpacity={1}
-              onPress={(e) => e.stopPropagation()}
-            >
+            <View style={[s.addMachineSheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
               <View style={s.sheetHeader}>
                 <TouchableOpacity onPress={closeAddMachine} style={s.sheetClose}>
                   <Ionicons name="close" size={24} color={Colors.textPrimary} />
@@ -439,7 +444,13 @@ export default function LiveMonitorScreen() {
                 <View style={s.sheetClose} />
               </View>
 
-              <View style={s.sheetContent}>
+              <ScrollView
+                style={s.sheetScroll}
+                contentContainerStyle={s.sheetScrollContent}
+                showsVerticalScrollIndicator={true}
+                keyboardShouldPersistTaps="always"
+                scrollEventThrottle={16}
+              >
                 <Text style={s.sheetSectionTitle}>Machine Details</Text>
                 <Text style={s.sheetSectionSub}>Fill in the details to register a new unit to the laundry network</Text>
 
@@ -498,18 +509,52 @@ export default function LiveMonitorScreen() {
                 </View>
 
                 <Text style={s.inputLabel}>Estimated cycle time</Text>
-                <TouchableOpacity style={s.dropdown}>
+                <Pressable
+                  style={({ pressed }) => [s.dropdown, pressed && s.dropdownPressed]}
+                  onPress={() => setCycleTimePickerVisible((v) => !v)}
+                  hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+                >
                   <Text style={s.dropdownText}>{newCycleTime}</Text>
-                  <Ionicons name="chevron-down" size={20} color={Colors.textSecondary} />
-                </TouchableOpacity>
+                  <Ionicons
+                    name={cycleTimePickerVisible ? 'chevron-up' : 'chevron-down'}
+                    size={20}
+                    color={Colors.textSecondary}
+                  />
+                </Pressable>
+                {cycleTimePickerVisible && (
+                  <View style={s.cycleTimeOptions}>
+                    {CYCLE_TIME_OPTIONS.map((opt, idx) => (
+                      <TouchableOpacity
+                        key={opt}
+                        style={[
+                          s.cycleTimeOption,
+                          newCycleTime === opt && s.cycleTimeOptionActive,
+                          idx === CYCLE_TIME_OPTIONS.length - 1 && s.cycleTimeOptionLast,
+                        ]}
+                        onPress={() => {
+                          setNewCycleTime(opt);
+                          setCycleTimePickerVisible(false);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[s.cycleTimeOptionText, newCycleTime === opt && s.cycleTimeOptionTextActive]}>
+                          {opt}
+                        </Text>
+                        {newCycleTime === opt && (
+                          <Ionicons name="checkmark" size={18} color={Colors.primaryBlue} />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
 
                 <TouchableOpacity style={s.addMachineBtn} onPress={handleSubmitAddMachine} activeOpacity={0.8}>
                   <Text style={s.addMachineBtnText}>Add Machine</Text>
                 </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
+              </ScrollView>
+            </View>
           </KeyboardAvoidingView>
-        </TouchableOpacity>
+        </View>
       </Modal>
 
       {/* Running Machine Options Modal (กดฟันเฟือง) */}
@@ -1058,7 +1103,11 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
   },
-  sheetWrap: { flex: 1, justifyContent: 'flex-end' },
+  sheetWrap: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    width: '100%',
+  },
   addMachineSheet: {
     backgroundColor: Colors.white,
     borderTopLeftRadius: 20,
@@ -1067,6 +1116,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 32,
     maxHeight: '85%',
+    minHeight: 320,
   },
   sheetHeader: {
     flexDirection: 'row',
@@ -1076,7 +1126,8 @@ const s = StyleSheet.create({
   },
   sheetClose: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   sheetTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, flex: 1, textAlign: 'center' },
-  sheetContent: { flex: 1 },
+  sheetScroll: { flex: 1, maxHeight: 420 },
+  sheetScrollContent: { paddingBottom: 24 },
   sheetSectionTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
   sheetSectionSub: { fontSize: 13, color: Colors.textSecondary, marginBottom: 16, lineHeight: 18 },
   inputLabel: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary, marginBottom: 6 },
@@ -1123,10 +1174,37 @@ const s = StyleSheet.create({
     borderColor: Colors.cardBorder,
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 16,
+    paddingVertical: 12,
+    marginBottom: 8,
+    minHeight: 44,
   },
+  dropdownPressed: { backgroundColor: Colors.cardBg },
   dropdownText: { fontSize: 15, color: Colors.textPrimary },
+  cycleTimeOptions: {
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  cycleTimeOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.cardBorder,
+    backgroundColor: Colors.white,
+  },
+  cycleTimeOptionActive: {
+    backgroundColor: '#eff6ff',
+  },
+  cycleTimeOptionLast: {
+    borderBottomWidth: 0,
+  },
+  cycleTimeOptionText: { fontSize: 15, color: Colors.textPrimary },
+  cycleTimeOptionTextActive: { fontSize: 15, fontWeight: '600', color: Colors.primaryBlue },
   addMachineBtn: {
     backgroundColor: Colors.primaryBlue,
     borderRadius: 12,

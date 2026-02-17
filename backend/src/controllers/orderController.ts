@@ -182,13 +182,18 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
 
         // Map ข้อมูลให้ตรงกับ Rider App Order type
         const enrichedOrders = await Promise.all(orders.map(async (order) => {
-            const defaultCoords = { latitude: 13.1219, longitude: 100.9209 };
+            // พิกัดลูกค้า (ที่รับผ้า/ส่งผ้า) - ยังไม่มีใน User ใช้ default ก่อน
+            const customerCoords = { latitude: 13.113625, longitude: 100.919286 };
+    
 
-            // เช็คว่า shopId เป็น valid ObjectId ก่อน (ป้องกัน dev/mock data)
             let shop = null;
             if (order.shopId && /^[0-9a-fA-F]{24}$/.test(String(order.shopId))) {
                 shop = await Shop.findById(order.shopId);
             }
+
+            const shopCoords = shop?.location
+                ? { latitude: shop.location.lat, longitude: shop.location.lng }
+                : { latitude: 13.117629, longitude: 100.916613 };
 
             return {
                 id: String(order._id),
@@ -196,11 +201,12 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
                 shopAddress: shop?.name || 'ไม่ระบุที่อยู่ร้าน',
                 customerName: order.userDisplayName || 'Customer',
                 customerAddress: order.userAddress || 'ไม่ระบุที่อยู่',
-                distance: '1.5 km', // TODO: คำนวณจริงจากพิกัด
+                distance: '1.5 km',
                 fee: order.total || 0,
                 items: Array.isArray(order.items) ? order.items.length : 0,
-                pickup: shop?.location ? { latitude: shop.location.lat, longitude: shop.location.lng } : defaultCoords,
-                dropoff: defaultCoords, // TODO: ใช้พิกัดจริงจาก User
+                pickup: customerCoords,   // ที่รับผ้า = ที่อยู่ลูกค้า
+                dropoff: customerCoords,  // ที่ส่งผ้า = ที่อยู่ลูกค้า
+                shop: shopCoords,         // พิกัดร้าน (ไปร้านหลังรับผ้า)
                 paymentMethod: order.paymentMethod || 'cash',
             };
         }));

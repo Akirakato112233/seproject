@@ -38,7 +38,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<UserData | null>(null);
     const [token, setToken] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
-    const [isDevMode, setIsDevMode] = useState(false);
+    // Dev move: ใช้แอปได้โดยไม่ต้อง login ก่อน (เปิดเป็น true ไว้ก่อน)
+    const [isDevMode, setIsDevMode] = useState(true);
 
     // Load token and user from AsyncStorage on app start
     useEffect(() => {

@@ -28,16 +28,18 @@ export default function JobScreen() {
   const webViewRef = useRef<WebView | null>(null);
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
 
-  const { active, markPickedUp, markDelivered } = useDelivery();
+  const { active, markPickedUp, markAtShop, markDelivered } = useDelivery();
 
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [myCoord, setMyCoord] = useState<LatLng>(DEFAULT_COORDS);
   const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
 
-  const stage = active?.status === "picking_up" ? "pickup" : "dropoff";
+  const stage = active?.status ?? "going_to_customer";
   const target = useMemo<LatLng | null>(() => {
     if (!active) return null;
-    return stage === "pickup" ? active.pickup : active.dropoff;
+    if (stage === "going_to_customer") return active.pickup;
+    if (stage === "going_to_shop") return active.shop ?? active.pickup;
+    return active.dropoff;
   }, [active, stage]);
 
   // location permission + real-time tracking
@@ -101,6 +103,22 @@ export default function JobScreen() {
     }
   }, [myCoord.latitude, myCoord.longitude]);
 
+  // Re-draw route when stage changes (target changes)
+  useEffect(() => {
+    if (webViewRef.current && target) {
+      const script = `
+        if (window.setRoute) {
+          window.setRoute(
+            { lat: ${myCoord.latitude}, lon: ${myCoord.longitude} },
+            { lat: ${target.latitude}, lon: ${target.longitude} }
+          );
+        }
+        true;
+      `;
+      webViewRef.current.injectJavaScript(script);
+    }
+  }, [stage]);
+
   // Handle messages from WebView (route info)
   const handleWebViewMessage = (event: any) => {
     try {
@@ -134,33 +152,25 @@ export default function JobScreen() {
     }
   };
 
-  // Open navigation app (Longdo Map)
-  const openNavigation = async () => {
-    if (!target) return;
+  // Open Google Maps turn-by-turn navigation (no API key needed)
+  const openNavigation = async (lat: number, lng: number) => {
+    const destination = `${lat},${lng}`;
 
-    const destLat = target.latitude;
-    const destLon = target.longitude;
+    if (Platform.OS === "android") {
+      // Android: เปิด Google Maps เข้า navigation mode ทันที
+      const url = `google.navigation:q=${destination}&mode=d`;
+      Linking.openURL(url);
+    } else {
+      // iOS: ลอง Google Maps ก่อน, fallback Apple Maps
+      const googleMapsURL = `comgooglemaps://?daddr=${destination}&directionsmode=driving`;
+      const appleMapsURL = `http://maps.apple.com/?daddr=${destination}&dirflg=d`;
 
-    // Longdo Map URL Scheme
-    // App: longdo://route?flat=...&flon=...&tlat=...&tlon=...&mode=...
-    // Web: https://map.longdo.com/?route=...
-
-    const longdoAppUrl = `longdo://route?flat=${myCoord.latitude}&flon=${myCoord.longitude}&tlat=${destLat}&tlon=${destLon}&mode=drive`;
-    const longdoWebUrl = `https://map.longdo.com/mobile?lat=${destLat}&long=${destLon}`;
-
-    try {
-      // Try opening Longdo Map App first
-      const canOpenApp = await Linking.canOpenURL(longdoAppUrl);
-      if (canOpenApp) {
-        await Linking.openURL(longdoAppUrl);
-        return;
+      const canOpenGoogle = await Linking.canOpenURL("comgooglemaps://");
+      if (canOpenGoogle) {
+        Linking.openURL(googleMapsURL);
+      } else {
+        Linking.openURL(appleMapsURL);
       }
-
-      // Fallback to Longdo Map Web
-      await Linking.openURL(longdoWebUrl);
-    } catch {
-      // Last resort
-      await Linking.openURL(longdoWebUrl);
     }
   };
 
@@ -182,13 +192,12 @@ export default function JobScreen() {
     }
   };
 
-  // Generate HTML for Longdo Map with real-time tracking
+  // Generate HTML for Longdo Map with map.Route routing
   const generateMapHTML = () => {
     const startLat = myCoord.latitude;
     const startLon = myCoord.longitude;
     const endLat = target?.latitude || startLat;
     const endLon = target?.longitude || startLon;
-    const isPickupStage = active?.status === "picking_up";
 
     return `
       <!DOCTYPE html>
@@ -207,8 +216,6 @@ export default function JobScreen() {
         <div id="map"></div>
         <script>
           var map;
-          var routeLine;
-          var targetMarker;
           var myMarker;
 
           function init() {
@@ -218,7 +225,7 @@ export default function JobScreen() {
               location: { lat: ${startLat}, lon: ${startLon} }
             });
 
-            // Add current location marker (blue dot style)
+            // Rider position marker (blue dot) — standalone overlay, ไม่เกี่ยวกับ Route
             myMarker = new longdo.Marker(
               { lat: ${startLat}, lon: ${startLon} },
               {
@@ -231,45 +238,45 @@ export default function JobScreen() {
             );
             map.Overlays.add(myMarker);
 
-            // Add target marker
-            targetMarker = new longdo.Marker(
-              { lat: ${endLat}, lon: ${endLon} },
-              {
-                title: '${isPickupStage ? "Pickup" : "Dropoff"}',
-                icon: {
-                  html: '<div style="width:30px;height:30px;background:${isPickupStage ? "#FF9800" : "#4CAF50"};border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;"><span style="color:white;font-size:14px;font-weight:bold;">${isPickupStage ? "P" : "D"}</span></div>',
-                  offset: { x: 15, y: 15 }
-                }
-              }
+            // Initial route
+            window.setRoute(
+              { lat: ${startLat}, lon: ${startLon} },
+              { lat: ${endLat}, lon: ${endLon} }
             );
-            map.Overlays.add(targetMarker);
-
-            // Draw route
-            drawRoute({ lat: ${startLat}, lon: ${startLon} }, { lat: ${endLat}, lon: ${endLon} });
           }
 
-          function drawRoute(start, end) {
-            // Remove old route
-            if (routeLine) {
-              map.Overlays.remove(routeLine);
-            }
+          // ===== map.Route API: ให้ Longdo คำนวณ+วาดเส้นทางอัตโนมัติ =====
+          window.setRoute = function(origin, destination) {
+            // ล้างเส้นทางเก่า
+            map.Route.clear();
 
-            // Use Longdo Routing API
-            longdo.Util.route([start, end], {
-              mode: longdo.RouteMode.Cost,
-              type: longdo.RouteType.Drive
-            }, function(result) {
-              if (result && result.path && result.path.length > 0) {
-                routeLine = new longdo.Polyline(result.path, {
-                  lineWidth: 6,
-                  lineColor: 'rgba(66, 133, 244, 0.9)',
-                  borderWidth: 2,
-                  borderColor: 'rgba(255, 255, 255, 0.9)'
-                });
-                map.Overlays.add(routeLine);
+            // จุดเริ่มต้น (ซ่อน marker เพราะมี blue dot แล้ว)
+            map.Route.add(new longdo.Marker(origin, {
+              icon: {
+                html: '<div style="width:0;height:0;"></div>',
+                offset: { x: 0, y: 0 }
+              }
+            }));
 
-                // Send route info back to React Native
-                if (result.data && result.data.length > 0) {
+            // ปลายทาง (marker สีน้ำเงินเข้ม)
+            map.Route.add(new longdo.Marker(destination, {
+              title: 'ปลายทาง',
+              icon: {
+                html: '<div style="width:30px;height:30px;background:#0E3A78;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;"><span style="color:white;font-size:14px;">📍</span></div>',
+                offset: { x: 15, y: 15 }
+              }
+            }));
+
+            // ให้ Longdo คำนวณและวาดเส้นทาง
+            map.Route.search();
+
+            // ดึงข้อมูลระยะทาง/เวลา ผ่าน Util.route (data only, ไม่วาดซ้ำ)
+            try {
+              longdo.Util.route([origin, destination], {
+                mode: longdo.RouteMode.Cost,
+                type: longdo.RouteType.Drive
+              }, function(result) {
+                if (result && result.data && result.data.length > 0) {
                   var info = result.data[0];
                   var distanceKm = (info.distance / 1000).toFixed(1);
                   var durationMin = Math.ceil(info.interval / 60);
@@ -279,43 +286,27 @@ export default function JobScreen() {
                     duration: durationMin + ' min'
                   }));
                 }
+              });
+            } catch(e) {}
 
-                // Fit bounds
+            // Zoom ให้เห็นทั้ง origin + destination
+            setTimeout(function() {
+              try {
                 var bounds = {
-                  minLat: Math.min(start.lat, end.lat) - 0.005,
-                  maxLat: Math.max(start.lat, end.lat) + 0.005,
-                  minLon: Math.min(start.lon, end.lon) - 0.005,
-                  maxLon: Math.max(start.lon, end.lon) + 0.005
+                  minLat: Math.min(origin.lat, destination.lat) - 0.005,
+                  maxLat: Math.max(origin.lat, destination.lat) + 0.005,
+                  minLon: Math.min(origin.lon, destination.lon) - 0.005,
+                  maxLon: Math.max(origin.lon, destination.lon) + 0.005
                 };
                 map.bound(bounds);
-              } else {
-                // Fallback: draw straight line
-                routeLine = new longdo.Polyline([start, end], {
-                  lineWidth: 6,
-                  lineColor: 'rgba(66, 133, 244, 0.9)',
-                  borderWidth: 2,
-                  borderColor: 'rgba(255, 255, 255, 0.9)'
-                });
-                map.Overlays.add(routeLine);
-              }
-            });
-          }
+              } catch(e) {}
+            }, 800);
+          };
 
+          // ขยับ blue dot ตามตำแหน่งจริง (ไม่วาด route ใหม่)
           window.updateMyLocation = function(newPos) {
             if (myMarker) {
               myMarker.move(newPos);
-            }
-            // Redraw route from new position
-            var targetPos = targetMarker ? targetMarker.location() : null;
-            if (targetPos) {
-              drawRoute(newPos, targetPos);
-            }
-          };
-
-          window.updateRoute = function(start, end) {
-            drawRoute(start, end);
-            if (targetMarker) {
-              targetMarker.move(end);
             }
           };
 
@@ -341,23 +332,33 @@ export default function JobScreen() {
     );
   }
 
-  const isPickupStage = active.status === "picking_up";
-  const stepTitle = isPickupStage ? "Pickup" : "Deliver";
+  const stepTitles: Record<string, string> = {
+    going_to_customer: "ไปรับผ้า",
+    going_to_shop: "ไปร้าน",
+    delivering: "ไปส่งผ้า",
+  };
+  const stepTitle = stepTitles[active.status] ?? "Job";
 
-  const placeName = isPickupStage ? active.shopName : active.customerName;
-  const placeAddress = isPickupStage ? active.shopAddress : active.customerAddress;
-  const phone = isPickupStage ? active.shopPhone : active.customerPhone;
+  const placeName =
+    stage === "going_to_shop" ? active.shopName : active.customerName;
+  const placeAddress =
+    stage === "going_to_shop" ? active.shopAddress : active.customerAddress;
+  const phone =
+    stage === "going_to_shop" ? active.shopPhone : active.customerPhone;
 
   const onPrimary = () => {
-    if (isPickupStage) {
+    if (stage === "going_to_customer") {
       markPickedUp();
       return;
     }
-
-    Alert.alert("Confirm", "Mark this job as delivered?", [
-      { text: "Cancel", style: "cancel" },
+    if (stage === "going_to_shop") {
+      markAtShop();
+      return;
+    }
+    Alert.alert("ยืนยัน", "ส่งผ้าให้ลูกค้าเรียบร้อยแล้ว?", [
+      { text: "ยกเลิก", style: "cancel" },
       {
-        text: "Delivered",
+        text: "ส่งแล้ว",
         style: "default",
         onPress: () => {
           markDelivered();
@@ -367,7 +368,12 @@ export default function JobScreen() {
     ]);
   };
 
-  const primaryLabel = isPickupStage ? "Arrived" : "Delivered";
+  const primaryLabels: Record<string, string> = {
+    going_to_customer: "รับผ้าแล้ว",
+    going_to_shop: "ถึงร้านแล้ว",
+    delivering: "ส่งแล้ว",
+  };
+  const primaryLabel = primaryLabels[active.status] ?? "ดำเนินการ";
 
   return (
     <View style={s.container}>
@@ -443,8 +449,8 @@ export default function JobScreen() {
             <Ionicons name="call-outline" size={18} color="#0F172A" />
           </TouchableOpacity>
 
-          {/* Navigate button - opens external map app */}
-          <TouchableOpacity style={s.navigateBtn} onPress={openNavigation} activeOpacity={0.8}>
+          {/* Navigate button - opens Google Maps / Apple Maps */}
+          <TouchableOpacity style={s.navigateBtn} onPress={() => { if (target) openNavigation(target.latitude, target.longitude); }} activeOpacity={0.8}>
             <Ionicons name="navigate" size={18} color="#fff" />
             <Text style={s.navigateBtnText}>นำทาง</Text>
           </TouchableOpacity>

@@ -25,7 +25,7 @@ export default function TransferScreen() {
 
     setLoading(true);
     try {
-        // 🔥 เปลี่ยน IP ตรงนี้เป็น IP เครื่องคอมของคุณ (เช่น 192.168.1.45)
+        // 🔥 ใช้ BASE_URL จาก config (IP ปัจจุบัน 10.64.68.226)
         const response = await fetch(API.REDEEM, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

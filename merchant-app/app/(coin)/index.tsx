@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import { useCoinShop } from '../../context/CoinShopContext';
 import { useMachines } from '../../context/MachineContext';
 
 const shopAvatarImg = require('../../assets/images/shop-avatar.png');
@@ -21,6 +22,7 @@ const shopAvatarImg = require('../../assets/images/shop-avatar.png');
  */
 export default function CoinShopScreen() {
   const router = useRouter();
+  const { shop } = useCoinShop();
   const { machines, todayRevenue } = useMachines();
 
   // คำนวณจากข้อมูลจริงใน context
@@ -53,7 +55,7 @@ export default function CoinShopScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerRight}>
-          <Text style={styles.shopName}>ร้านsukhai</Text>
+          <Text style={styles.shopName}>{shop?.name ?? 'Loading...'}</Text>
           <Image source={shopAvatarImg} style={styles.avatar} />
         </View>
       </View>

@@ -305,7 +305,7 @@ const API_BASE_URL = 'http://10.0.2.2:3000/api';
 const API_BASE_URL = 'http://localhost:3000/api';
 
 // สำหรับ Device จริง (ใช้ IP address ของคอมพิวเตอร์)
-const API_BASE_URL = 'http://192.168.1.100:3000/api';
+const API_BASE_URL = 'http://10.64.68.226:3000/api';
 ```
 
 ### 2. เปลี่ยน `useMockData` ใน `app/index.tsx`

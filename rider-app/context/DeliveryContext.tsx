@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export type DeliveryStatus = "picking_up" | "delivering";
+// 3 ขั้น: ไปรับผ้าที่ลูกค้า → ไปร้าน → ไปส่งที่ลูกค้า
+export type DeliveryStatus = "going_to_customer" | "going_to_shop" | "delivering";
 
 export type LatLng = { latitude: number; longitude: number };
 export type PaymentMethod = "cash" | "card";
@@ -18,11 +19,12 @@ export type Order = {
   fee: number;
   items: number;
 
-  // map fields (ใช้โชว์เส้นทาง/หมุด)
-  pickup: LatLng;
-  dropoff: LatLng;
+  // map: ที่อยู่ลูกค้า (รับผ้า/ส่งผ้า), ร้าน
+  pickup: LatLng;   // ที่รับผ้า = ลูกค้า
+  dropoff: LatLng;  // ที่ส่งผ้า = ลูกค้า (จุดเดียวกัน)
+  shop: LatLng;     // พิกัดร้าน
 
-  // optional extras (ไว้ทำ UI แบบตัวอย่าง)
+  // optional extras
   note?: string;
   timeWindow?: string;
   paymentMethod?: PaymentMethod;
@@ -41,12 +43,13 @@ type DeliveryContextType = {
   // ✅ ใช้ตัวนี้เวลาเรา "เริ่มงาน" (รับจากรายการหรือ demo ก็ได้)
   startOrder: (order: Order) => void;
 
-  // (ยังเก็บไว้ให้ไฟล์เก่าใช้งานได้)
   acceptOrder: (id: string) => void;
-
   declineOrder: (id: string) => void;
 
+  // รับผ้าจากลูกค้าแล้ว → ไปร้าน
   markPickedUp: () => void;
+  // ถึงร้านแล้ว (วางผ้า) → ไปส่งลูกค้า
+  markAtShop: () => void;
   markDelivered: () => void;
 
   clearHistory: () => void;
@@ -156,13 +159,10 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
     ).catch(() => { });
   }, [available, active, history, isOnline, autoAccept]);
 
-  // ✅ เริ่มงานด้วย object (รองรับ demo ที่ไม่ได้อยู่ใน available)
   const startOrder = (order: Order) => {
-    if (active) return; // กันรับซ้อน
-
-    setActive({ ...order, status: "picking_up" });
-
-    // ถ้า order นี้มาจาก available ให้เอาออก (ถ้าไม่มีก็ไม่เป็นไร)
+    if (active) return;
+    const shop = (order as any).shop ?? order.pickup;
+    setActive({ ...order, shop, status: "going_to_customer" });
     setAvailable((prev) => prev.filter((o) => o.id !== order.id));
   };
 
@@ -182,6 +182,11 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
   // เพื่อให้แสดง popup ก่อนรับงานอัตโนมัติ
 
   const markPickedUp = () => {
+    if (!active) return;
+    setActive({ ...active, status: "going_to_shop" });
+  };
+
+  const markAtShop = () => {
     if (!active) return;
     setActive({ ...active, status: "delivering" });
   };
@@ -216,6 +221,7 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
         acceptOrder,
         declineOrder,
         markPickedUp,
+        markAtShop,
         markDelivered,
         clearHistory,
         totals,

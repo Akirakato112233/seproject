@@ -64,3 +64,22 @@ export const getShopById = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch shop' });
   }
 };
+
+export const updateShopById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    const shop = await Shop.findByIdAndUpdate(
+      id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    );
+    if (!shop) {
+      return res.status(404).json({ error: 'Shop not found' });
+    }
+    res.json(shop);
+  } catch (error) {
+    console.error('Error updating shop:', error);
+    res.status(500).json({ error: 'Failed to update shop' });
+  }
+};

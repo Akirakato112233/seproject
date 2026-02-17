@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import React from 'react';
+import { CoinShopProvider } from '../../context/CoinShopContext';
 import { MachineProvider } from '../../context/MachineContext';
 
 /**
@@ -8,14 +9,16 @@ import { MachineProvider } from '../../context/MachineContext';
  */
 export default function CoinLayout() {
   return (
-    <MachineProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="monitor" />
-        <Stack.Screen name="settings" />
-        <Stack.Screen name="contact" />
-        <Stack.Screen name="machine-settings" />
-      </Stack>
-    </MachineProvider>
+    <CoinShopProvider>
+      <MachineProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="monitor" />
+          <Stack.Screen name="settings" />
+          <Stack.Screen name="contact" />
+          <Stack.Screen name="machine-settings" />
+        </Stack>
+      </MachineProvider>
+    </CoinShopProvider>
   );
 }
