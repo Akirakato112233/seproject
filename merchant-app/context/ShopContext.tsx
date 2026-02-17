@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { API } from '../config';
+import { API, SHOP_ID } from '../config';
 import { setWalletShopId } from './OrdersContext';
 
 // ========== Types matching backend Shop model ==========
@@ -47,6 +47,7 @@ export interface OtherServiceOption {
 }
 export interface OtherService {
   category: string;
+  defaultUnit?: string;
   options: OtherServiceOption[];
 }
 
@@ -59,6 +60,7 @@ export interface ShopData {
   type: 'coin' | 'full';
   deliveryFee: number;
   deliveryTime: number;
+  balance?: number; // ยอดเงินคงเหลือ (บาท)
   imageUrl?: string;
   washServices?: WashService[];
   dryServices?: DryService[];
@@ -82,18 +84,30 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // โหลดข้อมูลร้านแรกที่เป็น type "full" (ร้านรับซัก)
+  // โหลดข้อมูลร้าน
+  // ถ้ามี SHOP_ID ใน config จะโหลดร้านนั้นโดยตรง (ตรงกับดาต้าเบสที่เปิดใน Atlas)
+  // ถ้าไม่มี จะโหลดร้านแรกที่ type "full" เรียงตาม rating
   const loadShop = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`${API.SHOPS}?type=full`);
-      if (!res.ok) throw new Error('Failed to fetch shops');
-      const shops: ShopData[] = await res.json();
-      if (shops.length > 0) {
-        setShop(shops[0]);
-        setWalletShopId(shops[0]._id);
-        console.log('✅ Shop loaded:', shops[0].name);
+      let shopData: ShopData | null = null;
+
+      if (SHOP_ID && SHOP_ID.trim()) {
+        const res = await fetch(`${API.SHOPS}/${SHOP_ID}`);
+        if (!res.ok) throw new Error('Failed to fetch shop');
+        shopData = await res.json();
+        console.log('✅ Shop loaded by ID:', shopData.name);
+      } else {
+        const res = await fetch(`${API.SHOPS}?type=full`);
+        if (!res.ok) throw new Error('Failed to fetch shops');
+        const shops: ShopData[] = await res.json();
+        if (shops.length > 0) shopData = shops[0];
+      }
+
+      if (shopData) {
+        setShop(shopData);
+        setWalletShopId(shopData._id);
       } else {
         setError('ไม่พบร้านในระบบ');
       }

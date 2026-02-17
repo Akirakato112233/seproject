@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -9,11 +9,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
-import { useOrders } from '../../context/OrdersContext';
+import { useShop } from '../../context/ShopContext';
 
 export default function MerchantWalletScreen() {
   const router = useRouter();
-  const { walletBalance } = useOrders();
+  const { shop, refreshShop } = useShop();
+
+  useEffect(() => {
+    refreshShop();
+  }, [refreshShop]);
+
+  const balance = shop?.balance ?? 0;
 
   return (
     <SafeAreaView style={s.container} edges={['top']}>
@@ -35,7 +41,7 @@ export default function MerchantWalletScreen() {
             </View>
           </View>
           <Text style={s.walletLabel}>กระเป๋าเงิน WIT</Text>
-          <Text style={s.walletBalance}>฿{walletBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+          <Text style={s.walletBalance}>฿{balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
         </View>
 
         {/* Transfer Button */}

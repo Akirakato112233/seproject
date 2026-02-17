@@ -5,6 +5,7 @@ import {
   Alert,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,11 +15,20 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { useServices } from '../../context/ServicesContext';
+import { useShop } from '../../context/ShopContext';
 
 export default function OptionScreen() {
   const router = useRouter();
-  const { categories, removeCategory, removeItem } = useServices();
+  const { refreshShop } = useShop();
+  const { categories, saveError, clearSaveError, removeCategory, removeItem } = useServices();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshShop();
+    setRefreshing(false);
+  };
 
   const toggleExpand = (id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -50,10 +60,27 @@ export default function OptionScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={['bottom']}>
-      <ScrollView style={s.scroll} contentContainerStyle={s.content}>
+      <ScrollView
+        style={s.scroll}
+        contentContainerStyle={s.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primaryBlue} />
+        }
+      >
         <Text style={s.sectionTitle}>
           Services : ({categories.length} Categories)
         </Text>
+
+        {saveError && (
+          <Pressable
+            style={s.errorBanner}
+            onPress={clearSaveError}
+          >
+            <Ionicons name="warning-outline" size={20} color="#fff" />
+            <Text style={s.errorBannerText}>{saveError}</Text>
+            <Ionicons name="close-circle" size={20} color="#fff" />
+          </Pressable>
+        )}
 
         {categories.map((cat) => (
           <View key={cat.id} style={s.categoryBlock}>
@@ -120,9 +147,9 @@ export default function OptionScreen() {
 
         <TouchableOpacity
           style={s.addBtn}
-          onPress={() => router.push('/services/add-choice')}
+          onPress={() => router.push('/services/add-category')}
         >
-          <Text style={s.addBtnText}>Add Item or Category</Text>
+          <Text style={s.addBtnText}>Add Category</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -138,6 +165,21 @@ const s = StyleSheet.create({
     fontWeight: '700',
     color: Colors.textPrimary,
     marginBottom: 16,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#dc2626',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '500',
   },
   categoryBlock: {
     backgroundColor: Colors.white,

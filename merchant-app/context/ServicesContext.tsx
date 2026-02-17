@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { Alert, Platform } from 'react-native';
 import { useShop, ShopData } from './ShopContext';
 
 export interface ServiceItem {
@@ -12,16 +13,19 @@ export interface ServiceCategory {
   id: string;
   name: string;
   items: ServiceItem[];
+  defaultUnit?: string; // สำหรับ Other Services - หน่วยเริ่มต้น
 }
 
 interface ServicesContextType {
   categories: ServiceCategory[];
   loading: boolean;
-  addCategory: (name: string) => void;
+  saveError: string | null;
+  clearSaveError: () => void;
+  addCategory: (name: string, defaultUnit?: string) => void;
   addItem: (
     categoryId: string,
     itemName: string,
-    opts?: { description?: string; price?: number }
+    opts?: { description?: string; price?: number; weight?: number; duration?: number; unit?: string }
   ) => void;
   removeCategory: (id: string) => void;
   removeItem: (categoryId: string, itemId: string) => void;
@@ -102,7 +106,12 @@ function shopToCategories(shop: ShopData): ServiceCategory[] {
         price: opt.price,
         description: `ต่อ ${opt.unit}`,
       }));
-      cats.push({ id: `other-${oi_}`, name: os.category, items });
+      cats.push({
+        id: `other-${oi_}`,
+        name: os.category,
+        items,
+        defaultUnit: os.defaultUnit,
+      });
     });
   }
 
@@ -170,6 +179,7 @@ function categoriesToShopServices(categories: ServiceCategory[]) {
     } else {
       otherServices.push({
         category: cat.name,
+        defaultUnit: cat.defaultUnit,
         options: cat.items.map((item) => ({
           name: item.name,
           price: item.price || 0,
@@ -186,6 +196,7 @@ export function ServicesProvider({ children }: { children: React.ReactNode }) {
   const { shop, updateShop, loading: shopLoading } = useShop();
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // โหลด categories จาก shop data
   useEffect(() => {
@@ -193,24 +204,50 @@ export function ServicesProvider({ children }: { children: React.ReactNode }) {
       const cats = shopToCategories(shop);
       setCategories(cats);
       setLoading(false);
+      setSaveError(null);
     } else if (!shopLoading) {
       setLoading(false);
     }
   }, [shop, shopLoading]);
 
-  // บันทึกการเปลี่ยนแปลงกลับไปที่ backend
-  const saveToBackend = useCallback(async (newCategories: ServiceCategory[]) => {
-    const services = categoriesToShopServices(newCategories);
-    await updateShop(services);
-  }, [updateShop]);
+  const clearSaveError = useCallback(() => setSaveError(null), []);
 
-  const addCategory = useCallback((name: string) => {
+  // บันทึกการเปลี่ยนแปลงกลับไปที่ backend
+  // ถ้าบันทึกไม่สำเร็จ จะ rollback categories ให้ตรงกับข้อมูลจาก DB และแจ้งผู้ใช้
+  const saveToBackend = useCallback(
+    async (newCategories: ServiceCategory[]) => {
+      const services = categoriesToShopServices(newCategories);
+      const success = await updateShop(services);
+      if (success) {
+        setSaveError(null);
+      } else {
+        setSaveError('ไม่สามารถบันทึกข้อมูลได้ กรุณาตรวจสอบการเชื่อมต่อ');
+        if (shop) {
+          setCategories(shopToCategories(shop));
+        }
+        const msg = 'บันทึกไม่สำเร็จ ข้อมูลได้ถูกคืนค่าให้ตรงกับฐานข้อมูลแล้ว';
+        if (Platform.OS === 'web') {
+          window.alert(msg);
+        } else {
+          Alert.alert('เกิดข้อผิดพลาด', msg, [{ text: 'ตกลง' }]);
+        }
+      }
+    },
+    [updateShop, shop]
+  );
+
+  const addCategory = useCallback((name: string, defaultUnit?: string) => {
     const trimmed = name.trim();
     if (!trimmed) return;
     setCategories((prev) => {
       const updated = [
         ...prev,
-        { id: Date.now().toString(), name: trimmed, items: [] },
+        {
+          id: Date.now().toString(),
+          name: trimmed,
+          items: [],
+          defaultUnit: defaultUnit?.trim() || undefined,
+        },
       ];
       saveToBackend(updated);
       return updated;
@@ -218,31 +255,47 @@ export function ServicesProvider({ children }: { children: React.ReactNode }) {
   }, [saveToBackend]);
 
   const addItem = useCallback(
-    (categoryId: string, itemName: string, opts?: { description?: string; price?: number }) => {
+    (categoryId: string, itemName: string, opts?: { description?: string; price?: number; weight?: number; duration?: number; unit?: string }) => {
       const trimmed = itemName.trim();
       if (!trimmed) return;
+      const cat = categories.find((c) => c.id === categoryId);
+      const isWash = cat?.id === 'wash' || cat?.name.toLowerCase().includes('wash');
+      const isDry = cat?.id === 'dry' || cat?.name.toLowerCase().includes('dry');
+      const isOther = cat && !isWash && !isDry && !cat.id.startsWith('iron') && !(cat.id === 'fold' || cat.name.toLowerCase().includes('fold'));
+
+      let displayName = trimmed;
+      let description = opts?.description;
+      if (isWash || isDry) {
+        const w = opts?.weight ?? (isWash ? 9 : 15);
+        displayName = `${trimmed} (${w}kg)`;
+        description = opts?.duration != null ? `${opts.duration} นาที` : (description || '30 นาที');
+      } else if (isOther) {
+        const u = opts?.unit || cat?.defaultUnit || 'ชิ้น';
+        description = `ต่อ ${u}`;
+      }
+
       setCategories((prev) => {
-        const updated = prev.map((cat) =>
-          cat.id === categoryId
+        const updated = prev.map((c) =>
+          c.id === categoryId
             ? {
-                ...cat,
+                ...c,
                 items: [
-                  ...cat.items,
+                  ...c.items,
                   {
                     id: `${categoryId}-${Date.now()}`,
-                    name: trimmed,
-                    description: opts?.description,
+                    name: displayName,
+                    description,
                     price: opts?.price,
                   },
                 ],
               }
-            : cat
+            : c
         );
         saveToBackend(updated);
         return updated;
       });
     },
-    [saveToBackend]
+    [saveToBackend, categories]
   );
 
   const removeCategory = useCallback((id: string) => {
@@ -267,7 +320,16 @@ export function ServicesProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ServicesContext.Provider
-      value={{ categories, loading, addCategory, addItem, removeCategory, removeItem }}
+      value={{
+        categories,
+        loading,
+        saveError,
+        clearSaveError,
+        addCategory,
+        addItem,
+        removeCategory,
+        removeItem,
+      }}
     >
       {children}
     </ServicesContext.Provider>

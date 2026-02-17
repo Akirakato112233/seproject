@@ -54,6 +54,7 @@ export interface IOtherServiceOption {
 
 export interface IOtherService {
   category: string; // 'ซักพิเศษ', 'บริการเสริม'
+  defaultUnit?: string; // หน่วยเริ่มต้นสำหรับ item ใหม่ (ชิ้น, กก., ตร.ม., etc.)
   options: IOtherServiceOption[];
 }
 
@@ -65,6 +66,7 @@ export interface IShop extends Document {
   type: 'coin' | 'full';
   deliveryFee: number;
   deliveryTime: number; // minutes
+  balance?: number; // ยอดเงินคงเหลือ (บาท) เก็บเป็น integer
   imageUrl?: string;
   location?: {
     lat: number;
@@ -129,6 +131,7 @@ const OtherServiceOptionSchema = new Schema({
 
 const OtherServiceSchema = new Schema({
   category: { type: String, required: true },
+  defaultUnit: { type: String },
   options: [OtherServiceOptionSchema],
 }, { _id: false });
 
@@ -140,6 +143,7 @@ const ShopSchema = new Schema<IShop>({
   type: { type: String, enum: ['coin', 'full'], required: true },
   deliveryFee: { type: Number, required: true },
   deliveryTime: { type: Number, required: true },
+  balance: { type: Number, default: 0 },
   imageUrl: { type: String },
   location: {
     lat: { type: Number },

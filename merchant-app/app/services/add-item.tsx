@@ -22,24 +22,48 @@ export default function AddItemScreen() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
+  const [weight, setWeight] = useState('');
+  const [duration, setDuration] = useState('');
+  const [unit, setUnit] = useState('');
   const [selectedCatId, setSelectedCatId] = useState('');
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+
+  const targetCategoryId =
+    selectedCatId || categoryId || categories[0]?.id || '';
+  const targetCategory = categories.find((c) => c.id === targetCategoryId);
+  const isWash = targetCategory?.id === 'wash' || targetCategory?.name.toLowerCase().includes('wash');
+  const isDry = targetCategory?.id === 'dry' || targetCategory?.name.toLowerCase().includes('dry');
+  const isIron = targetCategory?.id?.startsWith('iron') || targetCategory?.name.toLowerCase().includes('iron');
+  const isFold = targetCategory?.id === 'fold' || targetCategory?.name.toLowerCase().includes('fold');
+  const isOther = targetCategory && !isWash && !isDry && !isIron && !isFold;
 
   useEffect(() => {
     if (categoryId) setSelectedCatId(categoryId);
     else if (categories[0]?.id) setSelectedCatId(categories[0].id);
   }, [categoryId, categories]);
 
-  const targetCategoryId =
-    selectedCatId || categoryId || categories[0]?.id || '';
+  // Pre-fill unit เมื่อเลือก category แบบ Other ที่มี defaultUnit
+  useEffect(() => {
+    if (isOther && targetCategory?.defaultUnit) {
+      setUnit(targetCategory.defaultUnit);
+    } else if (!isOther) {
+      setUnit('');
+    }
+  }, [targetCategoryId, targetCategory?.defaultUnit, isOther]);
 
   const handleAdd = () => {
     const trimmed = name.trim();
     if (!trimmed || !targetCategoryId) return;
     const priceNum = price.trim() ? parseFloat(price) : undefined;
+    const weightNum = weight.trim() ? parseInt(weight, 10) : undefined;
+    const durationNum = duration.trim() ? parseInt(duration, 10) : undefined;
+
     addItem(targetCategoryId, trimmed, {
-      description: description.trim() || undefined,
+      description: isOther ? undefined : (description.trim() || undefined),
       price: priceNum,
+      weight: weightNum,
+      duration: durationNum,
+      unit: unit.trim() || undefined,
     });
     router.replace('/services');
   };
@@ -47,35 +71,6 @@ export default function AddItemScreen() {
   return (
     <SafeAreaView style={s.safe} edges={['bottom']}>
       <ScrollView style={s.scroll} contentContainerStyle={s.content}>
-        <Text style={s.label}>Service Name</Text>
-        <TextInput
-          style={s.input}
-          placeholder="Service Name"
-          placeholderTextColor={Colors.textMuted}
-          value={name}
-          onChangeText={setName}
-        />
-
-        <Text style={s.label}>Description</Text>
-        <TextInput
-          style={[s.input, s.inputMultiline]}
-          placeholder="Description"
-          placeholderTextColor={Colors.textMuted}
-          value={description}
-          onChangeText={setDescription}
-          multiline
-        />
-
-        <Text style={s.label}>Price</Text>
-        <TextInput
-          style={s.input}
-          placeholder="Enter price"
-          placeholderTextColor={Colors.textMuted}
-          value={price}
-          onChangeText={setPrice}
-          keyboardType="decimal-pad"
-        />
-
         <Text style={s.label}>Category</Text>
         <TouchableOpacity
           style={s.selectRow}
@@ -87,11 +82,79 @@ export default function AddItemScreen() {
               !targetCategoryId && s.selectPlaceholder,
             ]}
           >
-            {categories.find((c) => c.id === targetCategoryId)?.name ??
-              'Select Category'}
+            {targetCategory?.name ?? 'Select Category'}
           </Text>
           <Ionicons name="chevron-down" size={20} color={Colors.textSecondary} />
         </TouchableOpacity>
+
+        <Text style={s.label}>Service Name</Text>
+        <TextInput
+          style={s.input}
+          placeholder={isWash || isDry ? 'e.g. Cold, Warm water ≈ 40°' : isOther ? 'e.g. ซักแห้ง' : 'Service Name'}
+          placeholderTextColor={Colors.textMuted}
+          value={name}
+          onChangeText={setName}
+        />
+
+        {(isWash || isDry) && (
+          <>
+            <Text style={s.label}>น้ำหนัก (kg)</Text>
+            <TextInput
+              style={s.input}
+              placeholder={isWash ? 'e.g. 9, 14, 18' : 'e.g. 15, 25'}
+              placeholderTextColor={Colors.textMuted}
+              value={weight}
+              onChangeText={setWeight}
+              keyboardType="number-pad"
+            />
+            <Text style={s.label}>ระยะเวลา (นาที)</Text>
+            <TextInput
+              style={s.input}
+              placeholder="e.g. 35"
+              placeholderTextColor={Colors.textMuted}
+              value={duration}
+              onChangeText={setDuration}
+              keyboardType="number-pad"
+            />
+          </>
+        )}
+
+        {isOther && (
+          <>
+            <Text style={s.label}>หน่วย</Text>
+            <TextInput
+              style={s.input}
+              placeholder="e.g. ชิ้น, กก., ตร.ม., คู่, ผืน, ใบ, เม็ด"
+              placeholderTextColor={Colors.textMuted}
+              value={unit}
+              onChangeText={setUnit}
+            />
+          </>
+        )}
+
+        {!isOther && (
+          <>
+            <Text style={s.label}>Description</Text>
+            <TextInput
+              style={[s.input, s.inputMultiline]}
+              placeholder="Description"
+              placeholderTextColor={Colors.textMuted}
+              value={description}
+              onChangeText={setDescription}
+              multiline
+            />
+          </>
+        )}
+
+        <Text style={s.label}>Price</Text>
+        <TextInput
+          style={s.input}
+          placeholder="Enter price"
+          placeholderTextColor={Colors.textMuted}
+          value={price}
+          onChangeText={setPrice}
+          keyboardType="decimal-pad"
+        />
 
         <Modal
           visible={showCategoryPicker}

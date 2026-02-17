@@ -1,11 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Stack } from 'expo-router';
-import React from 'react';
-import { Pressable } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Pressable } from 'react-native';
+import { useShop } from '../../context/ShopContext';
 
 export default function ServicesLayout() {
   const router = useRouter();
+  const { refreshShop } = useShop();
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    await refreshShop();
+    setSyncing(false);
+  };
 
   return (
     <Stack
@@ -27,6 +36,19 @@ export default function ServicesLayout() {
               style={{ padding: 12, marginLeft: 4 }}
             >
               <Ionicons name="arrow-back" size={24} color="#fff" />
+            </Pressable>
+          ),
+          headerRight: () => (
+            <Pressable
+              onPress={handleSync}
+              disabled={syncing}
+              style={{ padding: 12, marginRight: 4 }}
+            >
+              {syncing ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="sync-outline" size={24} color="#fff" />
+              )}
             </Pressable>
           ),
         }}

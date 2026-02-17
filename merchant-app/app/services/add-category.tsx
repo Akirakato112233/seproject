@@ -15,11 +15,12 @@ export default function AddCategoryScreen() {
   const router = useRouter();
   const { addCategory } = useServices();
   const [name, setName] = useState('');
+  const [defaultUnit, setDefaultUnit] = useState('');
 
   const handleConfirm = () => {
     const trimmed = name.trim();
     if (trimmed) {
-      addCategory(trimmed);
+      addCategory(trimmed, defaultUnit.trim() || undefined);
       router.replace('/services');
     }
   };
@@ -30,12 +31,22 @@ export default function AddCategoryScreen() {
         <Text style={s.label}>Category Name</Text>
         <TextInput
           style={s.input}
-          placeholder="Laundry"
+          placeholder="e.g. บริการเสริม, ซักพิเศษ"
           placeholderTextColor={Colors.textMuted}
           value={name}
           onChangeText={setName}
           autoCapitalize="words"
         />
+
+        <Text style={s.label}>หน่วยเริ่มต้น (สำหรับ Add Item)</Text>
+        <TextInput
+          style={s.input}
+          placeholder="e.g. ชิ้น, กก., ตร.ม., คู่, ผืน, ใบ, เม็ด (optional)"
+          placeholderTextColor={Colors.textMuted}
+          value={defaultUnit}
+          onChangeText={setDefaultUnit}
+        />
+
         <TouchableOpacity
           style={[s.confirmBtn, !name.trim() && s.confirmBtnDisabled]}
           onPress={handleConfirm}

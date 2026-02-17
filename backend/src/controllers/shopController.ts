@@ -83,3 +83,56 @@ export const updateShopById = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to update shop' });
   }
 };
+
+/** เพิ่ม balance เมื่อ complete order (ใช้ $inc เพื่อป้องกัน race condition) */
+export const depositBalance = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { amount } = req.body;
+    const amt = Math.round(Number(amount) || 0);
+    if (amt <= 0) {
+      return res.status(400).json({ error: 'Amount must be positive' });
+    }
+    const shop = await Shop.findByIdAndUpdate(
+      id,
+      { $inc: { balance: amt } },
+      { new: true }
+    );
+    if (!shop) {
+      return res.status(404).json({ error: 'Shop not found' });
+    }
+    res.json(shop);
+  } catch (error) {
+    console.error('Error depositing balance:', error);
+    res.status(500).json({ error: 'Failed to deposit' });
+  }
+};
+
+/** ถอน balance (Transfer to Account) */
+export const withdrawBalance = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { amount } = req.body;
+    const amt = Math.round(Number(amount) || 0);
+    if (amt <= 0) {
+      return res.status(400).json({ error: 'Amount must be positive' });
+    }
+    const shop = await Shop.findById(id);
+    if (!shop) {
+      return res.status(404).json({ error: 'Shop not found' });
+    }
+    const currentBalance = (shop as any).balance ?? 0;
+    if (amt > currentBalance) {
+      return res.status(400).json({ error: 'Insufficient balance' });
+    }
+    const updated = await Shop.findByIdAndUpdate(
+      id,
+      { $inc: { balance: -amt } },
+      { new: true }
+    );
+    res.json(updated);
+  } catch (error) {
+    console.error('Error withdrawing balance:', error);
+    res.status(500).json({ error: 'Failed to withdraw' });
+  }
+};

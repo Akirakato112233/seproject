@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { useOrders } from '../../context/OrdersContext';
+import { useShop } from '../../context/ShopContext';
 import { MerchantHeader } from '../../components/MerchantHeader';
 
 const formatDate = (date: Date) => {
@@ -25,6 +26,7 @@ const formatDate = (date: Date) => {
 
 export default function HistoryScreen() {
   const router = useRouter();
+  const { shop } = useShop();
   const [selectedDate] = useState(new Date());
   const { completedOrders } = useOrders();
 
@@ -38,7 +40,7 @@ export default function HistoryScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
-      <MerchantHeader shopName="ร้านasukhai" onWalletPress={() => router.push('/(tabs)/wallet')} />
+      <MerchantHeader shopName={shop?.name ?? 'Loading...'} onWalletPress={() => router.push('/(tabs)/wallet')} />
 
       <View style={s.content}>
         <Text style={s.title}>History</Text>
@@ -52,10 +54,12 @@ export default function HistoryScreen() {
         </TouchableOpacity>
 
         <View style={s.revenueCard}>
-          <Text style={s.revenueAmount}>{stats.totalRevenue.toFixed(2)}฿</Text>
-          <Text style={s.revenueLabel}>Total Revenue</Text>
+          <Text style={s.revenueAmount}>
+            {(shop?.balance ?? 0).toFixed(2)}฿
+          </Text>
+          <Text style={s.revenueLabel}>Balance</Text>
           <Text style={s.revenueSubtext}>
-            Gross sales before deductions and adjustments.
+            ยอดคงเหลือจากฐานข้อมูล
           </Text>
         </View>
 

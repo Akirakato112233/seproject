@@ -13,19 +13,8 @@ export default function AddChoiceScreen() {
       <View style={s.content}>
         <TouchableOpacity
           style={s.optionRow}
-          onPress={() => router.push('/services/add-item')}
-          activeOpacity={0.7}
-        >
-          <View>
-            <Text style={s.optionTitle}>Add Item</Text>
-            <Text style={s.optionPlaceholder}>e.g. Cold Wash</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
-        </TouchableOpacity>
-        <View style={s.divider} />
-        <TouchableOpacity
-          style={s.optionRow}
           onPress={() => router.push('/services/add-category')}
+          activeOpacity={0.7}
         >
           <View>
             <Text style={s.optionTitle}>Add Category</Text>
@@ -56,5 +45,4 @@ const s = StyleSheet.create({
   },
   optionTitle: { fontSize: 16, fontWeight: '600', color: Colors.textPrimary },
   optionPlaceholder: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
-  divider: { height: 1, backgroundColor: Colors.cardBorder, marginLeft: 16 },
 });
