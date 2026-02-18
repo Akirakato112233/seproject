@@ -15,6 +15,12 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
 
     if (!token) return res.status(401).json({ message: 'Access denied, token missing' });
 
+    // DEV: Bypass auth for dev_token
+    if (token === 'dev_token') {
+        req.user = { userId: '698e27ff93d8fdbda13bb05c', role: 'user' };
+        return next();
+    }
+
     try {
         const decoded = verifyToken(token);
         req.user = decoded;

@@ -46,6 +46,8 @@ app.post('/api/orders/pending/dev-create', async (req, res) => {
     });
 
     console.log('✅ DEV Test Order Created:', order._id);
+    console.log('📅 Order createdAt:', order.createdAt);
+    console.log('📅 Order updatedAt:', order.updatedAt);
     res.status(201).json({ success: true, order });
   } catch (error: any) {
     console.error('❌ DEV Create Order Error:', error.message);
