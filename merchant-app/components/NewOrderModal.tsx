@@ -21,20 +21,29 @@ export interface NewOrderData {
   pickupTime: string;
   note?: string;
   expiresIn?: number;
+  _rawId?: string; // MongoDB _id สำหรับเรียก API
 }
 
 interface NewOrderModalProps {
   visible: boolean;
   order: NewOrderData | null;
+  orders: NewOrderData[];
+  currentIndex: number;
   onAccept: () => void;
   onDecline: () => void;
+  onPrev: () => void;
+  onNext: () => void;
 }
 
 export function NewOrderModal({
   visible,
   order,
+  orders,
+  currentIndex,
   onAccept,
   onDecline,
+  onPrev,
+  onNext,
 }: NewOrderModalProps) {
   const [timeLeft, setTimeLeft] = useState(order?.expiresIn ?? 180);
 
@@ -53,12 +62,27 @@ export function NewOrderModal({
 
   if (!order) return null;
 
+  const canGoPrev = orders.length > 1 && currentIndex > 0;
+  const canGoNext = orders.length > 1 && currentIndex < orders.length - 1;
+
   return (
     <Modal visible={visible} transparent animationType="fade">
       <TouchableWithoutFeedback>
         <View style={s.overlay}>
-          <TouchableWithoutFeedback>
-            <View style={s.modal}>
+          <View style={s.modalRow}>
+            <TouchableOpacity
+              style={[s.navBtn, !canGoPrev && s.navBtnDisabled]}
+              onPress={onPrev}
+              disabled={!canGoPrev}
+            >
+              <Ionicons
+                name="chevron-back"
+                size={32}
+                color={canGoPrev ? Colors.primaryBlue : Colors.textMuted}
+              />
+            </TouchableOpacity>
+            <TouchableWithoutFeedback>
+              <View style={s.modal}>
               <View style={s.modalHeader}>
                 <View style={s.headerLeft}>
                   <View style={s.logoIcon}>
@@ -129,8 +153,20 @@ export function NewOrderModal({
               </View>
 
               <Text style={s.expires}>OFFER EXPIRES IN {timeStr}</Text>
-            </View>
-          </TouchableWithoutFeedback>
+              </View>
+            </TouchableWithoutFeedback>
+            <TouchableOpacity
+              style={[s.navBtn, !canGoNext && s.navBtnDisabled]}
+              onPress={onNext}
+              disabled={!canGoNext}
+            >
+              <Ionicons
+                name="chevron-forward"
+                size={32}
+                color={canGoNext ? Colors.primaryBlue : Colors.textMuted}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
       </TouchableWithoutFeedback>
     </Modal>
@@ -145,8 +181,25 @@ const s = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-  modal: {
+  modalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     width: '100%',
+    maxWidth: 440,
+    gap: 8,
+  },
+  navBtn: {
+    padding: 8,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navBtnDisabled: {
+    opacity: 0.4,
+  },
+  modal: {
+    flex: 1,
     maxWidth: 400,
     backgroundColor: Colors.white,
     borderRadius: 16,

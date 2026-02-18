@@ -33,6 +33,10 @@ export const API = {
     ORDERS: `${BASE_URL}/api/orders`,
     ORDERS_ACTIVE: `${BASE_URL}/api/orders/active`,
     ORDERS_HISTORY: `${BASE_URL}/api/orders/history`,
+    ORDERS_MERCHANT_PENDING: (shopId: string) => `${BASE_URL}/api/orders/merchant/${shopId}/pending`,
+    ORDERS_MERCHANT_CURRENT: (shopId: string) => `${BASE_URL}/api/orders/merchant/${shopId}/current`,
+    ORDERS_MERCHANT_ACCEPT: (orderId: string) => `${BASE_URL}/api/orders/${orderId}/merchant-accept`,
+    ORDERS_MERCHANT_STATUS: (orderId: string) => `${BASE_URL}/api/orders/${orderId}/merchant-status`,
     // Wallet APIs
     WALLET: `${BASE_URL}/api/wallet`,
 };

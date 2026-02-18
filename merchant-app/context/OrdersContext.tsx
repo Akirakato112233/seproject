@@ -8,32 +8,13 @@ export interface MerchantOrder {
   orderId: string;
   serviceType: string;
   status: 'washing' | 'ready';
+  statusRaw?: string;
   total: number;
+  paymentMethod?: string;
   dueText?: string;
   pickupText?: string;
   completedAt?: Date;
 }
-
-const defaultOrders: MerchantOrder[] = [
-  {
-    id: '7721',
-    customerName: 'Thana some',
-    orderId: 'ORD-7721',
-    serviceType: 'Wash & Fold',
-    status: 'washing',
-    total: 200,
-    dueText: 'Due in 2h',
-  },
-  {
-    id: '7719',
-    customerName: 'Mike Ross',
-    orderId: 'ORD-7719',
-    serviceType: 'Wash & Fold',
-    status: 'ready',
-    total: 120,
-    pickupText: 'Waiting for Pickup',
-  },
-];
 
 interface OrdersContextType {
   currentOrders: MerchantOrder[];
@@ -44,6 +25,7 @@ interface OrdersContextType {
   walletBalance: number;
   withdraw: (amount: number) => Promise<boolean>;
   refreshBalance: () => Promise<void>;
+  refreshCurrentOrders: () => Promise<void>;
 }
 
 const OrdersContext = createContext<OrdersContextType | null>(null);
@@ -56,8 +38,26 @@ export function setWalletShopId(id: string) {
 
 export function OrdersProvider({ children }: { children: React.ReactNode }) {
   const { shop, refreshShop } = useShop();
-  const [currentOrders, setCurrentOrders] = useState<MerchantOrder[]>(defaultOrders);
+  const [currentOrders, setCurrentOrders] = useState<MerchantOrder[]>([]);
   const [completedOrders, setCompletedOrders] = useState<MerchantOrder[]>([]);
+
+  const refreshCurrentOrders = useCallback(async () => {
+    if (!shop?._id) return;
+    try {
+      const res = await fetch(API.ORDERS_MERCHANT_CURRENT(shop._id));
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.success && Array.isArray(data.orders)) {
+        setCurrentOrders(data.orders);
+      }
+    } catch (err) {
+      console.error('Error fetching current orders:', err);
+    }
+  }, [shop?._id]);
+
+  useEffect(() => {
+    refreshCurrentOrders();
+  }, [refreshCurrentOrders]);
 
   // balance มาจาก shop.balance ในฐานข้อมูล
   const walletBalance = shop?.balance ?? 0;
@@ -77,37 +77,54 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
     ]);
   }, []);
 
-  const setOrderReady = useCallback((orderId: string) => {
-    setCurrentOrders((prev) =>
-      prev.map((o) =>
-        o.id === orderId ? { ...o, status: 'ready' as const, pickupText: 'Waiting for Pickup' } : o
-      )
-    );
-  }, []);
+  const setOrderReady = useCallback(async (orderId: string) => {
+    if (!shop?._id) return;
+    try {
+      const res = await fetch(API.ORDERS_MERCHANT_STATUS(orderId), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'in_progress', shopId: shop._id }),
+      });
+      if (res.ok) {
+        await refreshCurrentOrders();
+      }
+    } catch (err) {
+      console.error('Error setting order ready:', err);
+    }
+  }, [shop?._id, refreshCurrentOrders]);
 
-  const completeOrder = useCallback((orderId: string) => {
-    setCurrentOrders((prev) => {
-      const order = prev.find((o) => o.id === orderId);
-      if (order) {
+  const completeOrder = useCallback(async (orderId: string) => {
+    const order = currentOrders.find((o) => o.id === orderId);
+    if (!order || !shop?._id) return;
+    try {
+      const res = await fetch(API.ORDERS_MERCHANT_STATUS(orderId), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'deliverying', shopId: shop._id }),
+      });
+      if (res.ok) {
         setCompletedOrders((done) => [
           ...done,
           { ...order, completedAt: new Date() },
         ]);
-        // เพิ่ม balance ใน Shop (ฐานข้อมูล) - ใช้ $inc แบบ atomic
-        if (shop?._id) {
+        await refreshCurrentOrders();
+        // เฉพาะเงินกระเป๋าเท่านั้นที่นำเงินเข้าในระบบ (deposit)
+        // เงินสดไม่ต้อง deposit แต่ยังแสดงใน history
+        const isWallet = order.paymentMethod === 'เงินกระเป๋า' || order.paymentMethod === 'wallet';
+        if (isWallet && shop._id) {
           fetch(`${API.SHOPS}/${shop._id}/balance/deposit`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ amount: order.total }),
           })
-            .then((res) => res.ok && refreshShop())
+            .then((r) => r.ok && refreshShop())
             .catch((err) => console.error('Error depositing:', err));
         }
-        return prev.filter((o) => o.id !== orderId);
       }
-      return prev;
-    });
-  }, [shop?._id, refreshShop]);
+    } catch (err) {
+      console.error('Error completing order:', err);
+    }
+  }, [shop?._id, refreshShop, refreshCurrentOrders, currentOrders]);
 
   const withdraw = useCallback(async (amount: number): Promise<boolean> => {
     if (!shop?._id) return false;
@@ -139,6 +156,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
         walletBalance,
         withdraw,
         refreshBalance,
+        refreshCurrentOrders,
       }}
     >
       {children}

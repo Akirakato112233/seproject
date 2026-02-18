@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Colors } from '../constants/colors';
 
-export type OrderDetailStatus = 'washing' | 'ready_for_delivery';
+export type OrderDetailStatus = 'washing' | 'in_progress' | 'ready_for_delivery';
 
 export interface OrderDetailData {
   id: string;
@@ -44,7 +44,9 @@ export function OrderDetailSheet({
   if (!order) return null;
 
   const isWashing = order.status === 'washing';
+  const isInProgress = order.status === 'in_progress';
   const actionLabel = isWashing ? 'Ready for Pickup' : 'Rider arrived';
+  const statusLabel = isWashing ? 'WASHING' : isInProgress ? 'In Progress' : 'Ready for Delivery';
 
   return (
     <Modal visible={visible} transparent animationType="slide">
@@ -59,11 +61,11 @@ export function OrderDetailSheet({
                   <View
                     style={[
                       s.statusBadge,
-                      isWashing ? s.statusWashing : s.statusReady,
+                      isWashing ? s.statusWashing : isInProgress ? s.statusInProgress : s.statusReady,
                     ]}
                   >
                     <Text style={s.statusText}>
-                      {isWashing ? 'WASHING' : 'Ready for Delivery'}
+                      {statusLabel}
                     </Text>
                   </View>
                 </View>
@@ -216,6 +218,7 @@ const s = StyleSheet.create({
     marginTop: 6,
   },
   statusWashing: { backgroundColor: Colors.primaryBlue },
+  statusInProgress: { backgroundColor: '#f59e0b' },
   statusReady: { backgroundColor: Colors.successGreen },
   statusText: { fontSize: 12, fontWeight: '700', color: Colors.white },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },

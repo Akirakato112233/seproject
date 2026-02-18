@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   FlatList,
   StyleSheet,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import { API } from '../../config';
 import { useOrders } from '../../context/OrdersContext';
 import { useShop } from '../../context/ShopContext';
 import { MerchantHeader } from '../../components/MerchantHeader';
@@ -23,57 +24,136 @@ import {
 
 type OrderFilter = 'all' | 'in_progress' | 'ready';
 
-const CUSTOMER_NAMES = ['สมชาย ใจดี', 'มานี มีสุข', 'New Customer', 'John Doe', 'Sarah Lee'];
-const SERVICE_DETAILS = ['approx. 12-15 lbs of laundry', 'approx. 8-10 lbs', 'approx. 5-7 kg'];
-const NOTES = ['แยกผ้าขาว / สี', 'ซักเบา', undefined];
-const PAYMENT_METHODS = ['เงินสด', 'โอนเงิน'];
+interface ApiPendingOrder {
+  id: string;
+  orderId: string;
+  customerName: string;
+  userAddress: string;
+  total: number;
+  paymentMethod: string;
+  serviceType: string;
+  serviceDetail: string;
+  items: { name: string; details: string; price: number }[];
+  createdAt: string;
+}
 
-function generateRandomNewOrder(): NewOrderData {
-  const id = `ORD-${8000 + Math.floor(Math.random() * 2000)}`;
-  const total = Math.floor(100 + Math.random() * 200);
+function formatPickupTime(createdAt: string): string {
+  try {
+    const d = new Date(createdAt);
+    const today = new Date();
+    const isToday = d.toDateString() === today.toDateString();
+    const h = d.getHours();
+    const m = d.getMinutes();
+    const endH = (h + 2) % 24;
+    const fmt = (h: number) => {
+      const h12 = h % 12 || 12;
+      const ampm = h < 12 ? 'AM' : 'PM';
+      return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
+    };
+    return isToday
+      ? `Today, ${fmt(h)} - ${fmt(endH)}`
+      : `${d.toLocaleDateString()}, ${fmt(h)} - ${fmt(endH)}`;
+  } catch {
+    return 'Today, 2:00 PM - 4:00 PM';
+  }
+}
+
+function apiOrderToNewOrderData(order: ApiPendingOrder): NewOrderData {
   return {
-    id,
-    customerName: CUSTOMER_NAMES[Math.floor(Math.random() * CUSTOMER_NAMES.length)],
-    distance: `${Math.floor(1 + Math.random() * 5)} KM`,
-    total,
-    paymentMethod: PAYMENT_METHODS[Math.floor(Math.random() * PAYMENT_METHODS.length)],
-    serviceType: 'Wash & Fold Service',
-    serviceDetail: SERVICE_DETAILS[Math.floor(Math.random() * SERVICE_DETAILS.length)],
-    pickupTime: 'Today, 2:00 PM - 4:00 PM',
-    note: NOTES[Math.floor(Math.random() * NOTES.length)],
+    id: order.orderId || order.id,
+    customerName: order.customerName || 'Customer',
+    distance: '4 KM',
+    total: order.total || 0,
+    paymentMethod: order.paymentMethod || 'เงินสด',
+    serviceType: order.serviceType || 'Wash & Fold Service',
+    serviceDetail: order.serviceDetail || 'approx. 5-7 kg',
+    pickupTime: formatPickupTime(order.createdAt),
+    note: order.items?.[0]?.details || undefined,
     expiresIn: 180,
+    _rawId: order.id,
   };
 }
 
 export default function DashboardScreen() {
   const router = useRouter();
   const { shop } = useShop();
-  const { currentOrders, addOrder, setOrderReady, completeOrder } = useOrders();
+  const { currentOrders, setOrderReady, completeOrder, refreshCurrentOrders } = useOrders();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<OrderFilter>('all');
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [pendingNewOrder, setPendingNewOrder] = useState<NewOrderData | null>(null);
+  const [pendingOrderIndex, setPendingOrderIndex] = useState(0);
   const [selectedOrder, setSelectedOrder] = useState<(typeof currentOrders)[0] | null>(null);
   const [orderDetailVisible, setOrderDetailVisible] = useState(false);
-  const [hasNewOrderNotification, setHasNewOrderNotification] = useState(true);
+  const [pendingOrders, setPendingOrders] = useState<ApiPendingOrder[]>([]);
+
+  const fetchPendingOrders = useCallback(async () => {
+    if (!shop?._id) return;
+    try {
+      const res = await fetch(API.ORDERS_MERCHANT_PENDING(shop._id));
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.success && Array.isArray(data.orders)) {
+        setPendingOrders(data.orders);
+      }
+    } catch (err) {
+      console.error('Error fetching pending orders:', err);
+    }
+  }, [shop?._id]);
+
+  useEffect(() => {
+    fetchPendingOrders();
+    const interval = setInterval(fetchPendingOrders, 10000);
+    return () => clearInterval(interval);
+  }, [fetchPendingOrders]);
 
   const handleShowNewOrder = () => {
-    setPendingNewOrder(generateRandomNewOrder());
-    setShowNewOrder(true);
-    setHasNewOrderNotification(false);
+    const first = pendingOrders[0];
+    if (first) {
+      setPendingNewOrder(apiOrderToNewOrderData(first));
+      setPendingOrderIndex(0);
+      setShowNewOrder(true);
+    }
   };
 
-  const handleAcceptOrder = () => {
-    if (pendingNewOrder) {
-      addOrder({
-        id: pendingNewOrder.id.replace('ORD-', ''),
-        customerName: pendingNewOrder.customerName,
-        orderId: pendingNewOrder.id,
-        serviceType: 'Wash & Fold',
-        total: pendingNewOrder.total,
-      });
-      setPendingNewOrder(null);
+  const pendingOrdersAsNewOrderData = pendingOrders.map(apiOrderToNewOrderData);
+
+  const handlePrevOrder = () => {
+    if (pendingOrderIndex > 0) {
+      const nextIdx = pendingOrderIndex - 1;
+      setPendingOrderIndex(nextIdx);
+      setPendingNewOrder(pendingOrdersAsNewOrderData[nextIdx]);
     }
+  };
+
+  const handleNextOrder = () => {
+    if (pendingOrderIndex < pendingOrders.length - 1) {
+      const nextIdx = pendingOrderIndex + 1;
+      setPendingOrderIndex(nextIdx);
+      setPendingNewOrder(pendingOrdersAsNewOrderData[nextIdx]);
+    }
+  };
+
+  const handleAcceptOrder = async () => {
+    if (!pendingNewOrder) {
+      setShowNewOrder(false);
+      return;
+    }
+    const orderId = pendingNewOrder._rawId || pendingNewOrder.id;
+    try {
+      const res = await fetch(API.ORDERS_MERCHANT_ACCEPT(orderId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shopId: shop?._id }),
+      });
+      if (res.ok) {
+        await refreshCurrentOrders();
+        await fetchPendingOrders();
+      }
+    } catch (err) {
+      console.error('Error accepting order:', err);
+    }
+    setPendingNewOrder(null);
     setShowNewOrder(false);
   };
 
@@ -100,12 +180,12 @@ export default function DashboardScreen() {
       )
     : filteredOrders;
 
-  const handleOrderAction = () => {
+  const handleOrderAction = async () => {
     if (!selectedOrder) return;
     if (selectedOrder.status === 'washing') {
-      setOrderReady(selectedOrder.id);
+      await setOrderReady(selectedOrder.id);
     } else {
-      completeOrder(selectedOrder.id);
+      await completeOrder(selectedOrder.id);
       router.push('/(tabs)/history');
     }
     setOrderDetailVisible(false);
@@ -120,13 +200,18 @@ export default function DashboardScreen() {
   const getOrderDetailData = (): OrderDetailData | null => {
     if (!selectedOrder) return null;
     const status: OrderDetailStatus =
-      selectedOrder.status === 'washing' ? 'washing' : 'ready_for_delivery';
+      selectedOrder.status === 'washing'
+        ? 'washing'
+        : selectedOrder.statusRaw === 'in_progress'
+          ? 'in_progress'
+          : 'ready_for_delivery';
+    const displayId = selectedOrder.orderId?.replace('ORD-', '') || selectedOrder.id.slice(-4);
     return {
-      id: selectedOrder.id,
+      id: displayId,
       status,
       total: selectedOrder.total,
       isPaid: selectedOrder.status === 'ready',
-      paymentMethod: 'เงินสด',
+      paymentMethod: selectedOrder.paymentMethod || 'เงินสด',
       customerName: selectedOrder.customerName,
       customerPhone: '086-555-4444',
       orderDate: 'Today, 2:00 PM - 4:00 PM',
@@ -144,13 +229,17 @@ export default function DashboardScreen() {
     <SafeAreaView style={s.safe} edges={['top']}>
       <MerchantHeader shopName={shop?.name ?? 'Loading...'} onWalletPress={() => router.push('/(tabs)/wallet')} />
 
-      {hasNewOrderNotification && (
+      {pendingOrders.length > 0 && (
         <TouchableOpacity
           style={s.newOrderBanner}
           onPress={handleShowNewOrder}
         >
           <Ionicons name="notifications" size={20} color={Colors.white} />
-          <Text style={s.newOrderBannerText}>New order - Tap to view</Text>
+          <Text style={s.newOrderBannerText}>
+            {pendingOrders.length === 1
+              ? 'New order - Tap to view'
+              : `New orders (${pendingOrders.length}) - Tap to view`}
+          </Text>
           <Ionicons name="chevron-forward" size={18} color={Colors.white} />
         </TouchableOpacity>
       )}
@@ -270,8 +359,12 @@ export default function DashboardScreen() {
       <NewOrderModal
         visible={showNewOrder}
         order={pendingNewOrder}
+        orders={pendingOrdersAsNewOrderData}
+        currentIndex={pendingOrderIndex}
         onAccept={handleAcceptOrder}
         onDecline={handleDeclineOrder}
+        onPrev={handlePrevOrder}
+        onNext={handleNextOrder}
       />
 
       <OrderDetailSheet

@@ -5,7 +5,11 @@ import {
     getActiveOrder,
     updateOrderStatus,
     getOrderHistory,
-    getPendingOrders
+    getPendingOrders,
+    getMerchantPendingOrders,
+    getMerchantCurrentOrders,
+    merchantAcceptOrder,
+    merchantUpdateOrderStatus
 } from '../controllers/orderController';
 import { authenticateToken } from '../middleware/auth';
 
@@ -13,6 +17,18 @@ const router = Router();
 
 // GET /api/orders/pending - ดึง order ที่รอ Rider (ไม่ต้อง auth เพื่อให้ dev mode ใช้ได้)
 router.get('/pending', getPendingOrders);
+
+// GET /api/orders/merchant/:shopId/pending - ดึง order ที่รอ Merchant รับ (สำหรับร้าน)
+router.get('/merchant/:shopId/pending', getMerchantPendingOrders);
+
+// GET /api/orders/merchant/:shopId/current - ดึง order ที่ร้านกำลังดำเนินการ
+router.get('/merchant/:shopId/current', getMerchantCurrentOrders);
+
+// POST /api/orders/:orderId/merchant-accept - Merchant รับ order (ไม่ต้อง auth)
+router.post('/:orderId/merchant-accept', merchantAcceptOrder);
+
+// PATCH /api/orders/:orderId/merchant-status - Merchant อัพเดทสถานะ (ไม่ต้อง auth)
+router.patch('/:orderId/merchant-status', merchantUpdateOrderStatus);
 
 // Apply auth middleware to remaining order routes
 router.use(authenticateToken);

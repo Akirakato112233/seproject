@@ -128,6 +128,68 @@ export const getActiveOrder = async (req: AuthRequest, res: Response) => {
     }
 };
 
+// Merchant อัพเดทสถานะ order (at_shop <-> out_for_delivery <-> completed) - ไม่ต้อง auth
+export const merchantUpdateOrderStatus = async (req: AuthRequest, res: Response) => {
+    try {
+        const { orderId } = req.params;
+        const { status, shopId } = req.body;
+
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+        if (shopId && String(order.shopId) !== String(shopId)) {
+            return res.status(403).json({ success: false, message: 'Order does not belong to this shop' });
+        }
+
+        const allowed = ['at_shop', 'out_for_delivery', 'in_progress', 'deliverying', 'completed'];
+        if (!allowed.includes(status)) {
+            return res.status(400).json({ success: false, message: 'Invalid status' });
+        }
+
+        const updated = await Order.findByIdAndUpdate(
+            orderId,
+            { status },
+            { new: true }
+        );
+
+        res.json({ success: true, order: updated });
+    } catch (error) {
+        console.error('Merchant Update Order Status Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to update order status' });
+    }
+};
+
+// Merchant รับ order (rider_coming -> at_shop) - ไม่ต้อง auth
+export const merchantAcceptOrder = async (req: AuthRequest, res: Response) => {
+    try {
+        const { orderId } = req.params;
+        const { shopId } = req.body;
+
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+        if (shopId && String(order.shopId) !== String(shopId)) {
+            return res.status(403).json({ success: false, message: 'Order does not belong to this shop' });
+        }
+        if (order.status !== 'rider_coming' && order.status !== 'at_shop') {
+            return res.status(400).json({ success: false, message: 'Order cannot be accepted' });
+        }
+
+        const updated = await Order.findByIdAndUpdate(
+            orderId,
+            { status: 'at_shop' },
+            { new: true }
+        );
+
+        res.json({ success: true, order: updated });
+    } catch (error) {
+        console.error('Merchant Accept Order Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to accept order' });
+    }
+};
+
 // อัพเดทสถานะ Order
 export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
     try {
@@ -167,6 +229,90 @@ export const getOrderHistory = async (req: AuthRequest, res: Response) => {
     } catch (error) {
         console.error('Get Order History Error:', error);
         res.status(500).json({ success: false, message: 'Failed to get order history' });
+    }
+};
+
+// ดึง Order ที่รอ Merchant รับงาน (สำหรับร้าน - filter ตาม shopId)
+export const getMerchantPendingOrders = async (req: AuthRequest, res: Response) => {
+    try {
+        const { shopId } = req.params;
+        if (!shopId) {
+            return res.status(400).json({ success: false, message: 'shopId is required' });
+        }
+
+        const orders = await Order.find({
+            shopId,
+            status: 'rider_coming'
+        }).sort({ createdAt: -1 });
+
+        const formattedOrders = orders.map((order) => {
+            const firstItem = Array.isArray(order.items) && order.items.length > 0
+                ? order.items[0]
+                : { name: 'Wash & Fold Service', details: 'approx. 5-7 kg', price: 0 };
+
+            return {
+                id: String(order._id),
+                _id: order._id,
+                orderId: `ORD-${String(order._id).slice(-4)}`,
+                customerName: order.userDisplayName || 'Customer',
+                userAddress: order.userAddress || '',
+                total: order.total || 0,
+                serviceTotal: order.serviceTotal || 0,
+                deliveryFee: order.deliveryFee || 0,
+                paymentMethod: order.paymentMethod === 'wallet' ? 'เงินกระเป๋า' : 'เงินสด',
+                paymentMethodRaw: order.paymentMethod,
+                serviceType: firstItem?.name || 'Wash & Fold Service',
+                serviceDetail: firstItem?.details || `approx. 5-7 kg`,
+                items: order.items || [],
+                status: order.status,
+                createdAt: order.createdAt,
+                updatedAt: order.updatedAt,
+            };
+        });
+
+        res.json({ success: true, orders: formattedOrders });
+    } catch (error) {
+        console.error('Get Merchant Pending Orders Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to get merchant pending orders' });
+    }
+};
+
+// ดึง Order ที่ร้านกำลังดำเนินการ (at_shop, out_for_delivery)
+export const getMerchantCurrentOrders = async (req: AuthRequest, res: Response) => {
+    try {
+        const { shopId } = req.params;
+        if (!shopId) {
+            return res.status(400).json({ success: false, message: 'shopId is required' });
+        }
+
+        const orders = await Order.find({
+            shopId,
+            status: { $in: ['at_shop', 'out_for_delivery', 'in_progress', 'deliverying'] }
+        }).sort({ createdAt: -1 });
+
+        const formattedOrders = orders.map((order) => {
+            const firstItem = Array.isArray(order.items) && order.items.length > 0
+                ? order.items[0]
+                : { name: 'Wash & Fold Service', details: '', price: 0 };
+
+            return {
+                id: String(order._id),
+                customerName: order.userDisplayName || 'Customer',
+                orderId: `ORD-${String(order._id).slice(-4)}`,
+                serviceType: firstItem?.name || 'Wash & Fold',
+                status: (order.status === 'at_shop') ? 'washing' : 'ready',
+                statusRaw: order.status,
+                total: order.total || 0,
+                paymentMethod: order.paymentMethod === 'wallet' ? 'เงินกระเป๋า' : 'เงินสด',
+                dueText: order.status === 'at_shop' ? 'Due in 2h' : undefined,
+                pickupText: (order.status === 'out_for_delivery' || order.status === 'in_progress' || order.status === 'deliverying') ? 'Waiting for Pickup' : undefined,
+            };
+        });
+
+        res.json({ success: true, orders: formattedOrders });
+    } catch (error) {
+        console.error('Get Merchant Current Orders Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to get merchant current orders' });
     }
 };
 
