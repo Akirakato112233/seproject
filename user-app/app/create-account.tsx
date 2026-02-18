@@ -11,14 +11,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import * as AuthSession from 'expo-auth-session';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 
 // Complete auth session when returning from browser
 WebBrowser.maybeCompleteAuthSession();
 
-const GOOGLE_CLIENT_ID = '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
+const GOOGLE_WEB_CLIENT_ID = '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
+const BACKEND_URL = 'https://putative-renea-whisperingly.ngrok-free.dev';
 
 /**
  * Create Account Screen - Google Sign-In
@@ -26,86 +27,101 @@ const GOOGLE_CLIENT_ID = '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.goo
 export default function CreateAccountScreen() {
   const router = useRouter();
   const { login } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
 
-  // @ts-ignore - useProxy is deprecated but works for Expo Go
-  const redirectUri = AuthSession.makeRedirectUri({
-    useProxy: Platform.OS !== 'web',
-  });
-
-  console.log('Platform:', Platform.OS);
-  console.log('Generated redirectUri:', redirectUri);
+  // Web: ใช้ expo-auth-session ปกติ
+  const redirectUri = AuthSession.makeRedirectUri();
 
   const [request, response, promptAsync] = Google.useAuthRequest({
-    expoClientId: GOOGLE_CLIENT_ID,
-    iosClientId: GOOGLE_CLIENT_ID,
-    androidClientId: GOOGLE_CLIENT_ID,
-    webClientId: GOOGLE_CLIENT_ID, // Required for web platform
+    webClientId: GOOGLE_WEB_CLIENT_ID,
+    iosClientId: GOOGLE_WEB_CLIENT_ID, // Use Web Client ID for iOS too
+    androidClientId: GOOGLE_WEB_CLIENT_ID,
     scopes: ['profile', 'email'],
-    redirectUri,
   });
 
+  // Handle web OAuth response
   useEffect(() => {
-    if (request) {
-      console.log('Redirect URI created:', request.redirectUri);
-    }
-  }, [request]);
-
-  useEffect(() => {
-    handleResponse();
-  }, [response]);
-
-  const handleResponse = async () => {
-    if (response?.type === 'success') {
+    if (Platform.OS === 'web' && response?.type === 'success') {
       const { authentication } = response;
       if (authentication?.accessToken) {
-        try {
-          // Call backend to check if user exists
-          const { API } = await import('../config');
-          const backendRes = await fetch(API.GOOGLE_LOGIN, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ accessToken: authentication.accessToken }),
-          });
+        handleAccessToken(authentication.accessToken);
+      }
+    }
+  }, [response]);
 
-          const data = await backendRes.json();
-          console.log('Backend response:', data);
+  // ส่ง accessToken ไป backend เพื่อ login/register
+  const handleAccessToken = async (accessToken: string) => {
+    setIsLoading(true);
+    try {
+      const { API } = await import('../config');
+      const backendRes = await fetch(API.GOOGLE_LOGIN, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessToken }),
+      });
 
-          if (data.next === 'REGISTER') {
-            // User doesn't exist or not onboarded → go to register
-            router.replace({
-              pathname: '/signup/register',
-              params: {
-                tempToken: data.tempToken,
-                email: data.profile?.email || '',
-                displayName: data.profile?.name || '',
-              },
-            });
-          } else if (data.next === 'APP') {
-            // User exists → save token and go to app
-            await login(data.token, data.user);
-            console.log('User logged in:', data.user);
-            router.replace('/(tabs)');
-          } else {
-            Alert.alert('Error', data.message || 'Login failed');
-          }
-        } catch (error) {
-          console.error('Error during login:', error);
-          Alert.alert('Error', 'Failed to login');
+      const data = await backendRes.json();
+
+      if (data.next === 'REGISTER') {
+        router.replace({
+          pathname: '/signup/register',
+          params: {
+            tempToken: data.tempToken,
+            email: data.profile?.email || '',
+            displayName: data.profile?.name || '',
+          },
+        });
+      } else if (data.next === 'APP') {
+        await login(data.token, data.user);
+        router.replace('/(tabs)');
+      } else {
+        Alert.alert('Error', data.message || 'Login failed');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to login');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // iOS/Android: ใช้ backend OAuth flow
+  const handleMobileGoogleSignIn = async () => {
+    try {
+      setIsLoading(true);
+      const scheme = 'exp://192.168.0.247:8081';
+      const authUrl = `${BACKEND_URL}/api/google/start?redirect_scheme=${encodeURIComponent(scheme)}`;
+    
+      const result = await WebBrowser.openAuthSessionAsync(
+        authUrl + '&ngrok-skip-browser-warning=1',
+        scheme
+      );
+
+      if (result.type === 'success' && result.url) {
+        // Parse access_token from URL
+        const url = new URL(result.url);
+        const accessToken = url.searchParams.get('access_token');
+        if (accessToken) {
+          await handleAccessToken(accessToken);
+        } else {
+          Alert.alert('Error', 'No access token received');
         }
       }
-    } else if (response?.type === 'error') {
+    } catch (error) {
       Alert.alert('Error', 'Google Sign-In failed');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleGoogleSignIn = () => {
-    if (!request) {
-      console.log('Auth Request not ready');
-      return;
+    if (Platform.OS === 'web') {
+      if (!request) {
+        return;
+      }
+      promptAsync();
+    } else {
+      handleMobileGoogleSignIn();
     }
-    console.log('Google button pressed');
-    // @ts-ignore - useProxy is deprecated but works for Expo Go
-    promptAsync({ useProxy: Platform.OS !== 'web', showInRecents: false });
   };
 
   // DEV: ข้ามหน้า login ไปหน้า Home เลย
@@ -114,11 +130,9 @@ export default function CreateAccountScreen() {
       // ดึงข้อมูล dev user จาก backend
       const response = await fetch('http://192.168.0.247:3000/api/auth/dev-user');
       const data = await response.json();
-      console.log('Dev user API response data:', data);
       
       if (data.success && data.user) {
         await login('dev_token', data.user);
-        console.log('✅ Dev user loaded:', data.user);
       } else {
         // Fallback ถ้าไม่สามารถดึงข้อมูลจาก backend ได้
         await login('dev_token', { 
@@ -127,18 +141,15 @@ export default function CreateAccountScreen() {
           email: 'dev-user@example.com',
           balance: 9999
         } as any);
-        console.log('⚠️ Using fallback dev user');
       }
     } catch (error) {
-      console.error('❌ Error fetching dev user:', error);
       // Fallback ถ้าเกิด error
       await login('dev_token', { 
         _id: '698e27ff93d8fdbda13bb05c', 
         displayName: 'Dev user', 
         email: 'dev-user@example.com',
-        balance: 9999
+        balance: 10000
       } as any);
-      console.log('⚠️ Using fallback dev user due to error');
     }
     
     router.replace('/(tabs)');

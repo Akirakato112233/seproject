@@ -10,7 +10,17 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.wit.userapp",
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.543704041787-1snjnkvfmk694n5jn87ut8incrqpbkb2"
+            ]
+          }
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
