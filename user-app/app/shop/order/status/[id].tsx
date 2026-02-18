@@ -103,6 +103,8 @@ export default function OrderStatusScreen() {
         try {
             const response = await authGet(`${API.ORDERS}/${id}`);
             const data = await response.json();
+            console.log('📦 Order data from API:', data);
+            console.log('📦 Order createdAt:', data.order?.createdAt);
             if (data.success) {
                 setOrder(data.order);
             }

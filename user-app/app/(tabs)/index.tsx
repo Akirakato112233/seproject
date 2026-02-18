@@ -31,7 +31,8 @@ function ActionButton({
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const [balance, setBalance] = useState('0.00');
+  console.log('Home screen - user data:', user);
+  const [balance, setBalance] = useState(user?.balance ? user.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00');
   const [activeOrder, setActiveOrder] = useState<any>(null);
   const [devLoading, setDevLoading] = useState(false);
 

@@ -112,7 +112,7 @@ export default function OrderScreen() {
 
     const fetchShopDetail = async () => {
         try {
-            const response = await fetch(`http://10.64.68.226:3000/api/shops/${id}`);
+            const response = await fetch(`http://192.168.0.247:3000/api/shops/${id}`);
             const data = await response.json();
             if (data && data._id) {
                 setShop(data);

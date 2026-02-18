@@ -110,7 +110,37 @@ export default function CreateAccountScreen() {
 
   // DEV: ข้ามหน้า login ไปหน้า Home เลย
   const devSkipLogin = async () => {
-    await login('dev_token', { _id: 'dev_user', displayName: 'Dev User', email: 'dev@test.com' } as any);
+    try {
+      // ดึงข้อมูล dev user จาก backend
+      const response = await fetch('http://192.168.0.247:3000/api/auth/dev-user');
+      const data = await response.json();
+      console.log('Dev user API response data:', data);
+      
+      if (data.success && data.user) {
+        await login('dev_token', data.user);
+        console.log('✅ Dev user loaded:', data.user);
+      } else {
+        // Fallback ถ้าไม่สามารถดึงข้อมูลจาก backend ได้
+        await login('dev_token', { 
+          _id: '698e27ff93d8fdbda13bb05c', 
+          displayName: 'Dev user', 
+          email: 'dev-user@example.com',
+          balance: 9999
+        } as any);
+        console.log('⚠️ Using fallback dev user');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching dev user:', error);
+      // Fallback ถ้าเกิด error
+      await login('dev_token', { 
+        _id: '698e27ff93d8fdbda13bb05c', 
+        displayName: 'Dev user', 
+        email: 'dev-user@example.com',
+        balance: 9999
+      } as any);
+      console.log('⚠️ Using fallback dev user due to error');
+    }
+    
     router.replace('/(tabs)');
   };
 
