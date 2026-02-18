@@ -181,4 +181,72 @@ router.post('/register', async (req: Request, res: Response) => {
     }
 });
 
+/**
+ * GET /api/google/start
+ * Redirect user to Google OAuth consent screen
+ * Query: ?redirect_scheme=exp://192.168.0.247:8081
+ */
+router.get('/start', (req: Request, res: Response) => {
+    res.setHeader('ngrok-skip-browser-warning', '1');
+    const redirectScheme = (req.query.redirect_scheme as string) || 'exp://192.168.0.247:8081';
+    const GOOGLE_CLIENT_ID = '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
+    const CALLBACK_URL = `https://putative-renea-whisperingly.ngrok-free.dev/api/google/callback`;
+
+    const params = new URLSearchParams({
+        client_id: GOOGLE_CLIENT_ID,
+        redirect_uri: CALLBACK_URL,
+        response_type: 'code',
+        scope: 'openid profile email',
+        access_type: 'offline',
+        state: redirectScheme, // pass app scheme in state
+    });
+
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    res.redirect(googleAuthUrl);
+});
+
+/**
+ * GET /api/google/callback
+ * Google redirects here with ?code=...&state=...
+ * Exchange code for tokens, then redirect back to app
+ */
+router.get('/callback', async (req: Request, res: Response) => {
+    try {
+            const { code, state } = req.query;
+        const redirectScheme = (state as string) || 'exp://192.168.0.247:8081';
+        const GOOGLE_CLIENT_ID = '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
+        const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
+        const CALLBACK_URL = `https://putative-renea-whisperingly.ngrok-free.dev/api/google/callback`;
+
+        if (!code) {
+            return res.status(400).send('Missing authorization code');
+        }
+
+        // Exchange code for tokens
+        const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                code: code as string,
+                client_id: GOOGLE_CLIENT_ID,
+                client_secret: GOOGLE_CLIENT_SECRET,
+                redirect_uri: CALLBACK_URL,
+                grant_type: 'authorization_code',
+            }).toString(),
+        });
+
+        const tokenData = await tokenRes.json();
+    
+        if (!tokenData.access_token) {
+            return res.status(400).send('Failed to exchange code for token');
+        }
+
+        // Redirect back to app with access token
+        const appRedirect = `${redirectScheme}/--/auth?access_token=${tokenData.access_token}`;
+            res.redirect(appRedirect);
+    } catch (error: any) {
+            res.status(500).send('Authentication failed');
+    }
+});
+
 export default router;
