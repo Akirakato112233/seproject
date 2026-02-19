@@ -19,7 +19,7 @@ const shopAvatarImg = require('../../assets/images/shop-avatar.png');
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { useCoinShop } from '../../context/CoinShopContext';
-import { useMachines, type Machine, type MachineStatus, type WashMode, type WaterTemp } from '../../context/MachineContext';
+import { useMachines, type Machine, type MachineStatus, type MachineOption } from '../../context/MachineContext';
 
 type FilterKey = 'all' | 'available' | 'running' | 'finished';
 
@@ -50,8 +50,7 @@ export default function LiveMonitorScreen() {
   const [filter, setFilter] = useState<FilterKey>('all');
   const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
   const selectedMachineIdRef = useRef<string | null>(null);
-  const [selectedWashMode, setSelectedWashMode] = useState<WashMode>('Normal');
-  const [selectedWaterTemp, setSelectedWaterTemp] = useState<WaterTemp>('Cold');
+  const [selectedOption, setSelectedOption] = useState<MachineOption | null>(null);
   const [runningMachine, setRunningMachine] = useState<Machine | null>(null);
   const [finishedMachine, setFinishedMachine] = useState<Machine | null>(null);
   const [collectedAmount, setCollectedAmount] = useState<number | null>(null);
@@ -119,7 +118,19 @@ export default function LiveMonitorScreen() {
       return;
     }
     setAddMachineError('');
-    const cycleMins = newCycleTime.replace(/\D/g, '') || '45';
+    const cycleMins = parseInt(newCycleTime.replace(/\D/g, '') || '45', 10);
+    const basePrice = parseInt(newPrice, 10) || 40;
+    const options: MachineOption[] = newMachineType === 'washer'
+      ? [
+          { setting: 'Cold', duration: cycleMins, price: basePrice },
+          { setting: 'Warm', duration: cycleMins, price: basePrice + 10 },
+          { setting: 'Hot', duration: cycleMins, price: basePrice + 20 },
+        ]
+      : [
+          { setting: 'Low Heat', duration: cycleMins, price: basePrice },
+          { setting: 'Medium Heat', duration: cycleMins, price: basePrice + 10 },
+          { setting: 'High Heat', duration: cycleMins, price: basePrice + 20 },
+        ];
     const newMachine: Machine = {
       id,
       name: id,
@@ -127,9 +138,10 @@ export default function LiveMonitorScreen() {
       type: newMachineType,
       capacity: newCapacity,
       price: newPrice,
-      cycleTime: cycleMins,
+      cycleTime: String(cycleMins),
       enabled: true,
       program: 'Ready',
+      options,
     };
     addMachine(newMachine);
     closeAddMachine();
@@ -142,8 +154,8 @@ export default function LiveMonitorScreen() {
     if (machine.status === 'available') {
       setSelectedMachine(machine);
       selectedMachineIdRef.current = machine.id;
-      setSelectedWashMode('Normal');
-      setSelectedWaterTemp('Cold');
+      const firstOpt = machine.options?.[0];
+      setSelectedOption(firstOpt ?? { setting: 'Cold', duration: 45, price: parseInt(machine.price, 10) || 40 });
     } else if (machine.status === 'finished') {
       setFinishedMachine(machine);
       setCollectedAmount(null);
@@ -158,6 +170,7 @@ export default function LiveMonitorScreen() {
   // กด Start Machine → เปลี่ยนสถานะจาก ว่าง → กำลังทำงาน ทันที
   const onStartMachinePress = () => {
     const machineId = selectedMachineIdRef.current || selectedMachine?.id;
+    const option = selectedOption ?? selectedMachine?.options?.[0] ?? { setting: 'Cold', duration: 45, price: 40 };
     if (!machineId) return;
 
     // ปิด modal + เปลี่ยน filter ถ้าจำเป็น
@@ -166,8 +179,7 @@ export default function LiveMonitorScreen() {
       setFilter('all');
     }
 
-    // เปลี่ยนสถานะผ่าน context (ใช้ cycleTime ของเครื่องนั้น + โหมด/อุณหภูมิที่เลือก)
-    startMachine(machineId, selectedWashMode, selectedWaterTemp);
+    startMachine(machineId, option);
   };
 
   const filterButtons: { key: FilterKey; label: string; count: number; icon: string }[] = [
@@ -234,9 +246,9 @@ export default function LiveMonitorScreen() {
         </View>
       </View>
 
-      {/* Washers section */}
+      {/* Machines section */}
       <View style={s.sectionHeader}>
-        <Text style={s.sectionTitle}>WASHERS (W-01 TO W-08)</Text>
+        <Text style={s.sectionTitle}>เครื่องซักและเครื่องอบ</Text>
         <TouchableOpacity hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="filter-outline" size={20} color={Colors.textSecondary} />
         </TouchableOpacity>
@@ -362,48 +374,34 @@ export default function LiveMonitorScreen() {
             <View style={s.modalRow}>
               <Ionicons name="document-text-outline" size={20} color={Colors.primaryBlue} />
               <View>
-                <Text style={s.modalRowTitle}>Wash & Fold Service</Text>
-                <Text style={s.modalRowSub}>{selectedMachine?.capacity ?? ''}kg • ฿{selectedMachine?.price ?? ''}/cycle</Text>
-              </View>
-            </View>
-            <View style={s.modalRow}>
-              <Ionicons name="time-outline" size={20} color={Colors.primaryBlue} />
-              <View>
-                <Text style={s.modalRowTitle}>Washing Time</Text>
-                <Text style={s.modalRowSub}>{selectedMachine?.cycleTime ?? '45'} MIN</Text>
+                <Text style={s.modalRowTitle}>{selectedMachine?.type === 'dryer' ? 'Dry Service' : 'Wash Service'}</Text>
+                <Text style={s.modalRowSub}>{selectedMachine?.capacity ?? ''}kg</Text>
               </View>
             </View>
 
-            {/* Wash Mode */}
-            <Text style={s.modalSectionLabel}>Wash Mode</Text>
+            {/* เลือก Option จากเครื่อง (Cold/Warm/Hot หรือ Low/Medium/High Heat) */}
+            <Text style={s.modalSectionLabel}>เลือกโปรแกรม</Text>
             <View style={s.optionRow}>
-              {(['Quick', 'Normal', 'Heavy Duty', 'Delicate'] as WashMode[]).map((mode) => (
-                <TouchableOpacity
-                  key={mode}
-                  style={[s.optionChip, selectedWashMode === mode && s.optionChipActive]}
-                  onPress={() => setSelectedWashMode(mode)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[s.optionChipText, selectedWashMode === mode && s.optionChipTextActive]}>{mode}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Water Temperature */}
-            <Text style={s.modalSectionLabel}>Water Temperature</Text>
-            <View style={s.optionRow}>
-              {(['Cold', 'Warm', 'Hot'] as WaterTemp[]).map((temp) => {
-                const tempIcon = temp === 'Cold' ? 'snow-outline' : temp === 'Warm' ? 'water-outline' : 'flame-outline';
-                const tempColor = temp === 'Cold' ? '#3b82f6' : temp === 'Warm' ? '#f59e0b' : '#ef4444';
+              {((selectedMachine?.options?.length ?? 0) > 0
+                ? selectedMachine!.options!
+                : selectedMachine?.type === 'dryer'
+                  ? [{ setting: 'Low Heat', duration: 45, price: parseInt(selectedMachine?.price ?? '50', 10) }, { setting: 'Medium Heat', duration: 45, price: (parseInt(selectedMachine?.price ?? '50', 10)) + 10 }, { setting: 'High Heat', duration: 45, price: (parseInt(selectedMachine?.price ?? '50', 10)) + 20 }]
+                  : [{ setting: 'Cold', duration: 45, price: parseInt(selectedMachine?.price ?? '40', 10) }, { setting: 'Warm', duration: 45, price: (parseInt(selectedMachine?.price ?? '40', 10)) + 10 }, { setting: 'Hot', duration: 45, price: (parseInt(selectedMachine?.price ?? '40', 10)) + 20 }]
+              ).map((opt) => {
+                const isActive = selectedOption?.setting === opt.setting;
+                const tempIcon = opt.setting.toLowerCase().includes('cold') ? 'snow-outline' : opt.setting.toLowerCase().includes('warm') || opt.setting.toLowerCase().includes('low') || opt.setting.toLowerCase().includes('medium') ? 'water-outline' : 'flame-outline';
+                const tempColor = opt.setting.toLowerCase().includes('cold') || opt.setting.toLowerCase().includes('low') ? '#3b82f6' : opt.setting.toLowerCase().includes('warm') || opt.setting.toLowerCase().includes('medium') ? '#f59e0b' : '#ef4444';
                 return (
                   <TouchableOpacity
-                    key={temp}
-                    style={[s.optionChip, selectedWaterTemp === temp && { ...s.optionChipActive, borderColor: tempColor, backgroundColor: tempColor }]}
-                    onPress={() => setSelectedWaterTemp(temp)}
+                    key={opt.setting}
+                    style={[s.optionChip, isActive && { ...s.optionChipActive, borderColor: tempColor, backgroundColor: tempColor }]}
+                    onPress={() => setSelectedOption(opt)}
                     activeOpacity={0.7}
                   >
-                    <Ionicons name={tempIcon as any} size={14} color={selectedWaterTemp === temp ? Colors.white : tempColor} />
-                    <Text style={[s.optionChipText, { marginLeft: 4 }, selectedWaterTemp === temp && s.optionChipTextActive]}>{temp}</Text>
+                    <Ionicons name={tempIcon as any} size={14} color={isActive ? Colors.white : tempColor} />
+                    <Text style={[s.optionChipText, { marginLeft: 4 }, isActive && s.optionChipTextActive]}>
+                      {opt.setting} • {opt.duration}นาที • ฿{opt.price}
+                    </Text>
                   </TouchableOpacity>
                 );
               })}
