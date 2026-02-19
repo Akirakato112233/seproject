@@ -1,8 +1,32 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
-import { Order } from '../models/Order';
+import { Order, OrderForMerchant } from '../models/Order';
 import { User } from '../models/User';
 import { Shop } from '../models/Shop';
+
+const findOrderWithModel = async (orderId: string) => {
+    const order = await Order.findById(orderId);
+    if (order) {
+        return { order, model: Order };
+    }
+
+    const merchantOrder = await OrderForMerchant.findById(orderId);
+    if (merchantOrder) {
+        return { order: merchantOrder, model: OrderForMerchant };
+    }
+
+    return null;
+};
+
+const mergeAndSortByCreatedAt = <T extends { createdAt?: Date }>(...groups: T[][]): T[] => {
+    return groups
+        .flat()
+        .sort(
+            (a, b) =>
+                new Date(b.createdAt || 0).getTime() -
+                new Date(a.createdAt || 0).getTime()
+        );
+};
 
 // สร้าง Order ใหม่
 export const createOrder = async (req: AuthRequest, res: Response) => {
@@ -34,6 +58,11 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
+        const shop = await Shop.findById(shopId).select('type name');
+        if (!shop) {
+            return res.status(404).json({ success: false, message: 'Shop not found' });
+        }
+
         // ถ้าจ่ายด้วย wallet ต้องหักเงิน
         if (paymentMethod === 'wallet') {
             if (user.balance < total) {
@@ -54,18 +83,19 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
             userDisplayName: user.displayName || 'Unknown User',
             userAddress: user.address || 'No address set',
             shopId,
-            shopName,
+            shopName: shopName || shop.name,
             items,
             serviceTotal,
             deliveryFee,
             total,
             paymentMethod: paymentMethod || 'cash',
-            status: 'rider_coming' // เริ่มต้นที่สถานะ rider กำลังมา
+            status: 'decision' // เริ่มต้นที่สถานะรอการตัดสินใจ
         };
 
         console.log('Creating order with data:', JSON.stringify(orderData, null, 2));
 
-        const order = await Order.create(orderData);
+        const orderModel = shop.type === 'full' ? OrderForMerchant : Order;
+        const order = await orderModel.create(orderData);
         console.log('Order created successfully:', order._id);
 
         res.status(201).json({
@@ -87,7 +117,8 @@ export const getOrderById = async (req: AuthRequest, res: Response) => {
     try {
         const { orderId } = req.params;
 
-        const order = await Order.findById(orderId);
+        const foundOrder = await findOrderWithModel(orderId);
+        const order = foundOrder?.order;
 
         if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found' });
@@ -108,19 +139,30 @@ export const getActiveOrder = async (req: AuthRequest, res: Response) => {
             return res.status(401).json({ success: false, message: 'User not authenticated' });
         }
 
-        // หา order ที่ยังไม่เสร็จ (ไม่ใช่ completed หรือ cancelled) เรียงจากใหม่สุด
-        const activeOrder = await Order.findOne({
+        const query = {
             userId,
             status: { $nin: ['completed', 'cancelled'] }
-        }).sort({ createdAt: -1 });
+        };
 
-        if (!activeOrder) {
+        const [activeOrder, activeMerchantOrder] = await Promise.all([
+            Order.findOne(query).sort({ createdAt: -1 }),
+            OrderForMerchant.findOne(query).sort({ createdAt: -1 })
+        ]);
+
+        const activeCandidates = [activeOrder, activeMerchantOrder].filter(Boolean) as Array<{ createdAt?: Date }>;
+        const latestActiveOrder = activeCandidates.sort(
+            (a, b) =>
+                new Date(b.createdAt || 0).getTime() -
+                new Date(a.createdAt || 0).getTime()
+        )[0];
+
+        if (!latestActiveOrder) {
             return res.json({ hasActiveOrder: false, order: null });
         }
 
         res.json({
             hasActiveOrder: true,
-            order: activeOrder
+            order: latestActiveOrder
         });
     } catch (error) {
         console.error('Get Active Order Error:', error);
@@ -134,7 +176,8 @@ export const merchantUpdateOrderStatus = async (req: AuthRequest, res: Response)
         const { orderId } = req.params;
         const { status, shopId } = req.body;
 
-        const order = await Order.findById(orderId);
+        const foundOrder = await findOrderWithModel(orderId);
+        const order = foundOrder?.order;
         if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
@@ -147,7 +190,7 @@ export const merchantUpdateOrderStatus = async (req: AuthRequest, res: Response)
             return res.status(400).json({ success: false, message: 'Invalid status' });
         }
 
-        const updated = await Order.findByIdAndUpdate(
+        const updated = await foundOrder.model.findByIdAndUpdate(
             orderId,
             { status },
             { new: true }
@@ -166,7 +209,8 @@ export const merchantAcceptOrder = async (req: AuthRequest, res: Response) => {
         const { orderId } = req.params;
         const { shopId } = req.body;
 
-        const order = await Order.findById(orderId);
+        const foundOrder = await findOrderWithModel(orderId);
+        const order = foundOrder?.order;
         if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
@@ -177,7 +221,7 @@ export const merchantAcceptOrder = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ success: false, message: 'Order cannot be accepted' });
         }
 
-        const updated = await Order.findByIdAndUpdate(
+        const updated = await foundOrder.model.findByIdAndUpdate(
             orderId,
             { status: 'at_shop' },
             { new: true }
@@ -196,11 +240,19 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
         const { orderId } = req.params;
         const { status } = req.body;
 
-        const order = await Order.findByIdAndUpdate(
+        let order = await Order.findByIdAndUpdate(
             orderId,
             { status },
             { new: true }
         );
+
+        if (!order) {
+            order = await OrderForMerchant.findByIdAndUpdate(
+                orderId,
+                { status },
+                { new: true }
+            );
+        }
 
         if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found' });
@@ -221,11 +273,14 @@ export const getOrderHistory = async (req: AuthRequest, res: Response) => {
             return res.status(401).json({ success: false, message: 'User not authenticated' });
         }
 
-        const orders = await Order.find({ userId })
-            .sort({ createdAt: -1 })
-            .limit(20);
+        const [orders, merchantOrders] = await Promise.all([
+            Order.find({ userId }).sort({ createdAt: -1 }).limit(20),
+            OrderForMerchant.find({ userId }).sort({ createdAt: -1 }).limit(20)
+        ]);
 
-        res.json({ orders });
+        const mergedOrders = mergeAndSortByCreatedAt(orders, merchantOrders).slice(0, 20);
+
+        res.json({ orders: mergedOrders });
     } catch (error) {
         console.error('Get Order History Error:', error);
         res.status(500).json({ success: false, message: 'Failed to get order history' });
@@ -240,12 +295,20 @@ export const getMerchantPendingOrders = async (req: AuthRequest, res: Response) 
             return res.status(400).json({ success: false, message: 'shopId is required' });
         }
 
-        const orders = await Order.find({
-            shopId,
-            status: 'rider_coming'
-        }).sort({ createdAt: -1 });
+        const [orders, merchantOrders] = await Promise.all([
+            Order.find({
+                shopId,
+                status: 'rider_coming'
+            }),
+            OrderForMerchant.find({
+                shopId,
+                status: 'rider_coming'
+            })
+        ]);
 
-        const formattedOrders = orders.map((order) => {
+        const allOrders = mergeAndSortByCreatedAt(orders, merchantOrders);
+
+        const formattedOrders = allOrders.map((order) => {
             const firstItem = Array.isArray(order.items) && order.items.length > 0
                 ? order.items[0]
                 : { name: 'Wash & Fold Service', details: 'approx. 5-7 kg', price: 0 };
@@ -285,12 +348,19 @@ export const getMerchantCurrentOrders = async (req: AuthRequest, res: Response) 
             return res.status(400).json({ success: false, message: 'shopId is required' });
         }
 
-        const orders = await Order.find({
+        const currentStatusQuery = {
             shopId,
             status: { $in: ['at_shop', 'out_for_delivery', 'in_progress', 'deliverying'] }
-        }).sort({ createdAt: -1 });
+        };
 
-        const formattedOrders = orders.map((order) => {
+        const [orders, merchantOrders] = await Promise.all([
+            Order.find(currentStatusQuery),
+            OrderForMerchant.find(currentStatusQuery)
+        ]);
+
+        const allOrders = mergeAndSortByCreatedAt(orders, merchantOrders);
+
+        const formattedOrders = allOrders.map((order) => {
             const firstItem = Array.isArray(order.items) && order.items.length > 0
                 ? order.items[0]
                 : { name: 'Wash & Fold Service', details: '', price: 0 };
@@ -320,14 +390,21 @@ export const getMerchantCurrentOrders = async (req: AuthRequest, res: Response) 
 export const getPendingOrders = async (req: AuthRequest, res: Response) => {
     try {
         console.log('📦 Fetching pending orders...');
-        const orders = await Order.find({
+        const pendingQuery = {
             status: { $in: ['rider_coming', 'pending'] }
-        }).sort({ createdAt: -1 });
+        };
 
-        console.log(`✅ Found ${orders.length} pending orders`);
+        const [orders, merchantOrders] = await Promise.all([
+            Order.find(pendingQuery),
+            OrderForMerchant.find(pendingQuery)
+        ]);
+
+        const allOrders = mergeAndSortByCreatedAt(orders, merchantOrders);
+
+        console.log(`✅ Found ${allOrders.length} pending orders`);
 
         // Map ข้อมูลให้ตรงกับ Rider App Order type
-        const enrichedOrders = await Promise.all(orders.map(async (order) => {
+        const enrichedOrders = await Promise.all(allOrders.map(async (order) => {
             // พิกัดลูกค้า (ที่รับผ้า/ส่งผ้า) - ยังไม่มีใน User ใช้ default ก่อน
             const customerCoords = { latitude: 13.113625, longitude: 100.919286 };
     

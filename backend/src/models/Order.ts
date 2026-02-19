@@ -37,10 +37,11 @@ const OrderSchema: Schema = new Schema({
     paymentMethod: { type: String, enum: ['wallet', 'cash'], default: 'cash' },
     status: {
         type: String,
-        enum: ['rider_coming', 'at_shop', 'out_for_delivery', 'in_progress', 'deliverying', 'completed', 'cancelled'],
-        default: 'rider_coming'
+        enum: ['decision', 'rider_coming', 'at_shop', 'out_for_delivery', 'in_progress', 'deliverying', 'completed', 'cancelled'],
+        default: 'decision'
     }
 }, { timestamps: true });
 
 export const Order = mongoose.model<IOrder>('Order', OrderSchema);
+export const OrderForMerchant = mongoose.model<IOrder>('OrderForMerchant', OrderSchema, 'ordersformerchant');
 

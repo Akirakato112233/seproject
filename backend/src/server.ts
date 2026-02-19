@@ -42,7 +42,7 @@ app.post('/api/orders/pending/dev-create', async (req, res) => {
       deliveryFee: deliveryFee || 0,
       total: total || 0,
       paymentMethod: paymentMethod || 'cash',
-      status: 'rider_coming',
+      status: 'decision',
     });
 
     console.log('✅ DEV Test Order Created:', order._id);
