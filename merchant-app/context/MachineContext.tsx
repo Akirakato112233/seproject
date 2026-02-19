@@ -7,6 +7,12 @@ export type MachineStatus = 'running' | 'available' | 'finished' | 'offline';
 export type WashMode = 'Quick' | 'Normal' | 'Heavy Duty' | 'Delicate';
 export type WaterTemp = 'Cold' | 'Warm' | 'Hot';
 
+export interface MachineOption {
+  setting: string;
+  duration: number;
+  price: number;
+}
+
 export interface Machine {
   id: string;
   name: string;
@@ -21,6 +27,10 @@ export interface Machine {
   waterTemp?: WaterTemp;
   /** สำหรับ running: เวลาที่เหลือเป็นวินาที */
   secondsLeft?: number;
+  /** options จาก backend สำหรับเลือก setting/duration/price */
+  options?: MachineOption[];
+  /** เวลาเสร็จสิ้น (ISO string) จาก backend */
+  finishTime?: string | null;
 }
 
 interface MachineContextType {
@@ -32,8 +42,8 @@ interface MachineContextType {
   toggleMachineEnabled: (id: string) => void;
   /** เพิ่มเครื่องใหม่ */
   addMachine: (machine: Machine) => void;
-  /** เริ่มเครื่อง (available → running) */
-  startMachine: (id: string, washMode: WashMode, waterTemp: WaterTemp) => void;
+  /** เริ่มเครื่อง (available → running) ใช้ selectedOption.duration สำหรับ finishTime */
+  startMachine: (id: string, selectedOption: MachineOption) => void;
   /** ลบเครื่อง */
   removeMachine: (id: string) => void;
   /** ข้ามรอบ (running → finished ทันที) */
@@ -57,17 +67,38 @@ function buildMachinesFromShop(
 
   if (washServices) {
     for (const ws of washServices) {
+      const id = ws.machineId ?? `WASH-${String(wIdx).padStart(2, '0')}`;
       const firstOption = ws.options?.[0];
+      const status = ws.status ?? 'available';
+      const finishTime = ws.finishTime ?? null;
+      let machineStatus: MachineStatus = 'available';
+      let secondsLeft: number | undefined;
+      if (status === 'busy' && finishTime) {
+        const remaining = Math.floor((new Date(finishTime).getTime() - Date.now()) / 1000);
+        if (remaining <= 0) {
+          machineStatus = 'finished';
+        } else {
+          machineStatus = 'running';
+          secondsLeft = remaining;
+        }
+      } else if (status === 'busy' && !finishTime) {
+        machineStatus = 'finished';
+      } else {
+        machineStatus = 'available';
+      }
       machines.push({
-        id: `W-${String(wIdx).padStart(2, '0')}`,
-        name: `W-${String(wIdx).padStart(2, '0')}`,
-        status: 'available',
+        id,
+        name: id,
+        status: machineStatus,
         type: 'washer',
         capacity: String(ws.weight),
         price: String(firstOption?.price ?? 0),
         cycleTime: String(firstOption?.duration ?? 45),
         enabled: true,
         program: 'Ready',
+        options: ws.options ?? [],
+        finishTime,
+        secondsLeft,
       });
       wIdx++;
     }
@@ -75,17 +106,38 @@ function buildMachinesFromShop(
 
   if (dryServices) {
     for (const ds of dryServices) {
+      const id = ds.machineId ?? `DRY-${String(dIdx).padStart(2, '0')}`;
       const firstOption = ds.options?.[0];
+      const status = ds.status ?? 'available';
+      const finishTime = ds.finishTime ?? null;
+      let machineStatus: MachineStatus = 'available';
+      let secondsLeft: number | undefined;
+      if (status === 'busy' && finishTime) {
+        const remaining = Math.floor((new Date(finishTime).getTime() - Date.now()) / 1000);
+        if (remaining <= 0) {
+          machineStatus = 'finished';
+        } else {
+          machineStatus = 'running';
+          secondsLeft = remaining;
+        }
+      } else if (status === 'busy' && !finishTime) {
+        machineStatus = 'finished';
+      } else {
+        machineStatus = 'available';
+      }
       machines.push({
-        id: `D-${String(dIdx).padStart(2, '0')}`,
-        name: `D-${String(dIdx).padStart(2, '0')}`,
-        status: 'available',
+        id,
+        name: id,
+        status: machineStatus,
         type: 'dryer',
         capacity: String(ds.weight),
         price: String(firstOption?.price ?? 0),
         cycleTime: String(firstOption?.duration ?? 45),
         enabled: true,
         program: 'Ready',
+        options: ds.options ?? [],
+        finishTime,
+        secondsLeft,
       });
       dIdx++;
     }
@@ -118,31 +170,17 @@ export function MachineProvider({ children }: { children: React.ReactNode }) {
     }
   }, [shop]);
 
-  // นับถอยหลังจริงทุก 1 วินาที
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setMachines((prev) =>
-        prev.map((m) => {
-          if (m.status !== 'running' || m.secondsLeft == null) return m;
-          const next = m.secondsLeft - 1;
-          if (next <= 0) {
-            return { ...m, status: 'finished' as MachineStatus, secondsLeft: undefined };
-          }
-          return { ...m, secondsLeft: next };
-        })
-      );
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   // sync machines กลับไป backend เป็น washServices + dryServices
   const syncToBackend = useCallback((updatedMachines: Machine[]) => {
     if (!updateShop) return;
     const washServices: WashService[] = updatedMachines
       .filter((m) => m.type === 'washer' && m.enabled)
       .map((m) => ({
+        machineId: m.id,
         weight: parseInt(m.capacity, 10) || 0,
-        options: [
+        status: m.status === 'running' ? 'busy' : m.status === 'finished' ? 'busy' : 'available',
+        finishTime: m.status === 'running' && m.finishTime ? m.finishTime : null,
+        options: m.options ?? [
           { setting: 'Cold', duration: parseInt(m.cycleTime, 10) || 45, price: parseInt(m.price, 10) || 0 },
           { setting: 'Warm', duration: parseInt(m.cycleTime, 10) || 45, price: (parseInt(m.price, 10) || 0) + 10 },
           { setting: 'Hot', duration: parseInt(m.cycleTime, 10) || 45, price: (parseInt(m.price, 10) || 0) + 20 },
@@ -151,8 +189,11 @@ export function MachineProvider({ children }: { children: React.ReactNode }) {
     const dryServices: DryService[] = updatedMachines
       .filter((m) => m.type === 'dryer' && m.enabled)
       .map((m) => ({
+        machineId: m.id,
         weight: parseInt(m.capacity, 10) || 0,
-        options: [
+        status: m.status === 'running' ? 'busy' : m.status === 'finished' ? 'busy' : 'available',
+        finishTime: m.status === 'running' && m.finishTime ? m.finishTime : null,
+        options: m.options ?? [
           { setting: 'Low Heat', duration: parseInt(m.cycleTime, 10) || 45, price: parseInt(m.price, 10) || 0 },
           { setting: 'Medium Heat', duration: parseInt(m.cycleTime, 10) || 45, price: (parseInt(m.price, 10) || 0) + 10 },
           { setting: 'High Heat', duration: parseInt(m.cycleTime, 10) || 45, price: (parseInt(m.price, 10) || 0) + 20 },
@@ -160,6 +201,34 @@ export function MachineProvider({ children }: { children: React.ReactNode }) {
       }));
     updateShop({ washServices, dryServices } as any);
   }, [updateShop]);
+
+  const syncRef = useRef(syncToBackend);
+  syncRef.current = syncToBackend;
+
+  // นับถอยหลังจาก finishTime ทุก 1 วินาที
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setMachines((prev) => {
+        let changed = false;
+        const next = prev.map((m) => {
+          if (m.status !== 'running') return m;
+          const remaining = m.finishTime
+            ? Math.floor((new Date(m.finishTime).getTime() - Date.now()) / 1000)
+            : (m.secondsLeft ?? 0) - 1;
+          if (remaining <= 0) {
+            changed = true;
+            return { ...m, status: 'finished' as MachineStatus, secondsLeft: undefined, finishTime: null };
+          }
+          return { ...m, secondsLeft: remaining };
+        });
+        if (changed) {
+          syncRef.current(next);
+        }
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const updateMachineConfig = useCallback((id: string, updates: { price?: string; capacity?: string; cycleTime?: string }) => {
     setMachines((prev) => {
@@ -193,22 +262,26 @@ export function MachineProvider({ children }: { children: React.ReactNode }) {
     });
   }, [syncToBackend]);
 
-  const startMachine = useCallback((id: string, washMode: WashMode, waterTemp: WaterTemp) => {
-    setMachines((prev) =>
-      prev.map((m) =>
+  const startMachine = useCallback((id: string, selectedOption: MachineOption) => {
+    const finishTime = new Date(Date.now() + selectedOption.duration * 60 * 1000).toISOString();
+    setMachines((prev) => {
+      const updated = prev.map((m) =>
         m.id === id
           ? {
               ...m,
               status: 'running' as MachineStatus,
-              secondsLeft: parseInt(m.cycleTime || '45', 10) * 60,
-              program: washMode,
-              washMode,
-              waterTemp,
+              secondsLeft: selectedOption.duration * 60,
+              finishTime,
+              price: String(selectedOption.price),
+              cycleTime: String(selectedOption.duration),
+              program: selectedOption.setting,
             }
           : m
-      )
-    );
-  }, []);
+      );
+      syncToBackend(updated);
+      return updated;
+    });
+  }, [syncToBackend]);
 
   const removeMachine = useCallback((id: string) => {
     setMachines((prev) => {
@@ -219,31 +292,35 @@ export function MachineProvider({ children }: { children: React.ReactNode }) {
   }, [syncToBackend]);
 
   const skipMachine = useCallback((id: string) => {
-    setMachines((prev) =>
-      prev.map((m) =>
+    setMachines((prev) => {
+      const updated = prev.map((m) =>
         m.id === id
-          ? { ...m, status: 'finished' as MachineStatus, secondsLeft: undefined, program: m.washMode ?? m.program }
+          ? { ...m, status: 'finished' as MachineStatus, secondsLeft: undefined, finishTime: null, program: m.washMode ?? m.program }
           : m
-      )
-    );
-  }, []);
+      );
+      syncToBackend(updated);
+      return updated;
+    });
+  }, [syncToBackend]);
 
   const collectMachine = useCallback((id: string): number => {
     let earned = 0;
-    setMachines((prev) =>
-      prev.map((m) => {
+    setMachines((prev) => {
+      const updated = prev.map((m) => {
         if (m.id === id && m.status === 'finished') {
           earned = parseInt(m.price || '0', 10);
-          return { ...m, status: 'available' as MachineStatus, program: 'Ready', washMode: undefined, waterTemp: undefined };
+          return { ...m, status: 'available' as MachineStatus, program: 'Ready', washMode: undefined, waterTemp: undefined, finishTime: null };
         }
         return m;
-      })
-    );
+      });
+      syncToBackend(updated);
+      return updated;
+    });
     if (earned > 0) {
       setTodayRevenue((prev) => prev + earned);
     }
     return earned;
-  }, []);
+  }, [syncToBackend]);
 
   return (
     <MachineContext.Provider

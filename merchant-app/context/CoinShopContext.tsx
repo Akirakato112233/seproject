@@ -1,4 +1,4 @@
-﻿import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { API } from '../config';
 
 export interface WashServiceOption {
@@ -7,7 +7,10 @@ export interface WashServiceOption {
   price: number;
 }
 export interface WashService {
+  machineId?: string;
   weight: number;
+  status?: 'available' | 'busy';
+  finishTime?: string | null;
   options: WashServiceOption[];
 }
 
@@ -17,7 +20,10 @@ export interface DryServiceOption {
   price: number;
 }
 export interface DryService {
+  machineId?: string;
   weight: number;
+  status?: 'available' | 'busy';
+  finishTime?: string | null;
   options: DryServiceOption[];
 }
 
