@@ -15,7 +15,7 @@ import { API } from '../../../../config';
 import { authGet, authPatch } from '../../../../services/apiClient';
 
 
-type OrderStep = 1 | 2 | 3;
+type OrderStep = 0 | 1 | 2 | 3;
 
 interface OrderData {
     _id: string;
@@ -29,18 +29,26 @@ interface OrderData {
     createdAt?: string;
 }
 
-const STEP_CONFIG: Record<OrderStep, { title: string; description: string }> = {
+const STEP_CONFIG: Record<OrderStep, { title: string; description: string; icon: string }> = {
+    0: {
+        title: 'Waiting for Rider',
+        description: 'Looking for a rider to pick up your laundry...',
+        icon: 'time-outline',
+    },
     1: {
         title: 'Rider on the way',
-        description: "We'll notify you when your laundry is out for delivery",
+        description: "Rider is heading to your location to pick up laundry",
+        icon: 'bicycle',
     },
     2: {
-        title: 'Laundry sent to shop',
+        title: 'Laundry at shop',
         description: "Your laundry is being processed at the shop",
+        icon: 'shirt-outline',
     },
     3: {
         title: 'Out for delivery',
         description: "Your laundry is on the way back to you!",
+        icon: 'checkmark-circle-outline',
     },
 };
 
@@ -50,7 +58,7 @@ export default function OrderStatusScreen() {
     const [loading, setLoading] = useState(true);
 
     // Parse step จาก params (default = 1)
-    const currentStep: OrderStep = (parseInt(stepParam || '1') as OrderStep) || 1;
+    const currentStep: OrderStep = (parseInt(stepParam ?? '0') as OrderStep);
     const stepInfo = STEP_CONFIG[currentStep] || STEP_CONFIG[1];
 
     // คำนวณเวลาจริง
@@ -68,14 +76,17 @@ export default function OrderStatusScreen() {
         let minMinutes = 15;
         let maxMinutes = 30;
 
-        if (currentStep === 1) {
+        if (currentStep === 0) {
+            minMinutes = 5;
+            maxMinutes = 15;
+        } else if (currentStep === 1) {
             minMinutes = 15;
             maxMinutes = 30;
         } else if (currentStep === 2) {
-            minMinutes = 45; // Step 1 + Step 2 start
-            maxMinutes = 90; // Step 1 + Step 2 end
+            minMinutes = 45;
+            maxMinutes = 90;
         } else if (currentStep === 3) {
-            minMinutes = 60;  // All steps almost done
+            minMinutes = 60;
             maxMinutes = 90;
         }
 
@@ -185,16 +196,30 @@ export default function OrderStatusScreen() {
 
                 {/* Progress Steps */}
                 <View style={styles.progressSection}>
-                    <View style={styles.progressDots}>
-                        {[1, 2, 3].map((step) => (
-                            <TouchableOpacity
-                                key={step}
-                                onPress={() => goToStep(step as OrderStep)}
-                                style={[
-                                    styles.dot,
-                                    currentStep >= step && styles.dotActive,
-                                ]}
-                            />
+                    <View style={styles.progressTrack}>
+                        {([0, 1, 2, 3] as OrderStep[]).map((step, index) => (
+                            <React.Fragment key={step}>
+                                <TouchableOpacity
+                                    onPress={() => goToStep(step)}
+                                    style={[
+                                        styles.stepDot,
+                                        currentStep >= step && styles.stepDotActive,
+                                        currentStep === step && styles.stepDotCurrent,
+                                    ]}
+                                >
+                                    <Ionicons
+                                        name={STEP_CONFIG[step].icon as any}
+                                        size={14}
+                                        color={currentStep >= step ? '#fff' : '#bbb'}
+                                    />
+                                </TouchableOpacity>
+                                {index < 3 && (
+                                    <View style={[
+                                        styles.stepLine,
+                                        currentStep > step && styles.stepLineActive,
+                                    ]} />
+                                )}
+                            </React.Fragment>
                         ))}
                     </View>
                     <Text style={styles.notifyText}>{stepInfo.description}</Text>
@@ -238,16 +263,20 @@ export default function OrderStatusScreen() {
                         </View>
                         <View style={styles.infoContent}>
                             <Text style={styles.infoLabel}>Rider</Text>
-                            <Text style={styles.infoName}>Natthapong Sawang</Text>
+                            <Text style={styles.infoName}>
+                                {currentStep === 0 ? 'Waiting for rider...' : 'Natthapong Sawang'}
+                            </Text>
                         </View>
-                        <View style={styles.actionButtons}>
-                            <TouchableOpacity style={styles.actionButton} onPress={handleChat}>
-                                <Ionicons name="chatbubble-ellipses" size={20} color="#fff" />
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.actionButton} onPress={handleCall}>
-                                <Ionicons name="call" size={20} color="#fff" />
-                            </TouchableOpacity>
-                        </View>
+                        {currentStep !== 0 && (
+                            <View style={styles.actionButtons}>
+                                <TouchableOpacity style={styles.actionButton} onPress={handleChat}>
+                                    <Ionicons name="chatbubble-ellipses" size={20} color="#fff" />
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.actionButton} onPress={handleCall}>
+                                    <Ionicons name="call" size={20} color="#fff" />
+                                </TouchableOpacity>
+                            </View>
+                        )}
                     </View>
 
                     {/* Connector Line */}
@@ -269,8 +298,8 @@ export default function OrderStatusScreen() {
                     </View>
                 </View>
 
-                {/* Cancel Order (Step 1 only) */}
-                {currentStep === 1 && (
+                {/* Cancel Order (Step 0 only) */}
+                {currentStep === 0 && (
                     <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
                         <Text style={styles.cancelText}>Cancel Order</Text>
                         <Ionicons name="chevron-forward" size={20} color="#333" />
@@ -281,24 +310,15 @@ export default function OrderStatusScreen() {
                 <View style={styles.debugSection}>
                     <Text style={styles.debugTitle}>🔧 Test Navigation (Debug)</Text>
                     <View style={styles.debugButtons}>
-                        <TouchableOpacity
-                            style={[styles.debugButton, currentStep === 1 && styles.debugButtonActive]}
-                            onPress={() => goToStep(1)}
-                        >
-                            <Text style={styles.debugButtonText}>Step 1</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.debugButton, currentStep === 2 && styles.debugButtonActive]}
-                            onPress={() => goToStep(2)}
-                        >
-                            <Text style={styles.debugButtonText}>Step 2</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.debugButton, currentStep === 3 && styles.debugButtonActive]}
-                            onPress={() => goToStep(3)}
-                        >
-                            <Text style={styles.debugButtonText}>Step 3</Text>
-                        </TouchableOpacity>
+                        {([0, 1, 2, 3] as OrderStep[]).map((step) => (
+                            <TouchableOpacity
+                                key={step}
+                                style={[styles.debugButton, currentStep === step && styles.debugButtonActive]}
+                                onPress={() => goToStep(step)}
+                            >
+                                <Text style={styles.debugButtonText}>Step {step}</Text>
+                            </TouchableOpacity>
+                        ))}
                     </View>
                 </View>
 
@@ -382,18 +402,39 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: '#f0f0f0',
     },
-    progressDots: {
+    progressTrack: {
         flexDirection: 'row',
-        gap: 12,
-        marginBottom: 12,
+        alignItems: 'center',
+        marginBottom: 16,
+        width: '100%',
+        paddingHorizontal: 8,
     },
-    dot: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
+    stepDot: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
         backgroundColor: '#ddd',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    dotActive: {
+    stepDotActive: {
+        backgroundColor: '#1976D2',
+    },
+    stepDotCurrent: {
+        backgroundColor: '#1976D2',
+        shadowColor: '#1976D2',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.4,
+        shadowRadius: 6,
+        elevation: 4,
+    },
+    stepLine: {
+        flex: 1,
+        height: 3,
+        backgroundColor: '#ddd',
+        borderRadius: 2,
+    },
+    stepLineActive: {
         backgroundColor: '#1976D2',
     },
     notifyText: {
