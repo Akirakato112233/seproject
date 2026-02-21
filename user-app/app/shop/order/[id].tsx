@@ -14,6 +14,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { API, BASE_URL } from '../../../config';
 import { authGet, authPost } from '../../../services/apiClient';
 import { useAuth } from '../../../context/AuthContext';
+import { useLocation } from '../../../context/LocationContext';
 
 interface DeliveryOption {
     id: string;
@@ -51,9 +52,10 @@ export default function OrderScreen() {
     const [loading, setLoading] = useState(true);
     const [selectedDelivery, setSelectedDelivery] = useState<string>('priority');
     const [selectedPayment, setSelectedPayment] = useState<string>('cash');
-    const [userLocation] = useState('The One Place Building');
+    const [userLocation] = useState('');
     const [walletBalance, setWalletBalance] = useState<number>(0);
     const { token, user } = useAuth();
+    const { currentLocation } = useLocation();
 
     // Parse order data from params
     const orderData: OrderData | null = useMemo(() => {
@@ -223,7 +225,12 @@ export default function OrderScreen() {
                         <Ionicons name="location-outline" size={20} color="#666" />
                         <View style={styles.locationInfo}>
                             <Text style={styles.locationLabel}>Your location</Text>
-                            <Text style={styles.locationValue}>{userLocation}</Text>
+                            <Text style={styles.locationValue}>
+                                {currentLocation ? currentLocation.name : 'Select location'}
+                            </Text>
+                            {currentLocation?.address && (
+                                <Text style={styles.locationAddress}>{currentLocation.address}</Text>
+                            )}
                         </View>
                     </View>
                 </View>
@@ -332,6 +339,19 @@ export default function OrderScreen() {
             {/* Order Now Button */}
             <View style={styles.bottomBar}>
                 <TouchableOpacity style={styles.orderButton} onPress={async () => {
+                    // Check if user has location set
+                    if (!currentLocation || !currentLocation.address) {
+                        Alert.alert(
+                            'ไม่สามารถสั่งซื้อได้',
+                            'กรุณาเลือกที่อยู่จัดส่งก่อน',
+                            [
+                                { text: 'ยกเลิก', style: 'cancel' },
+                                { text: 'เลือกที่อยู่', onPress: () => router.push('/location/search') }
+                            ]
+                        );
+                        return;
+                    }
+
                     const total = calculateTotal();
                     const serviceTotal = calculateServiceTotal();
                     const deliveryFee = calculateDeliveryFee();
@@ -484,6 +504,11 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#333',
         fontWeight: '500',
+        marginTop: 2,
+    },
+    locationAddress: {
+        fontSize: 12,
+        color: '#666',
         marginTop: 2,
     },
     // Delivery Options

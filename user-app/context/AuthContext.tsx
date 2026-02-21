@@ -6,7 +6,8 @@ const USER_KEY = 'auth_user';
 
 // Define User type
 interface UserData {
-    _id: string;
+    _id?: string;
+    id?: string;
     email: string;
     displayName: string;
     phone?: string;
@@ -49,8 +50,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
                 if (savedToken && savedUser) {
                     setToken(savedToken);
-                    setUser(JSON.parse(savedUser));
-                    console.log('Auth loaded from storage');
+                    const parsedUser = JSON.parse(savedUser);
+                    setUser(parsedUser);
+                    console.log('Auth loaded from storage:', JSON.stringify(parsedUser));
                 }
             } catch (error) {
                 console.error('Error loading auth:', error);

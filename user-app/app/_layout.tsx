@@ -2,6 +2,7 @@ import { Slot, useRouter, useSegments, useRootNavigationState } from 'expo-route
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { AuthProvider, useAuth } from '../context/AuthContext';
+import { LocationProvider } from '../context/LocationContext';
 
 function RootLayoutNav() {
   // Frontend-only mode: No auth checks required.
@@ -12,7 +13,9 @@ function RootLayoutNav() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <RootLayoutNav />
+      <LocationProvider>
+        <RootLayoutNav />
+      </LocationProvider>
     </AuthProvider>
   );
 }
