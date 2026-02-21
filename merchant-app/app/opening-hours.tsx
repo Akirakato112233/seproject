@@ -15,15 +15,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
 import { useShop } from '../context/ShopContext';
 
-const DAY_LABELS: { value: number; label: string }[] = [
-  { value: 1, label: 'จันทร์' },
-  { value: 2, label: 'อังคาร' },
-  { value: 3, label: 'พุธ' },
-  { value: 4, label: 'พฤหัสบดี' },
-  { value: 5, label: 'ศุกร์' },
-  { value: 6, label: 'เสาร์' },
-  { value: 7, label: 'อาทิตย์' },
-];
+const DAY_NAMES = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์'] as const;
+
+function daysFromStore(
+  raw: number[] | string[] | undefined
+): string[] {
+  if (!raw || !Array.isArray(raw) || raw.length === 0) return ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์'];
+  const first = raw[0];
+  if (typeof first === 'number') {
+    return (raw as number[]).map((n) => DAY_NAMES[Math.max(0, n - 1)] ?? String(n));
+  }
+  return raw as string[];
+}
 
 function parseTime(s: string): string {
   const trimmed = (s || '').trim();
@@ -40,7 +43,7 @@ function parseTime(s: string): string {
 export default function OpeningHoursScreen() {
   const router = useRouter();
   const { shop, updateShop } = useShop();
-  const [days, setDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [days, setDays] = useState<string[]>(['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์']);
   const [open, setOpen] = useState('08:00');
   const [close, setClose] = useState('19:00');
   const [saving, setSaving] = useState(false);
@@ -50,16 +53,17 @@ export default function OpeningHoursScreen() {
   useEffect(() => {
     if (existing.length > 0 && existing[0]) {
       const first = existing[0];
-      setDays(first.days ?? [1, 2, 3, 4, 5]);
+      setDays(daysFromStore(first.days));
       setOpen(first.open ?? '08:00');
       setClose(first.close ?? '19:00');
     }
   }, [shop?._id, shop?.openingHours?.length]);
 
-  const toggleDay = (d: number) => {
-    setDays((prev) =>
-      prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort((a, b) => a - b)
-    );
+  const toggleDay = (dayName: string) => {
+    setDays((prev) => {
+      const next = prev.includes(dayName) ? prev.filter((x) => x !== dayName) : [...prev, dayName];
+      return DAY_NAMES.filter((d) => next.includes(d));
+    });
   };
 
   const handleSave = async () => {
@@ -91,14 +95,14 @@ export default function OpeningHoursScreen() {
       <ScrollView style={s.scroll} contentContainerStyle={s.content}>
         <Text style={s.sectionTitle}>เลือกวัน</Text>
         <View style={s.dayRow}>
-          {DAY_LABELS.map(({ value, label }) => (
+          {DAY_NAMES.map((dayName) => (
             <TouchableOpacity
-              key={value}
-              onPress={() => toggleDay(value)}
-              style={[s.dayChip, days.includes(value) && s.dayChipActive]}
+              key={dayName}
+              onPress={() => toggleDay(dayName)}
+              style={[s.dayChip, days.includes(dayName) && s.dayChipActive]}
             >
-              <Text style={[s.dayChipText, days.includes(value) && s.dayChipTextActive]}>
-                {label}
+              <Text style={[s.dayChipText, days.includes(dayName) && s.dayChipTextActive]}>
+                {dayName}
               </Text>
             </TouchableOpacity>
           ))}

@@ -74,7 +74,7 @@ export interface IShop extends Document {
   deliveryTime: number; // minutes
   balance?: number; // ยอดเงินคงเหลือ (บาท) เก็บเป็น integer
   status?: boolean; // ร้านเปิดรับออเดอร์ true / ปิด false
-  openingHours?: { days: number[]; open: string; close: string }[]; // 1=จันทร์..7=อาทิตย์, HH:mm
+  openingHours?: { days: string[]; open: string; close: string }[]; // ชื่อวัน: จันทร์, อังคาร, ..., อาทิตย์, HH:mm
   imageUrl?: string;
   location?: {
     lat: number;
@@ -150,7 +150,7 @@ const OtherServiceSchema = new Schema({
 }, { _id: false });
 
 const OpeningHoursItemSchema = new Schema({
-  days: [Number],
+  days: [String],
   open: { type: String },
   close: { type: String },
 }, { _id: false });
