@@ -13,6 +13,9 @@ export interface IUser extends Document {
   googleId?: string;
   googleSub?: string;
   isOnboarded: boolean;
+  lat?: number;
+  lon?: number;
+  locationName?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,6 +31,9 @@ const UserSchema: Schema = new Schema({
   googleId: { type: String },
   googleSub: { type: String, index: true, unique: true, sparse: true },
   isOnboarded: { type: Boolean, default: false },
+  lat: { type: Number },
+  lon: { type: Number },
+  locationName: { type: String },
 }, {
   timestamps: true, // adds createdAt and updatedAt
 });
