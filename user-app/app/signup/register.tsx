@@ -31,15 +31,24 @@ export default function RegisterScreen() {
 
     const [displayName, setDisplayName] = useState(params.displayName || '');
     const [phone, setPhone] = useState('');
-    const [address, setAddress] = useState('');
     const [loading, setLoading] = useState(false);
     const { login } = useAuth();
 
-    const isValid = displayName.trim().length >= 2;
+    const isValid = displayName.trim().length >= 2 && phone.trim().length >= 9 && phone[0] === '0';
 
     const handleRegister = async () => {
-        if (!isValid) {
-            Alert.alert('Error', 'Please enter your name (at least 2 characters)');
+        if (displayName.trim().length < 2) {
+            Alert.alert('Error', 'Please enter a valid display name');
+            return;
+        }
+
+        if (phone.length > 0 && phone[0] !== '0') {
+            Alert.alert('Error', 'Phone number must start with 0');
+            return;
+        }
+
+        if (phone.trim().length < 9) {
+            Alert.alert('Error', 'Please enter a valid phone number');
             return;
         }
 
@@ -53,13 +62,11 @@ export default function RegisterScreen() {
                     tempToken: params.tempToken,
                     displayName: displayName.trim(),
                     phone: phone.trim(),
-                    address: address.trim(),
                 }
                 : {
                     email: params.email,
                     displayName: displayName.trim(),
                     phone: phone.trim(),
-                    address: address.trim(),
                     googleId: params.googleId,
                 };
 
@@ -129,27 +136,20 @@ export default function RegisterScreen() {
 
                         {/* Phone */}
                         <View style={s.inputGroup}>
-                            <Text style={s.label}>Phone Number</Text>
+                            <Text style={s.label}>Phone Number *</Text>
                             <TextInput
                                 style={s.input}
-                                placeholder="+66 xxx-xxx-xxxx"
+                                placeholder="เบอร์โทรศัพท์สำหรับให้riderติดต่อ"
                                 value={phone}
-                                onChangeText={setPhone}
+                                onChangeText={(text) => {
+                                    const cleaned = text.replace(/[^0-9]/g, '');
+                                    setPhone(cleaned);
+                                    if (cleaned.length === 1 && cleaned !== '0') {
+                                        Alert.alert('รูปแบบไม่ถูกต้อง', 'เบอร์โทรศัพท์ต้องขึ้นต้นด้วย 0');
+                                    }
+                                }}
                                 keyboardType="phone-pad"
-                            />
-                        </View>
-
-                        {/* Address */}
-                        <View style={s.inputGroup}>
-                            <Text style={s.label}>Address</Text>
-                            <TextInput
-                                style={[s.input, s.inputMultiline]}
-                                placeholder="Enter your address"
-                                value={address}
-                                onChangeText={setAddress}
-                                multiline
-                                numberOfLines={3}
-                                textAlignVertical="top"
+                                maxLength={10}
                             />
                         </View>
                     </View>
