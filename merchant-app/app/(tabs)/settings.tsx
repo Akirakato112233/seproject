@@ -43,6 +43,16 @@ export default function SettingsScreen() {
           <Text style={s.menuText}>จัดการบริการ (Options)</Text>
           <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
         </TouchableOpacity>
+        <TouchableOpacity
+          style={s.menuItem}
+          onPress={() => router.push('/opening-hours')}
+        >
+          <View style={[s.iconWrap, s.iconBlue]}>
+            <Ionicons name="time-outline" size={22} color={Colors.white} />
+          </View>
+          <Text style={s.menuText}>จัดการเวลาเปิด-ปิด (time)</Text>
+          <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+        </TouchableOpacity>
 
         {/* Account Management */}
         <Text style={s.sectionTitle}>Account Management</Text>

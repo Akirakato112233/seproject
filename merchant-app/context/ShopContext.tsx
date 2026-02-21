@@ -61,6 +61,8 @@ export interface ShopData {
   deliveryFee: number;
   deliveryTime: number;
   balance?: number; // ยอดเงินคงเหลือ (บาท)
+  status?: boolean; // ร้านเปิด true / ปิด false
+  openingHours?: { days: number[]; open: string; close: string }[]; // 1=จันทร์..7=อาทิตย์, HH:mm
   imageUrl?: string;
   washServices?: WashService[];
   dryServices?: DryService[];
