@@ -196,6 +196,23 @@ export const merchantUpdateOrderStatus = async (req: AuthRequest, res: Response)
             { new: true }
         );
 
+        // เมื่อออเดอร์เปลี่ยนเป็น deliverying หรือ completed และชำระด้วย wallet ให้โอนเงินเข้า balance ร้าน (ยอดคงเหลืออัปเดต) — ทำครั้งเดียวเมื่อเข้า deliverying/completed ครั้งแรก
+        const isFirstTimeDeliveryingOrCompleted =
+            (status === 'deliverying' || status === 'completed') &&
+            order.paymentMethod === 'wallet' &&
+            order.status !== 'deliverying' &&
+            order.status !== 'completed';
+        if (isFirstTimeDeliveryingOrCompleted) {
+            const amt = Math.round(Number(order.total) || 0);
+            if (amt > 0 && order.shopId) {
+                try {
+                    await Shop.findByIdAndUpdate(order.shopId, { $inc: { balance: amt } });
+                } catch (err) {
+                    console.error('Auto deposit (deliverying/completed) failed:', err);
+                }
+            }
+        }
+
         res.json({ success: true, order: updated });
     } catch (error) {
         console.error('Merchant Update Order Status Error:', error);
@@ -217,13 +234,13 @@ export const merchantAcceptOrder = async (req: AuthRequest, res: Response) => {
         if (shopId && String(order.shopId) !== String(shopId)) {
             return res.status(403).json({ success: false, message: 'Order does not belong to this shop' });
         }
-        if (order.status !== 'rider_coming' && order.status !== 'at_shop') {
+        if (order.status !== 'decision' && order.status !== 'rider_coming' && order.status !== 'at_shop') {
             return res.status(400).json({ success: false, message: 'Order cannot be accepted' });
         }
 
         const updated = await foundOrder.model.findByIdAndUpdate(
             orderId,
-            { status: 'at_shop' },
+            { status: 'rider_coming' },
             { new: true }
         );
 
@@ -234,28 +251,43 @@ export const merchantAcceptOrder = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// อัพเดทสถานะ Order
+// อัพเดทสถานะ Order (ใช้โดย rider/user)
 export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
     try {
         const { orderId } = req.params;
         const { status } = req.body;
 
-        let order = await Order.findByIdAndUpdate(
+        const foundOrder = await findOrderWithModel(orderId);
+        const existingOrder = foundOrder?.order;
+        if (!existingOrder) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+
+        const order = await foundOrder!.model.findByIdAndUpdate(
             orderId,
             { status },
             { new: true }
         );
 
         if (!order) {
-            order = await OrderForMerchant.findByIdAndUpdate(
-                orderId,
-                { status },
-                { new: true }
-            );
+            return res.status(404).json({ success: false, message: 'Order not found' });
         }
 
-        if (!order) {
-            return res.status(404).json({ success: false, message: 'Order not found' });
+        // เมื่อสถานะเป็น completed และชำระ wallet และยังไม่เคยโอน — โอนเข้า balance ร้าน
+        const isFirstCompleted =
+            status === 'completed' &&
+            existingOrder.paymentMethod === 'wallet' &&
+            existingOrder.status !== 'completed' &&
+            existingOrder.status !== 'deliverying';
+        if (isFirstCompleted) {
+            const amt = Math.round(Number(existingOrder.total) || 0);
+            if (amt > 0 && existingOrder.shopId) {
+                try {
+                    await Shop.findByIdAndUpdate(existingOrder.shopId, { $inc: { balance: amt } });
+                } catch (err) {
+                    console.error('Auto deposit (completed) failed:', err);
+                }
+            }
         }
 
         res.json({ success: true, order });
@@ -296,14 +328,8 @@ export const getMerchantPendingOrders = async (req: AuthRequest, res: Response) 
         }
 
         const [orders, merchantOrders] = await Promise.all([
-            Order.find({
-                shopId,
-                status: 'rider_coming'
-            }),
-            OrderForMerchant.find({
-                shopId,
-                status: 'rider_coming'
-            })
+            Order.find({ shopId, status: 'decision' }),
+            OrderForMerchant.find({ shopId, status: 'decision' })
         ]);
 
         const allOrders = mergeAndSortByCreatedAt(orders, merchantOrders);
@@ -322,7 +348,7 @@ export const getMerchantPendingOrders = async (req: AuthRequest, res: Response) 
                 total: order.total || 0,
                 serviceTotal: order.serviceTotal || 0,
                 deliveryFee: order.deliveryFee || 0,
-                paymentMethod: order.paymentMethod === 'wallet' ? 'เงินกระเป๋า' : 'เงินสด',
+                paymentMethod: order.paymentMethod === 'wallet' ? 'Wallet' : 'Cash',
                 paymentMethodRaw: order.paymentMethod,
                 serviceType: firstItem?.name || 'Wash & Fold Service',
                 serviceDetail: firstItem?.details || `approx. 5-7 kg`,
@@ -340,7 +366,7 @@ export const getMerchantPendingOrders = async (req: AuthRequest, res: Response) 
     }
 };
 
-// ดึง Order ที่ร้านกำลังดำเนินการ (at_shop, out_for_delivery)
+// ดึง Order ที่ร้านกำลังดำเนินการ (rider_coming, at_shop, in_progress, deliverying)
 export const getMerchantCurrentOrders = async (req: AuthRequest, res: Response) => {
     try {
         const { shopId } = req.params;
@@ -350,7 +376,7 @@ export const getMerchantCurrentOrders = async (req: AuthRequest, res: Response) 
 
         const currentStatusQuery = {
             shopId,
-            status: { $in: ['at_shop', 'out_for_delivery', 'in_progress', 'deliverying'] }
+            status: { $in: ['rider_coming', 'at_shop', 'out_for_delivery', 'in_progress', 'deliverying'] }
         };
 
         const [orders, merchantOrders] = await Promise.all([
@@ -365,17 +391,31 @@ export const getMerchantCurrentOrders = async (req: AuthRequest, res: Response) 
                 ? order.items[0]
                 : { name: 'Wash & Fold Service', details: '', price: 0 };
 
+            const isRiderComing = order.status === 'rider_coming';
+            const isAtShop = order.status === 'at_shop';
+            const isDelivering = order.status === 'deliverying';
+            const isReady = ['in_progress', 'out_for_delivery', 'deliverying'].includes(order.status);
+            const displayStatus = isRiderComing ? 'wait_for_rider' : isAtShop ? 'washing' : 'ready';
+            const dueText = isRiderComing ? undefined : isAtShop ? 'Due in 2h' : undefined;
+            const pickupText = isRiderComing
+                ? 'Waiting for rider'
+                : isAtShop
+                    ? undefined
+                    : isDelivering
+                        ? 'Delivering'
+                        : 'Waiting for rider to pick up';
+
             return {
                 id: String(order._id),
                 customerName: order.userDisplayName || 'Customer',
                 orderId: `ORD-${String(order._id).slice(-4)}`,
                 serviceType: firstItem?.name || 'Wash & Fold',
-                status: (order.status === 'at_shop') ? 'washing' : 'ready',
+                status: displayStatus,
                 statusRaw: order.status,
                 total: order.total || 0,
-                paymentMethod: order.paymentMethod === 'wallet' ? 'เงินกระเป๋า' : 'เงินสด',
-                dueText: order.status === 'at_shop' ? 'Due in 2h' : undefined,
-                pickupText: (order.status === 'out_for_delivery' || order.status === 'in_progress' || order.status === 'deliverying') ? 'Waiting for Pickup' : undefined,
+                paymentMethod: order.paymentMethod === 'wallet' ? 'Wallet' : 'Cash',
+                dueText,
+                pickupText,
             };
         });
 
@@ -383,6 +423,57 @@ export const getMerchantCurrentOrders = async (req: AuthRequest, res: Response) 
     } catch (error) {
         console.error('Get Merchant Current Orders Error:', error);
         res.status(500).json({ success: false, message: 'Failed to get merchant current orders' });
+    }
+};
+
+const mergeAndSortByUpdatedAt = <T extends { updatedAt?: Date }>(...groups: T[][]): T[] => {
+    return groups
+        .flat()
+        .sort(
+            (a, b) =>
+                new Date(b.updatedAt || 0).getTime() -
+                new Date(a.updatedAt || 0).getTime()
+        );
+};
+
+// ดึงประวัติออเดอร์ที่ completed ของร้าน จาก orders + ordersformerchant
+export const getMerchantOrderHistory = async (req: AuthRequest, res: Response) => {
+    try {
+        const { shopId } = req.params;
+        if (!shopId) {
+            return res.status(400).json({ success: false, message: 'shopId is required' });
+        }
+
+        const historyQuery = { shopId, status: { $in: ['completed', 'deliverying'] } };
+
+        const [orders, merchantOrders] = await Promise.all([
+            Order.find(historyQuery).sort({ updatedAt: -1 }).limit(100),
+            OrderForMerchant.find(historyQuery).sort({ updatedAt: -1 }).limit(100)
+        ]);
+
+        const allOrders = mergeAndSortByUpdatedAt(orders, merchantOrders);
+
+        const formattedOrders = allOrders.map((order) => {
+            const firstItem = Array.isArray(order.items) && order.items.length > 0
+                ? order.items[0]
+                : { name: 'Wash & Fold Service', details: '', price: 0 };
+
+            return {
+                id: String(order._id),
+                customerName: order.userDisplayName || 'Customer',
+                orderId: `ORD-${String(order._id).slice(-4)}`,
+                serviceType: firstItem?.name || 'Wash & Fold',
+                status: 'completed',
+                total: order.total || 0,
+                paymentMethod: order.paymentMethod === 'wallet' ? 'Wallet' : 'Cash',
+                completedAt: order.updatedAt || order.createdAt,
+            };
+        });
+
+        res.json({ success: true, orders: formattedOrders });
+    } catch (error) {
+        console.error('Get Merchant Order History Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to get merchant order history' });
     }
 };
 

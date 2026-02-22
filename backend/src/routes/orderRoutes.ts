@@ -8,6 +8,7 @@ import {
     getPendingOrders,
     getMerchantPendingOrders,
     getMerchantCurrentOrders,
+    getMerchantOrderHistory,
     merchantAcceptOrder,
     merchantUpdateOrderStatus
 } from '../controllers/orderController';
@@ -23,6 +24,9 @@ router.get('/merchant/:shopId/pending', getMerchantPendingOrders);
 
 // GET /api/orders/merchant/:shopId/current - ดึง order ที่ร้านกำลังดำเนินการ
 router.get('/merchant/:shopId/current', getMerchantCurrentOrders);
+
+// GET /api/orders/merchant/:shopId/history - ดึงประวัติออเดอร์ที่ completed จาก ordersformerchant + orders
+router.get('/merchant/:shopId/history', getMerchantOrderHistory);
 
 // POST /api/orders/:orderId/merchant-accept - Merchant รับ order (ไม่ต้อง auth)
 router.post('/:orderId/merchant-accept', merchantAcceptOrder);

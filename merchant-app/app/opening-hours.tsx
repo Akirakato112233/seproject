@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,17 +16,34 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
 import { useShop } from '../context/ShopContext';
 
-const DAY_NAMES = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์'] as const;
+const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+
+const THAI_TO_DAY: Record<string, string> = {
+  'จันทร์': 'Mon', 'อังคาร': 'Tue', 'พุธ': 'Wed', 'พฤหัสบดี': 'Thu',
+  'ศุกร์': 'Fri', 'เสาร์': 'Sat', 'อาทิตย์': 'Sun',
+};
 
 function daysFromStore(
   raw: number[] | string[] | undefined
 ): string[] {
-  if (!raw || !Array.isArray(raw) || raw.length === 0) return ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์'];
+  if (!raw || !Array.isArray(raw) || raw.length === 0) return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
   const first = raw[0];
   if (typeof first === 'number') {
     return (raw as number[]).map((n) => DAY_NAMES[Math.max(0, n - 1)] ?? String(n));
   }
-  return raw as string[];
+  return (raw as string[]).map((d) => THAI_TO_DAY[d] ?? d);
+}
+
+/** Valid time: HH:mm, 00:00–24:00 (24:00 = end of day, minutes must be 00) */
+function isValidTime(s: string): boolean {
+  const trimmed = (s || '').trim();
+  const match = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return false;
+  const h = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10);
+  if (h < 0 || h > 24) return false;
+  if (h === 24) return m === 0;
+  return m >= 0 && m <= 59;
 }
 
 function parseTime(s: string): string {
@@ -33,8 +51,11 @@ function parseTime(s: string): string {
   if (!trimmed) return '08:00';
   const match = trimmed.match(/^(\d{1,2}):(\d{2})$/);
   if (match) {
-    const h = Math.min(23, Math.max(0, parseInt(match[1], 10)));
-    const m = Math.min(59, Math.max(0, parseInt(match[2], 10)));
+    let h = parseInt(match[1], 10);
+    let m = parseInt(match[2], 10);
+    if (h === 24 && m === 0) return '24:00';
+    h = Math.min(23, Math.max(0, h));
+    m = Math.min(59, Math.max(0, m));
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   }
   return trimmed.length <= 5 ? trimmed : '08:00';
@@ -43,7 +64,7 @@ function parseTime(s: string): string {
 export default function OpeningHoursScreen() {
   const router = useRouter();
   const { shop, updateShop } = useShop();
-  const [days, setDays] = useState<string[]>(['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์']);
+  const [days, setDays] = useState<string[]>(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
   const [open, setOpen] = useState('08:00');
   const [close, setClose] = useState('19:00');
   const [saving, setSaving] = useState(false);
@@ -68,6 +89,14 @@ export default function OpeningHoursScreen() {
 
   const handleSave = async () => {
     if (!shop) return;
+    if (!isValidTime(open) || !isValidTime(close)) {
+      Alert.alert(
+        'Invalid time',
+        'Please enter open and close time in HH:mm format (00:00–24:00). For example: 08:00, 23:00.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
     const openNorm = parseTime(open);
     const closeNorm = parseTime(close);
     setSaving(true);
@@ -89,11 +118,11 @@ export default function OpeningHoursScreen() {
         >
           <Ionicons name="arrow-back" size={24} color={Colors.white} />
         </Pressable>
-        <Text style={s.headerTitle}>จัดการเวลาเปิด-ปิด</Text>
+        <Text style={s.headerTitle}>Opening Hours</Text>
       </View>
 
       <ScrollView style={s.scroll} contentContainerStyle={s.content}>
-        <Text style={s.sectionTitle}>เลือกวัน</Text>
+        <Text style={s.sectionTitle}>Select Day</Text>
         <View style={s.dayRow}>
           {DAY_NAMES.map((dayName) => (
             <TouchableOpacity
@@ -108,7 +137,7 @@ export default function OpeningHoursScreen() {
           ))}
         </View>
 
-        <Text style={s.sectionTitle}>เวลาเปิด - ปิด</Text>
+        <Text style={s.sectionTitle}>Open – Close Time</Text>
         <View style={s.timeRow}>
           <TextInput
             style={s.timeInput}
@@ -126,7 +155,7 @@ export default function OpeningHoursScreen() {
             placeholderTextColor={Colors.textMuted}
           />
         </View>
-        <Text style={s.hint}>รูปแบบ HH:mm (เช่น 08:00, 19:00)</Text>
+        <Text style={s.hint}>Format HH:mm (e.g. 08:00, 19:00)</Text>
 
         <TouchableOpacity
           style={[s.saveBtn, saving && s.saveBtnDisabled]}
@@ -136,7 +165,7 @@ export default function OpeningHoursScreen() {
           {saving ? (
             <ActivityIndicator size="small" color={Colors.white} />
           ) : (
-            <Text style={s.saveBtnText}>บันทึก</Text>
+            <Text style={s.saveBtnText}>Save</Text>
           )}
         </TouchableOpacity>
       </ScrollView>

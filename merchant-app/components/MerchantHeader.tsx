@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/colors';
 import { useShop } from '../context/ShopContext';
 
@@ -21,11 +21,32 @@ export function MerchantHeader({
 
   const handleToggle = async () => {
     if (updating || !shop) return;
+    if (isOn) {
+      Alert.alert(
+        'Turn shop OFF',
+        'Are you sure you want to turn the shop off? Customers will not see your shop in the list.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Turn OFF', style: 'destructive', onPress: () => doUpdateStatus(false) },
+        ]
+      );
+      return;
+    }
+    Alert.alert(
+      'Turn shop ON',
+      'Are you sure you want to turn the shop on? Customers will see your shop in the list.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Turn ON', onPress: () => doUpdateStatus(true) },
+      ]
+    );
+  };
+
+  const doUpdateStatus = async (next: boolean) => {
+    if (!shop) return;
     setUpdating(true);
-    const next = !isOn;
     const ok = await updateShop({ status: next });
     if (!ok) {
-      // rollback ไม่ต้อง set state เพราะ updateShop ไม่ได้อัปเดต local
       await updateShop({ status: isOn });
     }
     setUpdating(false);
@@ -35,7 +56,7 @@ export function MerchantHeader({
     <View style={s.header}>
       <View style={s.headerLeft}>
         <Image source={shopAvatarImg} style={s.avatar} />
-        <Text style={s.shopName}>{shopName}</Text>
+        <Text style={s.shopName} numberOfLines={1} ellipsizeMode="tail">{shopName}</Text>
       </View>
       <View style={s.headerRight}>
         <Pressable
@@ -74,15 +95,15 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.cardBorder,
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
   avatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: Colors.cardBorder,
   },
-  shopName: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
+  shopName: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, flex: 1 },
   // Toggle แบบรูปที่ 1: ON = พื้นดำ ตัวอักษร/วงกลมขาว, OFF = พื้นขาวขอบดำ ตัวอักษร/วงกลมดำ
   toggleTrack: {
     width: 72,
@@ -115,5 +136,5 @@ const s = StyleSheet.create({
   },
   toggleThumbOn: { backgroundColor: Colors.white },
   toggleThumbOff: { backgroundColor: '#1f2937' },
-  walletBtn: { padding: 4 },
+  walletBtn: { padding: 8, minWidth: 40, minHeight: 40, alignItems: 'center', justifyContent: 'center' },
 });
