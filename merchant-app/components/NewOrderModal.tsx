@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   Modal,
   StyleSheet,
@@ -45,21 +45,6 @@ export function NewOrderModal({
   onPrev,
   onNext,
 }: NewOrderModalProps) {
-  const [timeLeft, setTimeLeft] = useState(order?.expiresIn ?? 180);
-
-  useEffect(() => {
-    if (!visible || !order) return;
-    setTimeLeft(order.expiresIn ?? 180);
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => (prev <= 1 ? 0 : prev - 1));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [visible, order]);
-
-  const minutes = Math.floor(timeLeft / 60);
-  const seconds = timeLeft % 60;
-  const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
   if (!order) return null;
 
   const canGoPrev = orders.length > 1 && currentIndex > 0;
@@ -67,7 +52,7 @@ export function NewOrderModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade">
-      <TouchableWithoutFeedback>
+      <TouchableWithoutFeedback onPress={onDecline}>
         <View style={s.overlay}>
           <View style={s.modalRow}>
             <TouchableOpacity
@@ -81,7 +66,7 @@ export function NewOrderModal({
                 color={canGoPrev ? Colors.primaryBlue : Colors.textMuted}
               />
             </TouchableOpacity>
-            <TouchableWithoutFeedback>
+            <TouchableWithoutFeedback onPress={() => {}}>
               <View style={s.modal}>
               <View style={s.modalHeader}>
                 <View style={s.headerLeft}>
@@ -151,8 +136,6 @@ export function NewOrderModal({
                   <Text style={s.acceptText}>Accept</Text>
                 </TouchableOpacity>
               </View>
-
-              <Text style={s.expires}>OFFER EXPIRES IN {timeStr}</Text>
               </View>
             </TouchableWithoutFeedback>
             <TouchableOpacity
@@ -271,5 +254,4 @@ const s = StyleSheet.create({
     gap: 8,
   },
   acceptText: { fontSize: 16, fontWeight: '700', color: Colors.white },
-  expires: { fontSize: 12, color: '#dc2626', textAlign: 'center', marginTop: 12 },
 });

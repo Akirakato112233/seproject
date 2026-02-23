@@ -40,7 +40,7 @@ export default function SettingsScreen() {
           <View style={[s.iconWrap, s.iconGreen]}>
             <Ionicons name="list-outline" size={22} color={Colors.white} />
           </View>
-          <Text style={s.menuText}>จัดการบริการ (Options)</Text>
+          <Text style={s.menuText}>Manage Services</Text>
           <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
         </TouchableOpacity>
         <TouchableOpacity
@@ -50,7 +50,7 @@ export default function SettingsScreen() {
           <View style={[s.iconWrap, s.iconBlue]}>
             <Ionicons name="time-outline" size={22} color={Colors.white} />
           </View>
-          <Text style={s.menuText}>จัดการเวลาเปิด-ปิด (time)</Text>
+          <Text style={s.menuText}>Opening Hours</Text>
           <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
         </TouchableOpacity>
 

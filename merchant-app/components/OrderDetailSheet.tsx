@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Colors } from '../constants/colors';
 
-export type OrderDetailStatus = 'washing' | 'in_progress' | 'ready_for_delivery';
+export type OrderDetailStatus = 'wait_for_rider' | 'washing' | 'in_progress' | 'ready_for_delivery';
 
 export interface OrderDetailData {
   id: string;
@@ -26,6 +26,8 @@ export interface OrderDetailData {
   riderPhone?: string;
   services?: { name: string; qty: string; price: number }[];
   note?: string;
+  showAction?: boolean;
+  actionLabel?: string;
 }
 
 interface OrderDetailSheetProps {
@@ -43,10 +45,21 @@ export function OrderDetailSheet({
 }: OrderDetailSheetProps) {
   if (!order) return null;
 
+  const isWaitForRider = order.status === 'wait_for_rider';
   const isWashing = order.status === 'washing';
   const isInProgress = order.status === 'in_progress';
-  const actionLabel = isWashing ? 'Ready for Pickup' : 'Rider arrived';
-  const statusLabel = isWashing ? 'WASHING' : isInProgress ? 'In Progress' : 'Ready for Delivery';
+  const statusLabel =
+    isWaitForRider
+      ? 'Waiting for rider'
+      : isWashing
+        ? 'In progress'
+        : isInProgress
+          ? 'Ready for pickup'
+          : 'Delivering';
+  const actionLabel =
+    order.actionLabel ??
+    (isWaitForRider ? 'Rider arrived' : isWashing ? 'Ready for pickup' : isInProgress ? 'Rider picked up' : '');
+  const showAction = order.showAction !== false && !!actionLabel;
 
   return (
     <Modal visible={visible} transparent animationType="slide">
@@ -61,7 +74,13 @@ export function OrderDetailSheet({
                   <View
                     style={[
                       s.statusBadge,
-                      isWashing ? s.statusWashing : isInProgress ? s.statusInProgress : s.statusReady,
+                      isWaitForRider
+                        ? s.statusWait
+                        : isWashing
+                          ? s.statusWashing
+                          : isInProgress
+                            ? s.statusInProgress
+                            : s.statusReady,
                     ]}
                   >
                     <Text style={s.statusText}>
@@ -110,6 +129,10 @@ export function OrderDetailSheet({
                     <Text style={s.detailLabel}>Order Date</Text>
                     <Text style={s.detailValue}>{order.orderDate}</Text>
                   </View>
+                  <View style={s.detailRow}>
+                    <Text style={s.detailLabel}>Payment Method</Text>
+                    <Text style={s.detailValue}>{order.paymentMethod}</Text>
+                  </View>
                 </View>
 
                 {order.riderName && (
@@ -129,7 +152,7 @@ export function OrderDetailSheet({
                   </View>
                 )}
 
-                {isWashing && order.services && order.services.length > 0 && (
+                {(isWashing || isWaitForRider) && order.services && order.services.length > 0 && (
                   <View style={s.card}>
                     <View style={s.cardHeader}>
                       <Ionicons name="list-outline" size={18} color={Colors.textPrimary} />
@@ -152,7 +175,7 @@ export function OrderDetailSheet({
                   </View>
                 )}
 
-                {isWashing && order.note && (
+                {(isWashing || isWaitForRider) && order.note && (
                   <View style={s.card}>
                     <View style={s.cardHeader}>
                       <Ionicons
@@ -167,10 +190,12 @@ export function OrderDetailSheet({
                 )}
               </ScrollView>
 
-              <TouchableOpacity style={s.actionBtn} onPress={onAction} activeOpacity={0.8}>
-                <Text style={s.actionBtnText}>{actionLabel}</Text>
-                <Ionicons name="arrow-forward" size={20} color={Colors.white} />
-              </TouchableOpacity>
+              {showAction && (
+                <TouchableOpacity style={s.actionBtn} onPress={onAction} activeOpacity={0.8}>
+                  <Text style={s.actionBtnText}>{actionLabel}</Text>
+                  <Ionicons name="arrow-forward" size={20} color={Colors.white} />
+                </TouchableOpacity>
+              )}
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -217,6 +242,7 @@ const s = StyleSheet.create({
     alignSelf: 'flex-start',
     marginTop: 6,
   },
+  statusWait: { backgroundColor: '#f59e0b' },
   statusWashing: { backgroundColor: Colors.primaryBlue },
   statusInProgress: { backgroundColor: '#f59e0b' },
   statusReady: { backgroundColor: Colors.successGreen },

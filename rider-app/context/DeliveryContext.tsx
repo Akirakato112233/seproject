@@ -30,6 +30,9 @@ export type Order = {
   paymentMethod?: PaymentMethod;
   customerPhone?: string;
   shopPhone?: string;
+
+  // order status from backend
+  status?: string;
 };
 
 export type ActiveOrder = Order & { status: DeliveryStatus };
@@ -159,11 +162,27 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
     ).catch(() => { });
   }, [available, active, history, isOnline, autoAccept]);
 
+  const updateBackendStatus = async (orderId: string, status: string) => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      await fetch(`${API.ORDERS}/${orderId}/status`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ status }),
+      });
+    } catch (error) {
+      console.log('Error updating backend status:', error);
+    }
+  };
+
   const startOrder = (order: Order) => {
     if (active) return;
     const shop = (order as any).shop ?? order.pickup;
     setActive({ ...order, shop, status: "going_to_customer" });
     setAvailable((prev) => prev.filter((o) => o.id !== order.id));
+    // อัปเดต backend: rider รับงานแล้ว
+    updateBackendStatus(order.id, 'rider_coming');
   };
 
   // สำหรับโค้ดเก่า
@@ -184,11 +203,15 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
   const markPickedUp = () => {
     if (!active) return;
     setActive({ ...active, status: "going_to_shop" });
+    // อัปเดต backend: rider รับผ้าจากลูกค้าแล้ว กำลังไปร้าน
+    updateBackendStatus(active.id, 'at_shop');
   };
 
   const markAtShop = () => {
     if (!active) return;
     setActive({ ...active, status: "delivering" });
+    // อัปเดต backend: rider ถึงร้านแล้ว กำลังส่งผ้า
+    updateBackendStatus(active.id, 'deliverying');
   };
 
   const markDelivered = () => {
@@ -199,6 +222,8 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
       completedAt: new Date().toISOString(),
     };
 
+    // อัปเดต backend: ส่งผ้าเสร็จแล้ว
+    updateBackendStatus(active.id, 'completed');
     setHistory((prev) => [done, ...prev]);
     setActive(null);
   };

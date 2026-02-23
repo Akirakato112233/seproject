@@ -22,7 +22,7 @@ import {
   type OrderDetailStatus,
 } from '../../components/OrderDetailSheet';
 
-type OrderFilter = 'all' | 'in_progress' | 'ready';
+type OrderFilter = 'all' | 'in_progress' | 'ready' | 'deliverying';
 
 interface ApiPendingOrder {
   id: string;
@@ -76,8 +76,12 @@ function apiOrderToNewOrderData(order: ApiPendingOrder): NewOrderData {
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { shop } = useShop();
-  const { currentOrders, setOrderReady, completeOrder, refreshCurrentOrders } = useOrders();
+  const { shop, refreshShop } = useShop();
+  const { currentOrders, setRiderArrived, setOrderReady, completeOrder, refreshCurrentOrders } = useOrders();
+
+  useEffect(() => {
+    refreshShop();
+  }, [refreshShop]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<OrderFilter>('all');
   const [showNewOrder, setShowNewOrder] = useState(false);
@@ -162,15 +166,19 @@ export default function DashboardScreen() {
     setShowNewOrder(false);
   };
 
+  const waitForRiderCount = currentOrders.filter((o) => o.status === 'wait_for_rider').length;
   const washingCount = currentOrders.filter((o) => o.status === 'washing').length;
-  const readyCount = currentOrders.filter((o) => o.status === 'ready').length;
+  const readyCount = currentOrders.filter((o) => o.status === 'ready' && o.statusRaw !== 'deliverying').length;
+  const deliveringCount = currentOrders.filter((o) => o.status === 'ready' && o.statusRaw === 'deliverying').length;
 
   const filteredOrders =
     filter === 'all'
       ? currentOrders
       : filter === 'in_progress'
-        ? currentOrders.filter((o) => o.status === 'washing')
-        : currentOrders.filter((o) => o.status === 'ready');
+        ? currentOrders.filter((o) => o.status === 'wait_for_rider' || o.status === 'washing')
+        : filter === 'ready'
+          ? currentOrders.filter((o) => o.status === 'ready' && o.statusRaw !== 'deliverying')
+          : currentOrders.filter((o) => o.status === 'ready' && o.statusRaw === 'deliverying');
 
   const searchFiltered = search
     ? filteredOrders.filter(
@@ -182,9 +190,11 @@ export default function DashboardScreen() {
 
   const handleOrderAction = async () => {
     if (!selectedOrder) return;
-    if (selectedOrder.status === 'washing') {
+    if (selectedOrder.status === 'wait_for_rider') {
+      await setRiderArrived(selectedOrder.id);
+    } else if (selectedOrder.status === 'washing') {
       await setOrderReady(selectedOrder.id);
-    } else {
+    } else if (selectedOrder.status === 'ready' && selectedOrder.statusRaw === 'in_progress') {
       await completeOrder(selectedOrder.id);
       router.push('/(tabs)/history');
     }
@@ -200,18 +210,32 @@ export default function DashboardScreen() {
   const getOrderDetailData = (): OrderDetailData | null => {
     if (!selectedOrder) return null;
     const status: OrderDetailStatus =
-      selectedOrder.status === 'washing'
-        ? 'washing'
-        : selectedOrder.statusRaw === 'in_progress'
-          ? 'in_progress'
-          : 'ready_for_delivery';
+      selectedOrder.status === 'wait_for_rider'
+        ? 'wait_for_rider'
+        : selectedOrder.status === 'washing'
+          ? 'washing'
+          : selectedOrder.statusRaw === 'in_progress'
+            ? 'in_progress'
+            : 'ready_for_delivery';
     const displayId = selectedOrder.orderId?.replace('ORD-', '') || selectedOrder.id.slice(-4);
+    const showAction =
+      selectedOrder.status === 'wait_for_rider' ||
+      selectedOrder.status === 'washing' ||
+      (selectedOrder.status === 'ready' && selectedOrder.statusRaw === 'in_progress');
+    const actionLabel =
+      selectedOrder.status === 'wait_for_rider'
+        ? 'Rider arrived'
+        : selectedOrder.status === 'washing'
+          ? 'Ready for pickup'
+          : selectedOrder.status === 'ready' && selectedOrder.statusRaw === 'in_progress'
+            ? 'Rider picked up'
+            : '';
     return {
       id: displayId,
       status,
       total: selectedOrder.total,
       isPaid: selectedOrder.status === 'ready',
-      paymentMethod: selectedOrder.paymentMethod || 'เงินสด',
+      paymentMethod: selectedOrder.paymentMethod || 'Cash',
       customerName: selectedOrder.customerName,
       customerPhone: '086-555-4444',
       orderDate: 'Today, 2:00 PM - 4:00 PM',
@@ -222,12 +246,26 @@ export default function DashboardScreen() {
           ? [{ name: 'Washing & Folding', qty: '5 kg x ฿40', price: 200 }]
           : undefined,
       note: status === 'washing' ? 'แยกผ้าขาว / สี' : undefined,
+      showAction,
+      actionLabel,
     };
   };
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
       <MerchantHeader shopName={shop?.name ?? 'Loading...'} onWalletPress={() => router.push('/(tabs)/wallet')} />
+
+      <TouchableOpacity
+        style={s.balanceCard}
+        onPress={() => router.push('/(tabs)/wallet')}
+        activeOpacity={0.9}
+      >
+        <View style={s.balanceRow}>
+          <Ionicons name="wallet-outline" size={22} color={Colors.primaryBlue} />
+          <Text style={s.balanceLabel}>Balance in wallet</Text>
+        </View>
+        <Text style={s.balanceAmount}>฿{(shop?.balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+      </TouchableOpacity>
 
       {pendingOrders.length > 0 && (
         <TouchableOpacity
@@ -245,13 +283,21 @@ export default function DashboardScreen() {
       )}
 
       <View style={s.summaryRow}>
+        <View style={[s.summaryCard, s.waitCard]}>
+          <Text style={s.summaryLabel}>Waiting for rider</Text>
+          <Text style={[s.summaryValue, s.waitValue]}>{waitForRiderCount}</Text>
+        </View>
         <View style={[s.summaryCard, s.washingCard]}>
-          <Text style={s.summaryLabel}>WASHING</Text>
+          <Text style={s.summaryLabel}>In progress</Text>
           <Text style={[s.summaryValue, s.washingValue]}>{washingCount}</Text>
         </View>
         <View style={[s.summaryCard, s.readyCard]}>
-          <Text style={s.summaryLabel}>READY</Text>
+          <Text style={s.summaryLabel}>Ready for pickup</Text>
           <Text style={[s.summaryValue, s.readyValue]}>{readyCount}</Text>
+        </View>
+        <View style={[s.summaryCard, s.deliveringCard]}>
+          <Text style={s.summaryLabel}>Delivering</Text>
+          <Text style={[s.summaryValue, s.deliveringValue]}>{deliveringCount}</Text>
         </View>
       </View>
 
@@ -269,9 +315,10 @@ export default function DashboardScreen() {
       <View style={s.filterRow}>
         {(
           [
-            ['all', 'All Orders'],
-            ['in_progress', 'In Progress'],
-            ['ready', 'Ready for Pickup'],
+            ['all', 'All'],
+            ['in_progress', 'In progress'],
+            ['ready', 'Ready for pickup'],
+            ['deliverying', 'Delivering'],
           ] as const
         ).map(([key, label]) => (
           <TouchableOpacity
@@ -302,12 +349,20 @@ export default function DashboardScreen() {
               <View
                 style={[
                   s.orderIcon,
-                  item.status === 'washing' ? s.orderIconWashing : s.orderIconReady,
+                  item.status === 'wait_for_rider'
+                    ? s.orderIconWait
+                    : item.status === 'washing'
+                      ? s.orderIconWashing
+                      : s.orderIconReady,
                 ]}
               >
                 <Ionicons
                   name={
-                    item.status === 'washing' ? 'shirt-outline' : 'bag-handles-outline'
+                    item.status === 'wait_for_rider'
+                      ? 'bicycle-outline'
+                      : item.status === 'washing'
+                        ? 'shirt-outline'
+                        : 'bag-handles-outline'
                   }
                   size={24}
                   color={Colors.white}
@@ -336,18 +391,30 @@ export default function DashboardScreen() {
               <View
                 style={[
                   s.statusBadge,
-                  item.status === 'washing' ? s.statusWashing : s.statusReady,
+                  item.status === 'wait_for_rider'
+                    ? s.statusWait
+                    : item.status === 'washing'
+                      ? s.statusWashing
+                      : s.statusReady,
                 ]}
               >
                 <Text
                   style={[
                     s.statusText,
-                    item.status === 'washing'
-                      ? s.statusTextWashing
-                      : s.statusTextReady,
+                    item.status === 'wait_for_rider'
+                      ? s.statusTextWait
+                      : item.status === 'washing'
+                        ? s.statusTextWashing
+                        : s.statusTextReady,
                   ]}
                 >
-                  {item.status.toUpperCase()}
+                  {item.status === 'wait_for_rider'
+                    ? 'Waiting for rider'
+                    : item.status === 'washing'
+                      ? 'In progress'
+                      : item.statusRaw === 'deliverying'
+                        ? 'Delivering'
+                        : 'Ready for pickup'}
                 </Text>
               </View>
               <Text style={s.orderPrice}>{item.total.toFixed(2)}฿</Text>
@@ -379,6 +446,32 @@ export default function DashboardScreen() {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.cardBg },
+  balanceCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+  },
+  balanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  balanceLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primaryBlue,
+  },
+  balanceAmount: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: Colors.successGreen,
+  },
   newOrderBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -398,23 +491,27 @@ const s = StyleSheet.create({
   summaryRow: {
     flexDirection: 'row',
     padding: 16,
-    gap: 12,
+    gap: 8,
   },
   summaryCard: {
     flex: 1,
     borderRadius: 12,
-    padding: 16,
+    padding: 12,
   },
+  waitCard: { backgroundColor: '#fef3c7' },
   washingCard: { backgroundColor: '#e0f2fe' },
   readyCard: { backgroundColor: '#dcfce7' },
+  deliveringCard: { backgroundColor: '#e0e7ff' },
   summaryLabel: {
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
-  summaryValue: { fontSize: 32, fontWeight: '800', marginTop: 4 },
+  summaryValue: { fontSize: 26, fontWeight: '800', marginTop: 4 },
+  waitValue: { color: '#b45309' },
   washingValue: { color: Colors.primaryBlue },
   readyValue: { color: Colors.successGreen },
+  deliveringValue: { color: '#4338ca' },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -470,6 +567,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  orderIconWait: { backgroundColor: '#f59e0b' },
   orderIconWashing: { backgroundColor: Colors.primaryBlue },
   orderIconReady: { backgroundColor: Colors.successGreen },
   customerName: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
@@ -484,9 +582,11 @@ const s = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
   },
+  statusWait: { backgroundColor: '#fef3c7' },
   statusWashing: { backgroundColor: '#dbeafe' },
   statusReady: { backgroundColor: '#dcfce7' },
-  statusText: { fontSize: 11, fontWeight: '700' },
+  statusText: { fontSize: 10, fontWeight: '700' },
+  statusTextWait: { color: '#b45309' },
   statusTextWashing: { color: Colors.primaryBlue },
   statusTextReady: { color: Colors.successGreen },
   orderPrice: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary },

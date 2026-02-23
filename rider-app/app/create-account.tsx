@@ -5,7 +5,8 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  ImageBackground,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
@@ -23,33 +24,23 @@ const GOOGLE_CLIENT_ID = '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.goo
 // Role for this app
 const ROLE = 'rider';
 
-/**
- * Create Account Screen - Google Sign-In for Rider
- */
 export default function CreateAccountScreen() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, setDevMode } = useAuth();
 
-  // @ts-ignore - useProxy is deprecated but works for Expo Go
+  // @ts-ignore
   const redirectUri = AuthSession.makeRedirectUri({
     useProxy: Platform.OS !== 'web',
   });
 
-  console.log('Platform:', Platform.OS);
-  console.log('Generated redirectUri:', redirectUri);
-
   const [request, response, promptAsync] = Google.useAuthRequest({
-    expoClientId: GOOGLE_CLIENT_ID,
-    webClientId: GOOGLE_CLIENT_ID, // Required for web platform
+    clientId: GOOGLE_CLIENT_ID,
+    iosClientId: GOOGLE_CLIENT_ID,
+    androidClientId: GOOGLE_CLIENT_ID,
+    webClientId: GOOGLE_CLIENT_ID,
     scopes: ['profile', 'email'],
     redirectUri,
   });
-
-  useEffect(() => {
-    if (request) {
-      console.log('Redirect URI created:', request.redirectUri);
-    }
-  }, [request]);
 
   useEffect(() => {
     handleResponse();
@@ -60,7 +51,6 @@ export default function CreateAccountScreen() {
       const { authentication } = response;
       if (authentication?.accessToken) {
         try {
-          // Call backend to check if user exists
           const { API } = await import('../config');
           const backendRes = await fetch(API.GOOGLE_LOGIN, {
             method: 'POST',
@@ -69,10 +59,8 @@ export default function CreateAccountScreen() {
           });
 
           const data = await backendRes.json();
-          console.log('Backend response:', data);
 
           if (data.next === 'REGISTER') {
-            // User doesn't exist or not onboarded → go to register
             router.replace({
               pathname: '/signup/register',
               params: {
@@ -83,9 +71,7 @@ export default function CreateAccountScreen() {
               },
             });
           } else if (data.next === 'APP') {
-            // User exists → save token and go to app
             await login(data.token, data.user);
-            console.log('User logged in:', data.user);
             router.replace('/(tabs)');
           } else {
             Alert.alert('Error', data.message || 'Login failed');
@@ -101,26 +87,45 @@ export default function CreateAccountScreen() {
   };
 
   const handleGoogleSignIn = () => {
-    if (!request) {
-      console.log('Auth Request not ready');
-      return;
-    }
-    console.log('Google button pressed');
-    // @ts-ignore - useProxy is deprecated but works for Expo Go
+    if (!request) return;
+    // @ts-ignore
     promptAsync({ useProxy: Platform.OS !== 'web', showInRecents: false });
+  };
+
+  const handleDevMode = () => {
+    router.push('/signup/register' as any);
   };
 
   return (
     <SafeAreaView style={s.safe}>
-      <View style={s.container}>
-        <View style={s.header}>
-          <Text style={s.title}>Become a Rider</Text>
-          <Text style={s.subtitle}>
-            Sign in with your Google account to start delivering. We will never share any personal data.
+      <ImageBackground
+        source={require('../assets/images/image.png')}
+        style={StyleSheet.absoluteFillObject}
+        resizeMode="cover"
+      >
+        {/* Dark overlay */}
+        <View style={s.overlay} />
+      </ImageBackground>
+
+      {/* Content */}
+      <View style={s.content}>
+        {/* Top branding */}
+        <View style={s.brandSection}>
+          <Text style={s.partner}>Wit Partner</Text>
+          <Text style={s.headline}>
+            Drive and <Text style={s.highlight}>Earn</Text>
           </Text>
+          <Text style={s.headline}>with Wit</Text>
         </View>
 
-        <View style={s.actions}>
+        {/* Bottom card */}
+        <View style={s.card}>
+          <Text style={s.cardTitle}>Create an account</Text>
+          <Text style={s.cardSub}>
+            Save time by linking your social account. We will never share any personal data.
+          </Text>
+
+          {/* Google Sign In */}
           <TouchableOpacity
             style={[s.btn, s.btnGoogle, !request && s.disabledBtn]}
             activeOpacity={0.85}
@@ -128,9 +133,15 @@ export default function CreateAccountScreen() {
             disabled={!request}
           >
             <View style={s.googleIconWrapper}>
-              <Ionicons name="logo-google" size={20} color="#EA4335" />
+              <Ionicons name="logo-google" size={18} color="#EA4335" />
             </View>
             <Text style={s.btnText}>Continue with Google</Text>
+          </TouchableOpacity>
+
+          {/* Dev Mode button */}
+          <TouchableOpacity style={s.btnDev} activeOpacity={0.8} onPress={handleDevMode}>
+            <Ionicons name="code-slash" size={16} color="#64748B" />
+            <Text style={s.btnDevText}>Dev Mode (Skip Login)</Text>
           </TouchableOpacity>
 
           <Text style={s.terms}>
@@ -143,33 +154,62 @@ export default function CreateAccountScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#fff' },
-  container: {
+  safe: { flex: 1, backgroundColor: '#000' },
+
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+
+  content: {
     flex: 1,
+    justifyContent: 'space-between',
     paddingHorizontal: 24,
-    justifyContent: 'center',
+    paddingTop: 40,
+    paddingBottom: 0,
   },
-  header: {
+
+  brandSection: {
+    marginTop: 20,
+  },
+  partner: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  headline: {
+    color: '#fff',
+    fontSize: 40,
+    fontWeight: '900',
+    lineHeight: 46,
+  },
+  highlight: {
+    color: '#00D4FF',
+  },
+
+  card: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 28,
+    paddingBottom: 40,
+    gap: 16,
     alignItems: 'center',
-    marginBottom: 40,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#111',
-    marginBottom: 12,
+  cardTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#0F172A',
   },
-  subtitle: {
+  cardSub: {
     textAlign: 'center',
-    color: '#666',
-    fontSize: 14,
+    color: '#64748B',
+    fontSize: 13,
     lineHeight: 20,
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
   },
-  actions: {
-    gap: 20,
-    alignItems: 'center',
-  },
+
   btn: {
     width: '100%',
     height: 52,
@@ -201,16 +241,34 @@ const s = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
   },
+
+  btnDev: {
+    width: '100%',
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#F8FAFC',
+  },
+  btnDevText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+
   terms: {
     textAlign: 'center',
-    color: '#999',
+    color: '#94A3B8',
     fontSize: 11,
     lineHeight: 16,
-    paddingHorizontal: 30,
-    marginTop: 10,
+    paddingHorizontal: 20,
   },
   disabledBtn: {
     opacity: 0.5,
     backgroundColor: '#b0b0b0',
-  }
+  },
 });
