@@ -5,11 +5,13 @@ import {
     TouchableOpacity,
     StyleSheet,
     ScrollView,
+    Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useSignup } from '../../context/SignupContext';
 
 const SELFIE_RULES = [
     'Do not remove your shirt',
@@ -23,6 +25,8 @@ const SELFIE_RULES = [
 export default function SelfieGuideScreen() {
     const router = useRouter();
     const { setDevMode } = useAuth();
+    const { data } = useSignup();
+    const selfieUri = data.selfieUri;
     const params = useLocalSearchParams<{ vehicleType?: string }>();
 
     const vehicleType = params.vehicleType === 'motorcycle'
@@ -30,8 +34,11 @@ export default function SelfieGuideScreen() {
         : 'Car | รถยนต์ส่วนบุคคล';
 
     const handleContinue = () => {
-        setDevMode(true);
-        router.replace('/(tabs)');
+        router.push('/signup/national-id' as any);
+    };
+
+    const handleTakeSelfie = () => {
+        router.push('/signup/photo-requirements' as any);
     };
 
     return (
@@ -57,10 +64,24 @@ export default function SelfieGuideScreen() {
 
                 {/* Selfie button */}
                 <View style={s.selfieWrap}>
-                    <TouchableOpacity style={s.selfieBtn}>
-                        <Ionicons name="camera" size={32} color="#1E293B" />
+                    <TouchableOpacity
+                        style={[s.selfieBtn, selfieUri ? s.selfieBtnDone : null]}
+                        onPress={handleTakeSelfie}
+                    >
+                        {selfieUri ? (
+                            <Image source={{ uri: selfieUri }} style={s.selfiePhoto} />
+                        ) : (
+                            <Ionicons name="camera" size={32} color="#1E293B" />
+                        )}
                     </TouchableOpacity>
-                    <Text style={s.selfieLabel}>Take Selfie</Text>
+                    {selfieUri ? (
+                        <View style={s.selfieCheckRow}>
+                            <Ionicons name="checkmark-circle" size={18} color="#22C55E" />
+                            <Text style={[s.selfieLabel, { color: '#22C55E' }]}>Photo taken</Text>
+                        </View>
+                    ) : (
+                        <Text style={s.selfieLabel}>Take Selfie</Text>
+                    )}
                 </View>
 
                 {/* Rules */}
@@ -145,8 +166,20 @@ const s = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: '#F8FAFC',
+        overflow: 'hidden',
+    },
+    selfieBtnDone: {
+        borderColor: '#22C55E',
+        borderStyle: 'solid',
+        borderWidth: 2.5,
+    },
+    selfiePhoto: {
+        width: 90,
+        height: 90,
+        borderRadius: 45,
     },
     selfieLabel: { fontSize: 14, color: '#64748B' },
+    selfieCheckRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
 
     // Rules
     rulesBox: { gap: 12 },

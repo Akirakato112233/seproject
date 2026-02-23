@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useSignup } from '../../context/SignupContext';
 import { API } from '../../config';
 
 const CITIES = [
@@ -34,6 +35,7 @@ const COUNTRIES = [
 export default function RegisterScreen() {
     const router = useRouter();
     const { setDevMode } = useAuth();
+    const { setField } = useSignup();
 
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
@@ -44,13 +46,36 @@ export default function RegisterScreen() {
     const [showCountryModal, setShowCountryModal] = useState(false);
     const [showCityModal, setShowCityModal] = useState(false);
 
-    const canContinue = agreed;
+    const canContinue =
+        firstName.trim().length > 0 &&
+        lastName.trim().length > 0 &&
+        phone.trim().length > 0 &&
+        city !== null &&
+        agreed;
 
     const handleContinue = () => {
+        if (!firstName.trim() || !lastName.trim()) {
+            Alert.alert('กรุณากรอกข้อมูล', 'กรุณากรอกชื่อและนามสกุล');
+            return;
+        }
+        if (!phone.trim()) {
+            Alert.alert('กรุณากรอกข้อมูล', 'กรุณากรอกหมายเลขโทรศัพท์');
+            return;
+        }
+        if (!city) {
+            Alert.alert('กรุณากรอกข้อมูล', 'กรุณาเลือกเมือง');
+            return;
+        }
         if (!agreed) {
             Alert.alert('กรุณายืนยัน', 'กรุณาติ๊กยอมรับเงื่อนไขก่อนดำเนินการต่อ');
             return;
         }
+        // Save to SignupContext
+        setField('firstName', firstName.trim());
+        setField('lastName', lastName.trim());
+        setField('phone', phone.trim());
+        setField('countryCode', country.value);
+        setField('city', city.value);
         router.push('/signup/service-preference' as any);
     };
 

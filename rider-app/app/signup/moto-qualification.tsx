@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../../context/AuthContext';
+import { useSignup } from '../../context/SignupContext';
 
 // Motorcycle: 2 ข้อ (ไม่มี vehicle criteria)
 const STEPS = [
@@ -28,7 +28,7 @@ const STEPS = [
 
 export default function MotoQualificationScreen() {
     const router = useRouter();
-    const { setDevMode } = useAuth();
+    const { setField } = useSignup();
 
     const [step, setStep] = useState(0);
     const [answers, setAnswers] = useState<(boolean | null)[]>([null, null]);
@@ -49,8 +49,9 @@ export default function MotoQualificationScreen() {
                 setFirstNoStep(firstNo);
                 setShowInfo(true);
             } else {
-                setDevMode(true);
-                router.replace('/(tabs)');
+                // Save vehicle type and proceed to selfie flow
+                setField('vehicleType', 'motorcycle');
+                router.replace('/signup/selfie-guide?vehicleType=motorcycle' as any);
             }
         } else {
             setStep(step + 1);
