@@ -1,5 +1,36 @@
 import { Request, Response } from 'express';
 import { Rider } from '../models/Rider';
+import { RiderRegistration } from '../models/RiderRegistration';
+
+// POST /api/riders/register - บันทึกข้อมูล rider ใหม่จากฟอร์ม register
+// เก็บแยกใน collection 'rider_registrations' ไม่ปนกับ collection 'ไรเดอร์'
+export const registerRider = async (req: Request, res: Response) => {
+  try {
+    const { firstName, lastName, phone, countryCode, city } = req.body;
+
+    if (!firstName || !lastName) {
+      return res.status(400).json({ success: false, message: 'firstName and lastName are required' });
+    }
+
+    const fullName = `${firstName} ${lastName}`.trim();
+
+    const registration = await RiderRegistration.create({
+      firstName,
+      lastName,
+      fullName,
+      phone: phone || '',
+      countryCode: countryCode || '+66',
+      city: city || '',
+      agreedToTerms: true,
+    });
+
+    console.log('✅ New Rider Registration:', registration._id, fullName);
+    return res.status(201).json({ success: true, rider: registration });
+  } catch (error) {
+    console.error('❌ Register Rider Error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to register rider' });
+  }
+};
 
 // GET /api/riders/:id
 export const getRiderById = async (req: Request, res: Response) => {
@@ -35,4 +66,3 @@ export const getRandomRiderId = async (req: Request, res: Response) => {
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
-

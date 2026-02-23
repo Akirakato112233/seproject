@@ -74,7 +74,12 @@ export default function HomeScreen() {
   const [offerExpiresAt, setOfferExpiresAt] = useState<number | null>(null);
   const [nowTick, setNowTick] = useState(Date.now());
 
-  const showOffer = isOnline && autoAccept && !!firstRequest && !active && !showSuccessModal;
+  const showOffer =
+    isOnline &&
+    !!firstRequest &&
+    !active &&
+    !showSuccessModal &&
+    (autoAccept || firstRequest?.status === 'decision');
 
   const remainingMs = useMemo(() => {
     if (!offerExpiresAt) return 0;

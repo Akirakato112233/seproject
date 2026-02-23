@@ -482,15 +482,10 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
     try {
         console.log('📦 Fetching pending orders...');
         const pendingQuery = {
-            status: { $in: ['rider_coming', 'pending'] }
+            status: { $in: ['rider_coming', 'pending', 'decision'] }
         };
 
-        const [orders, merchantOrders] = await Promise.all([
-            Order.find(pendingQuery),
-            OrderForMerchant.find(pendingQuery)
-        ]);
-
-        const allOrders = mergeAndSortByCreatedAt(orders, merchantOrders);
+        const allOrders = await Order.find(pendingQuery).sort({ createdAt: -1 });
 
         console.log(`✅ Found ${allOrders.length} pending orders`);
 
@@ -498,7 +493,7 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
         const enrichedOrders = await Promise.all(allOrders.map(async (order) => {
             // พิกัดลูกค้า (ที่รับผ้า/ส่งผ้า) - ยังไม่มีใน User ใช้ default ก่อน
             const customerCoords = { latitude: 13.113625, longitude: 100.919286 };
-    
+
 
             let shop = null;
             if (order.shopId && /^[0-9a-fA-F]{24}$/.test(String(order.shopId))) {
@@ -522,6 +517,7 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
                 dropoff: customerCoords,  // ที่ส่งผ้า = ที่อยู่ลูกค้า
                 shop: shopCoords,         // พิกัดร้าน (ไปร้านหลังรับผ้า)
                 paymentMethod: order.paymentMethod || 'cash',
+                status: order.status || 'decision',
             };
         }));
 
