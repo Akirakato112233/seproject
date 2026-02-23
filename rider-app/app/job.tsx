@@ -19,7 +19,7 @@ import { LatLng, useDelivery } from "../context/DeliveryContext";
 const LONGDO_API_KEY = process.env.EXPO_PUBLIC_LONGDO_MAP_API_KEY || "d4ceb6847662fe82cb2411759980ffa4";
 
 const DEFAULT_COORDS = {
-  latitude: 13.0827,
+  latitude: 40.0827,
   longitude: 100.9274,
 };
 
