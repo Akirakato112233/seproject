@@ -40,6 +40,7 @@ export interface CoinShopData {
   washServices?: WashService[];
   dryServices?: DryService[];
   balance?: number;
+  status?: boolean; // ร้านเปิด true / ปิดปรับปรุง false
 }
 
 interface CoinShopContextType {

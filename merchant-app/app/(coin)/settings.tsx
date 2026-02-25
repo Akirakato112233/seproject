@@ -1,9 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import {
+  Alert,
+  Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   View,
@@ -11,10 +14,50 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { useAuth } from '../../context/AuthContext';
+import { useCoinShop } from '../../context/CoinShopContext';
 
 export default function CoinSettingsScreen() {
   const router = useRouter();
   const { logout } = useAuth();
+  const { shop, updateShop } = useCoinShop();
+  const [updating, setUpdating] = useState(false);
+
+  const isMaintenanceMode = shop?.status === false;
+
+  const handleMaintenanceToggle = (value: boolean) => {
+    if (updating || !shop) return;
+    if (Platform.OS === 'web') {
+      const msg = value
+        ? 'คุณต้องการปิดปรับปรุงร้านใช่หรือไม่? ลูกค้าจะไม่สามารถสั่งงานเครื่องซักผ้าได้จนกว่าคุณจะเปิดร้านอีกครั้ง'
+        : 'เครื่องซักผ้าที่ออนไลน์อยู่จะพร้อมให้ลูกค้าสั่งงานได้ทันที คุณต้องการดำเนินการต่อหรือไม่?';
+      if (window.confirm(msg)) doUpdateStatus(!value);
+    } else if (value) {
+      Alert.alert(
+        'ยืนยันการปิดร้าน',
+        'คุณต้องการปิดปรับปรุงร้านใช่หรือไม่? ลูกค้าจะไม่สามารถสั่งงานเครื่องซักผ้าได้จนกว่าคุณจะเปิดร้านอีกครั้ง',
+        [
+          { text: 'ยกเลิก', style: 'cancel' },
+          { text: 'ปิดร้าน', onPress: () => doUpdateStatus(false) },
+        ]
+      );
+    } else {
+      Alert.alert(
+        'ยืนยันการเปิดร้าน',
+        'เครื่องซักผ้าที่ออนไลน์อยู่จะพร้อมให้ลูกค้าสั่งงานได้ทันที คุณต้องการดำเนินการต่อหรือไม่?',
+        [
+          { text: 'ยกเลิก', style: 'cancel' },
+          { text: 'เปิดร้าน', onPress: () => doUpdateStatus(true) },
+        ]
+      );
+    }
+  };
+
+  const doUpdateStatus = async (next: boolean) => {
+    if (!shop) return;
+    setUpdating(true);
+    await updateShop({ status: next });
+    setUpdating(false);
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -31,7 +74,7 @@ export default function CoinSettingsScreen() {
       </View>
 
       <ScrollView style={s.content} contentContainerStyle={s.contentInner}>
-        <Text style={s.sectionLink}>Your Store Link</Text>
+        <Text style={s.sectionTitle}>Store Management</Text>
         <TouchableOpacity style={s.menuItem} onPress={() => router.push('/(coin)/machine-settings')}>
           <View style={[s.iconWrap, s.iconGreen]}>
             <Ionicons name="share-social" size={22} color={Colors.white} />
@@ -40,14 +83,19 @@ export default function CoinSettingsScreen() {
           <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
         </TouchableOpacity>
 
-        <Text style={s.sectionTitle}>Your Personal Information</Text>
-        <TouchableOpacity style={s.menuItem}>
-          <View style={[s.iconWrap, s.iconBlue]}>
-            <Ionicons name="person-outline" size={22} color={Colors.white} />
+        <View style={s.toggleRow}>
+          <View style={s.toggleContent}>
+            <Text style={s.toggleLabel}>โหมดปิดปรับปรุงร้าน</Text>
+            <Text style={s.toggleDescription}>ระบบจะระงับการใช้งานเครื่องซักผ้าทั้งหมดชั่วคราว</Text>
           </View>
-          <Text style={s.menuText}>Personal Profile</Text>
-          <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
-        </TouchableOpacity>
+          <Switch
+            value={isMaintenanceMode}
+            onValueChange={handleMaintenanceToggle}
+            disabled={updating}
+            trackColor={{ false: Colors.cardBorder, true: Colors.primaryBlue }}
+            thumbColor={Colors.white}
+          />
+        </View>
 
         <Text style={s.sectionTitle}>Account Management</Text>
         <TouchableOpacity style={s.menuItem} onPress={() => router.push('/(coin)/contact')}>
@@ -134,12 +182,27 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
-  sectionLink: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.primaryBlue,
-    textDecorationLine: 'underline',
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.white,
+    padding: 16,
+    borderRadius: 12,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+  },
+  toggleContent: { flex: 1, marginRight: 12 },
+  toggleLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  toggleDescription: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 4,
   },
   iconGreen: { backgroundColor: Colors.successGreen },
   iconBlue: { backgroundColor: Colors.primaryBlue },
