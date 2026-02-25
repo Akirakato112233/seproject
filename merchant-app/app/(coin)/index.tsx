@@ -68,13 +68,20 @@ export default function CoinShopScreen() {
         {/* Overview Section */}
         <View style={styles.overviewSection}>
           <Text style={styles.overviewLabel}>OVERVIEW</Text>
-          <Text style={styles.shopStatusTitle}>Shop Status</Text>
+          <View style={styles.shopStatusRow}>
+            <Text style={styles.shopStatusTitle}>Shop Status</Text>
+            {shop?.status === false && (
+              <View style={styles.maintenanceBadge}>
+                <Text style={styles.maintenanceBadgeText}>อยู่ภายใต้การปรับปรุง</Text>
+              </View>
+            )}
+          </View>
         </View>
 
         {/* Status Cards Grid - tap to go to Live Monitor (always default filter = All) */}
         <View style={styles.statusGrid}>
           <TouchableOpacity
-            style={styles.statusCard}
+            style={[styles.statusCard, shop?.status === false && styles.statusCardMaintenance]}
             activeOpacity={0.7}
             onPress={() => router.push('/(coin)/monitor')}
           >
@@ -90,7 +97,7 @@ export default function CoinShopScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.statusCard}
+            style={[styles.statusCard, shop?.status === false && styles.statusCardMaintenance]}
             activeOpacity={0.7}
             onPress={() => router.push('/(coin)/monitor')}
           >
@@ -98,11 +105,13 @@ export default function CoinShopScreen() {
               <Text style={styles.statusCardLabel}>Available</Text>
               <View style={styles.greenDot} />
             </View>
-            <Text style={styles.statusCardValue}>{stats.available}</Text>
+            <Text style={styles.statusCardValue}>
+              {shop?.status === false ? 'offline' : stats.available}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.statusCard}
+            style={[styles.statusCard, shop?.status === false && styles.statusCardMaintenance]}
             activeOpacity={0.7}
             onPress={() => router.push('/(coin)/monitor')}
           >
@@ -112,11 +121,13 @@ export default function CoinShopScreen() {
                 <Ionicons name="refresh" size={14} color={Colors.primaryBlue} />
               </View>
             </View>
-            <Text style={styles.statusCardValue}>{stats.running}</Text>
+            <Text style={styles.statusCardValue}>
+              {shop?.status === false ? 'offline' : stats.running}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.statusCard}
+            style={[styles.statusCard, shop?.status === false && styles.statusCardMaintenance]}
             activeOpacity={0.7}
             onPress={() => router.push('/(coin)/monitor')}
           >
@@ -130,7 +141,9 @@ export default function CoinShopScreen() {
                 />
               </View>
             </View>
-            <Text style={styles.statusCardValue}>{stats.finished}</Text>
+            <Text style={styles.statusCardValue}>
+              {shop?.status === false ? 'offline' : stats.finished}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -231,10 +244,27 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 4,
   },
+  shopStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
   shopStatusTitle: {
     fontSize: 24,
     fontWeight: '800',
     color: Colors.textPrimary,
+  },
+  maintenanceBadge: {
+    backgroundColor: '#fef08a',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  maintenanceBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#a16207',
   },
   statusGrid: {
     flexDirection: 'row',
@@ -249,6 +279,9 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
+  },
+  statusCardMaintenance: {
+    backgroundColor: '#fefce8',
   },
   statusCardHeader: {
     flexDirection: 'row',
