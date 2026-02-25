@@ -419,9 +419,9 @@ export default function OrderScreen() {
 
                         if (data.success) {
                             // ไป Order Status page พร้อม orderId
-                            router.push({
+                            router.replace({
                                 pathname: `/shop/order/status/${data.order._id}` as any,
-                                params: { step: '1' },
+                                params: { step: '0' },
                             });
                         } else {
                             alert('❌ สร้าง Order ไม่สำเร็จ: ' + data.message);

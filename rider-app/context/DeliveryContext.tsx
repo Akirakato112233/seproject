@@ -44,7 +44,7 @@ type DeliveryContextType = {
   history: CompletedOrder[];
 
   // ✅ ใช้ตัวนี้เวลาเรา "เริ่มงาน" (รับจากรายการหรือ demo ก็ได้)
-  startOrder: (order: Order) => void;
+  startOrder: (order: Order) => Promise<boolean>;
 
   acceptOrder: (id: string) => void;
   declineOrder: (id: string) => void;
@@ -166,23 +166,40 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      await fetch(`${API.ORDERS}/${orderId}/status`, {
+      const response = await fetch(`${API.ORDERS}/${orderId}/status`, {
         method: 'PATCH',
         headers,
         body: JSON.stringify({ status }),
       });
+      const data = await response.json();
+      
+      // ถ้า order ถูกรับไปแล้ว ให้ return false
+      if (response.status === 409 || !data.success) {
+        console.log('Order already taken:', data.message);
+        return false;
+      }
+      return true;
     } catch (error) {
       console.log('Error updating backend status:', error);
+      return false;
     }
   };
 
-  const startOrder = (order: Order) => {
-    if (active) return;
+  const startOrder = async (order: Order): Promise<boolean> => {
+    if (active) return false;
+    
+    // พยายามอัปเดต backend ก่อน
+    const success = await updateBackendStatus(order.id, 'rider_coming');
+    if (!success) {
+      // Order ถูกรับไปแล้ว - ลบออกจาก available และ return
+      setAvailable((prev) => prev.filter((o) => o.id !== order.id));
+      return false;
+    }
+    
     const shop = (order as any).shop ?? order.pickup;
     setActive({ ...order, shop, status: "going_to_customer" });
     setAvailable((prev) => prev.filter((o) => o.id !== order.id));
-    // อัปเดต backend: rider รับงานแล้ว
-    updateBackendStatus(order.id, 'rider_coming');
+    return true;
   };
 
   // สำหรับโค้ดเก่า
@@ -211,7 +228,7 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
     if (!active) return;
     setActive({ ...active, status: "delivering" });
     // อัปเดต backend: rider ถึงร้านแล้ว กำลังส่งผ้า
-    updateBackendStatus(active.id, 'deliverying');
+    updateBackendStatus(active.id, 'delivering');
   };
 
   const markDelivered = () => {

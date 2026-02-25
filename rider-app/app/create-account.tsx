@@ -92,7 +92,12 @@ export default function CreateAccountScreen() {
     promptAsync({ useProxy: Platform.OS !== 'web', showInRecents: false });
   };
 
-  const handleDevMode = () => {
+  const handleDevModeMain = () => {
+    setDevMode(true);
+    router.replace('/(tabs)');
+  };
+
+  const handleDevModeRegister = () => {
     router.push('/signup/register' as any);
   };
 
@@ -138,10 +143,16 @@ export default function CreateAccountScreen() {
             <Text style={s.btnText}>Continue with Google</Text>
           </TouchableOpacity>
 
-          {/* Dev Mode button */}
-          <TouchableOpacity style={s.btnDev} activeOpacity={0.8} onPress={handleDevMode}>
+          {/* Dev Mode - Skip to main */}
+          <TouchableOpacity style={s.btnDev} activeOpacity={0.8} onPress={handleDevModeMain}>
             <Ionicons name="code-slash" size={16} color="#64748B" />
             <Text style={s.btnDevText}>Dev Mode (Skip Login)</Text>
+          </TouchableOpacity>
+
+          {/* Dev Mode - Go to Register */}
+          <TouchableOpacity style={s.btnDevRegister} activeOpacity={0.8} onPress={handleDevModeRegister}>
+            <Ionicons name="person-add-outline" size={16} color="#1976D2" />
+            <Text style={s.btnDevRegisterText}>Dev Mode (Register)</Text>
           </TouchableOpacity>
 
           <Text style={s.terms}>
@@ -270,5 +281,22 @@ const s = StyleSheet.create({
   disabledBtn: {
     opacity: 0.5,
     backgroundColor: '#b0b0b0',
+  },
+  btnDevRegister: {
+    width: '100%',
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: '#1976D2',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#EFF6FF',
+  },
+  btnDevRegisterText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1976D2',
   },
 });

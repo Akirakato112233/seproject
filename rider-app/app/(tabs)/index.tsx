@@ -78,8 +78,7 @@ export default function HomeScreen() {
     isOnline &&
     !!firstRequest &&
     !active &&
-    !showSuccessModal &&
-    (autoAccept || firstRequest?.status === 'decision');
+    !showSuccessModal;
 
   const remainingMs = useMemo(() => {
     if (!offerExpiresAt) return 0;

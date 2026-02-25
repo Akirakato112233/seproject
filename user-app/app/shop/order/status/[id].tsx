@@ -108,6 +108,9 @@ export default function OrderStatusScreen() {
 
     useEffect(() => {
         fetchOrder();
+        // Poll ทุก 5 วินาที เพื่ออัปเดต status จาก rider
+        const interval = setInterval(fetchOrder, 3000);
+        return () => clearInterval(interval);
     }, [id]);
 
     const fetchOrder = async () => {
@@ -118,6 +121,26 @@ export default function OrderStatusScreen() {
             console.log('📦 Order createdAt:', data.order?.createdAt);
             if (data.success) {
                 setOrder(data.order);
+
+                // Redirect ตาม status (เช็คก่อนว่า step ปัจจุบันตรงแล้วหรือยัง เพื่อไม่ให้ loop)
+                const status = data.order?.status;
+                if (status === 'rider_coming' && currentStep !== 1) {
+                    router.replace({
+                        pathname: '/shop/order/status/[id]' as any,
+                        params: { id, step: '1' },
+                    });
+                } else if ((status === 'at_shop' || status === 'in_progress' || status === 'delivering') && currentStep !== 2) {
+                    // at_shop, in_progress, delivering ทั้งหมดอยู่ step 2 (Laundry at shop)
+                    router.replace({
+                        pathname: '/shop/order/status/[id]' as any,
+                        params: { id, step: '2' },
+                    });
+                } else if (status === 'completed') {
+                    router.replace({
+                        pathname: '/shop/order/arrived/[id]' as any,
+                        params: { id },
+                    });
+                }
             }
         } catch (error) {
             console.error('Error fetching order:', error);
@@ -125,6 +148,7 @@ export default function OrderStatusScreen() {
             setLoading(false);
         }
     };
+    
 
     const handleCall = () => {
         Linking.openURL('tel:+66649525694');
@@ -148,14 +172,6 @@ export default function OrderStatusScreen() {
         } catch (error) {
             alert('เกิดข้อผิดพลาดในการยกเลิก Order');
         }
-    };
-
-    // Navigate to different step (for testing)
-    const goToStep = (step: OrderStep) => {
-        router.replace({
-            pathname: `/shop/order/status/${id}` as any,
-            params: { step: step.toString() },
-        });
     };
 
     if (loading) {
@@ -199,8 +215,7 @@ export default function OrderStatusScreen() {
                     <View style={styles.progressTrack}>
                         {([0, 1, 2, 3] as OrderStep[]).map((step, index) => (
                             <React.Fragment key={step}>
-                                <TouchableOpacity
-                                    onPress={() => goToStep(step)}
+                                <View
                                     style={[
                                         styles.stepDot,
                                         currentStep >= step && styles.stepDotActive,
@@ -212,7 +227,7 @@ export default function OrderStatusScreen() {
                                         size={14}
                                         color={currentStep >= step ? '#fff' : '#bbb'}
                                     />
-                                </TouchableOpacity>
+                                </View>
                                 {index < 3 && (
                                     <View style={[
                                         styles.stepLine,
@@ -306,21 +321,6 @@ export default function OrderStatusScreen() {
                     </TouchableOpacity>
                 )}
 
-                {/* Debug: Step Navigation (for testing) */}
-                <View style={styles.debugSection}>
-                    <Text style={styles.debugTitle}>🔧 Test Navigation (Debug)</Text>
-                    <View style={styles.debugButtons}>
-                        {([0, 1, 2, 3] as OrderStep[]).map((step) => (
-                            <TouchableOpacity
-                                key={step}
-                                style={[styles.debugButton, currentStep === step && styles.debugButtonActive]}
-                                onPress={() => goToStep(step)}
-                            >
-                                <Text style={styles.debugButtonText}>Step {step}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </View>
 
                 <View style={{ height: 50 }} />
             </ScrollView>

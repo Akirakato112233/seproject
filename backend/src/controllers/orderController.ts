@@ -185,9 +185,18 @@ export const merchantUpdateOrderStatus = async (req: AuthRequest, res: Response)
             return res.status(403).json({ success: false, message: 'Order does not belong to this shop' });
         }
 
-        const allowed = ['at_shop', 'out_for_delivery', 'in_progress', 'deliverying', 'completed'];
+        const allowed = ['at_shop', 'out_for_delivery', 'in_progress', 'deliverying', 'delivering', 'completed', 'rider_coming'];
         if (!allowed.includes(status)) {
             return res.status(400).json({ success: false, message: 'Invalid status' });
+        }
+
+        // Race condition prevention: ถ้าจะเปลี่ยนเป็น rider_coming ต้องเป็น pending หรือ decision เท่านั้น
+        if (status === 'rider_coming' && !['pending', 'decision'].includes(order.status)) {
+            return res.status(409).json({ 
+                success: false, 
+                message: 'Order already taken by another rider',
+                currentStatus: order.status 
+            });
         }
 
         const updated = await foundOrder.model.findByIdAndUpdate(
@@ -482,7 +491,7 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
     try {
         console.log('📦 Fetching pending orders...');
         const pendingQuery = {
-            status: { $in: ['rider_coming', 'pending', 'decision'] }
+            status: { $in: ['pending', 'decision'] }  // ไม่รวม 'rider_coming' เพราะถูกรับไปแล้ว
         };
 
         const allOrders = await Order.find(pendingQuery).sort({ createdAt: -1 });
