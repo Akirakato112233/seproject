@@ -1,15 +1,37 @@
-import React from "react";
+import React, { useState, useCallback } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Switch } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDelivery } from "../context/DeliveryContext";
 import { useAuth } from "../context/AuthContext";
+import { API } from "../config";
+
+interface RegData {
+    _id: string;
+    fullName: string;
+    phone: string;
+    countryCode: string;
+    vehicleRegistrationNo?: string;
+}
 
 export default function SettingsScreen() {
     const router = useRouter();
     const { isOnline, autoAccept, toggleAutoAccept } = useDelivery();
     const { logout } = useAuth();
+    const [reg, setReg] = useState<RegData | null>(null);
+
+    useFocusEffect(
+        useCallback(() => {
+            (async () => {
+                try {
+                    const res = await fetch(`${API.RIDERS}/registrations/latest`);
+                    const json = await res.json();
+                    if (json.success && json.data) setReg(json.data);
+                } catch (_) {}
+            })();
+        }, [])
+    );
 
     const handleLogout = () => {
         Alert.alert("Log Out", "Are you sure you want to log out?", [
@@ -48,10 +70,17 @@ export default function SettingsScreen() {
                 {/* Account Section */}
                 <View style={s.section}>
                     <Text style={s.sectionTitle}>Account</Text>
-                    <TouchableOpacity style={s.row}>
+                    <TouchableOpacity
+                        style={s.row}
+                        onPress={() => router.push("/(tabs)/account")}
+                    >
                         <View>
-                            <Text style={s.rowTitle}>Natthapong Saehaw</Text>
-                            <Text style={s.rowSub}>1กง222 • +66 935792318</Text>
+                            <Text style={s.rowTitle}>
+                                {reg?.fullName || "—"}
+                            </Text>
+                            <Text style={s.rowSub}>
+                                {reg?.vehicleRegistrationNo || "—"} • {reg?.countryCode || "+66"} {reg?.phone?.replace(/^0/, "") || "—"}
+                            </Text>
                         </View>
                         <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
                     </TouchableOpacity>
@@ -60,7 +89,20 @@ export default function SettingsScreen() {
                 <View style={s.divider} />
 
                 {/* Communications */}
-                <TouchableOpacity style={s.row}>
+                <TouchableOpacity
+                    style={s.row}
+                    onPress={() => {
+                        if (reg?._id) {
+                            router.push({
+                                pathname: "/communications",
+                                params: {
+                                    registrationId: reg._id,
+                                    hasEmail: "false",
+                                },
+                            });
+                        }
+                    }}
+                >
                     <Text style={s.rowTitle}>Communications</Text>
                     <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
                 </TouchableOpacity>
@@ -68,7 +110,17 @@ export default function SettingsScreen() {
                 <View style={s.divider} />
 
                 {/* Linked accounts */}
-                <TouchableOpacity style={s.row}>
+                <TouchableOpacity
+                    style={s.row}
+                    onPress={() => {
+                        if (reg?._id) {
+                            router.push({
+                                pathname: "/linked-accounts",
+                                params: { registrationId: reg._id },
+                            });
+                        }
+                    }}
+                >
                     <View style={{ flex: 1, paddingRight: 16 }}>
                         <Text style={s.rowTitle}>Linked accounts</Text>
                         <Text style={s.rowSub}>Use your third-party accounts to sign in to yours WIT Driver app.</Text>

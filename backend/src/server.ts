@@ -1,6 +1,7 @@
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { connectDB } from './config/database';
 import authRoutes from './routes/auth';
 import chatRoutes from './routes/chat';
@@ -17,8 +18,25 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors()); // อนุญาตให้ React Native เรียก API ได้
+app.use(cors());
 app.use(express.json());
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many requests, please try again later.' },
+});
+app.use('/api/', apiLimiter);
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { success: false, message: 'Too many auth attempts, please try again later.' },
+});
+app.use('/api/auth/', authLimiter);
+app.use('/api/google/', authLimiter);
 
 // Routes
 app.use('/api/auth', authRoutes);

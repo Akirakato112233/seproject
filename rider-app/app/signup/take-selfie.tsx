@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import {
     View,
     Text,
@@ -11,6 +11,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
+
+let FaceDetector: any = null;
+try {
+    FaceDetector = require('expo-face-detector');
+} catch (_) {}
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 
@@ -18,42 +23,17 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const OVAL_W = SCREEN_W * 0.72;
 const OVAL_H = OVAL_W * 1.25;
 
-// How many seconds user must hold face in frame before button enables
-const DETECT_DELAY_MS = 2000;
-
-type ScanState = 'idle' | 'scanning' | 'detected' | 'capturing';
+type ScanState = 'ready' | 'capturing' | 'verifying';
 
 export default function TakeSelfieScreen() {
     const router = useRouter();
     const [permission, requestPermission] = useCameraPermissions();
     const cameraRef = useRef<CameraView>(null);
-    const [scanState, setScanState] = useState<ScanState>('idle');
-    const scanTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const progressAnim = useRef(new Animated.Value(0)).current;
+    const [scanState, setScanState] = useState<ScanState>('ready');
 
-    // Reset and restart scan every time this screen is focused (e.g. coming back from Retake)
     useFocusEffect(
         useCallback(() => {
-            // Stop any in-progress animation
-            progressAnim.stopAnimation();
-            progressAnim.setValue(0);
-            setScanState('idle');
-            // Small delay to let camera mount first, then start scan
-            const t = setTimeout(() => {
-                setScanState('scanning');
-                Animated.timing(progressAnim, {
-                    toValue: 1,
-                    duration: DETECT_DELAY_MS,
-                    useNativeDriver: false,
-                }).start(({ finished }) => {
-                    if (finished) setScanState('detected');
-                });
-            }, 600);
-            return () => {
-                clearTimeout(t);
-                if (scanTimer.current) clearTimeout(scanTimer.current);
-                progressAnim.stopAnimation();
-            };
+            setScanState('ready');
         }, [])
     );
 
@@ -77,69 +57,55 @@ export default function TakeSelfieScreen() {
         );
     }
 
-    // ── Camera ready: start scanning ─────────────────────────────────────────
-    const handleCameraReady = () => {
-        startScanning();
-    };
-
-    const startScanning = () => {
-        if (scanTimer.current) clearTimeout(scanTimer.current);
-        setScanState('scanning');
-        progressAnim.setValue(0);
-
-        // Animate progress bar from 0 → 1 over DETECT_DELAY_MS
-        Animated.timing(progressAnim, {
-            toValue: 1,
-            duration: DETECT_DELAY_MS,
-            useNativeDriver: false,
-        }).start(({ finished }) => {
-            if (finished) {
-                setScanState('detected');
-            }
-        });
-    };
-
-    const handleFaceLeft = () => {
-        // Re-scan if the user moves their face away (e.g. phone tilt detection)
-        // We rely on the user tapping "Re-scan" or we auto-trigger via the hint
-        if (scanState === 'detected') {
-            setScanState('idle');
-            progressAnim.setValue(0);
-        }
-    };
-
-    // ── Take photo ───────────────────────────────────────────────────────────
     const handleTakePhoto = async () => {
-        if (scanState !== 'detected' || !cameraRef.current) return;
+        if (scanState !== 'ready' || !cameraRef.current) return;
         setScanState('capturing');
         try {
             const photo = await cameraRef.current.takePictureAsync({ base64: false });
-            if (photo?.uri) {
-                router.push((`/signup/photo-preview?uri=${encodeURIComponent(photo.uri)}`) as any);
+            if (!photo?.uri) {
+                Alert.alert('Error', 'Failed to capture photo.');
+                setScanState('ready');
+                return;
             }
+
+            if (FaceDetector) {
+                setScanState('verifying');
+                try {
+                    const { faces } = await FaceDetector.detectFacesAsync(photo.uri, {
+                        mode: FaceDetector.FaceDetectorMode.fast,
+                        detectLandmarks: FaceDetector.FaceDetectorLandmarks.none,
+                        runClassifications: FaceDetector.FaceDetectorClassifications.none,
+                    });
+
+                    if (faces.length === 0) {
+                        Alert.alert(
+                            'No face detected',
+                            'Please make sure your face is clearly visible and try again.',
+                        );
+                        setScanState('ready');
+                        return;
+                    }
+                } catch (_) {
+                    // FaceDetector native module not available, skip validation
+                }
+            }
+
+            router.push((`/signup/photo-preview?uri=${encodeURIComponent(photo.uri)}`) as any);
         } catch (e) {
             Alert.alert('Error', 'Failed to take photo. Please try again.');
-            startScanning();
+            setScanState('ready');
         }
     };
 
-    // ── UI labels ────────────────────────────────────────────────────────────
     const hintText = () => {
-        if (scanState === 'idle') return 'Loading camera…';
-        if (scanState === 'scanning') return 'Hold still — detecting face…';
-        if (scanState === 'detected') return '✅ Face detected! Ready to shoot.';
-        return 'Processing…';
+        if (scanState === 'ready') return 'Position your face in the oval and tap Take Photo';
+        if (scanState === 'capturing') return 'Taking photo…';
+        if (scanState === 'verifying') return 'Verifying face…';
+        return '';
     };
 
-    const ovalBorderColor = scanState === 'detected' ? '#22C55E'
-        : scanState === 'scanning' ? '#FACC15' : '#fff';
-
-    const buttonEnabled = scanState === 'detected';
-
-    const progressBarWidth = progressAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: ['0%', '100%'],
-    });
+    const ovalBorderColor = scanState === 'ready' ? '#fff' : '#FACC15';
+    const buttonEnabled = scanState === 'ready';
 
     return (
         <View style={s.fill}>
@@ -148,7 +114,6 @@ export default function TakeSelfieScreen() {
                 ref={cameraRef}
                 style={StyleSheet.absoluteFillObject}
                 facing="front"
-                onCameraReady={handleCameraReady}
             />
 
             {/* Dark overlay — oval is transparent */}
@@ -171,21 +136,7 @@ export default function TakeSelfieScreen() {
 
                 <View style={{ flex: 1 }} />
 
-                {/* Progress bar during scan */}
-                {scanState === 'scanning' && (
-                    <View style={s.progressTrack}>
-                        <Animated.View style={[s.progressFill, { width: progressBarWidth }]} />
-                    </View>
-                )}
-
                 <Text style={s.hint}>{hintText()}</Text>
-
-                {/* Re-scan link if face was detected but user wants to retry */}
-                {scanState === 'detected' && (
-                    <TouchableOpacity style={s.rescanLink} onPress={startScanning}>
-                        <Text style={s.rescanText}>Re-scan</Text>
-                    </TouchableOpacity>
-                )}
 
                 <TouchableOpacity
                     style={[s.shutterBtn, !buttonEnabled && s.shutterDisabled]}
@@ -193,7 +144,9 @@ export default function TakeSelfieScreen() {
                     disabled={!buttonEnabled}
                 >
                     <Text style={s.shutterText}>
-                        {scanState === 'capturing' ? 'Processing…' : 'Take Photo'}
+                        {scanState === 'capturing' || scanState === 'verifying'
+                            ? 'Verifying…'
+                            : 'Take Photo'}
                     </Text>
                 </TouchableOpacity>
             </SafeAreaView>
@@ -276,18 +229,4 @@ const s = StyleSheet.create({
     shutterDisabled: { opacity: 0.5 },
     shutterText: { color: '#fff', fontSize: 17, fontWeight: '700' },
 
-    // Progress bar
-    progressTrack: {
-        height: 4, borderRadius: 2,
-        backgroundColor: 'rgba(255,255,255,0.3)',
-        marginBottom: 12, overflow: 'hidden',
-    },
-    progressFill: {
-        height: 4, borderRadius: 2,
-        backgroundColor: '#FACC15',
-    },
-
-    // Re-scan
-    rescanLink: { alignItems: 'center', marginBottom: 8 },
-    rescanText: { color: 'rgba(255,255,255,0.7)', fontSize: 13 },
 });

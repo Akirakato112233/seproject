@@ -34,6 +34,10 @@ export default function SelfieGuideScreen() {
         : 'Car | รถยนต์ส่วนบุคคล';
 
     const handleContinue = () => {
+        if (!selfieUri) {
+            router.push('/signup/photo-requirements' as any);
+            return;
+        }
         router.push('/signup/national-id' as any);
     };
 

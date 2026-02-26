@@ -1,8 +1,31 @@
+/**
+ * @module controllers/riderController
+ *
+ * Express request handlers for all `/api/riders` endpoints.
+ *
+ * Responsibilities:
+ *   - Rider registration (create, read latest, delete)
+ *   - Onboarding step patches (background-check, consent, terms, etc.)
+ *   - Emergency contacts CRUD (max 3 per registration)
+ *   - Communication preferences toggle (email / phone marketing)
+ *   - Linked third-party accounts toggle (Google)
+ *   - Legacy Rider model lookups (getRiderById, getRandomRiderId)
+ */
+
 import { Request, Response } from 'express';
 import { Rider } from '../models/Rider';
 import { RiderRegistration } from '../models/RiderRegistration';
 
-// POST /api/riders/register — บันทึกข้อมูลผู้สมัคร rider ทั้งหมด (ไม่ต้อง auth)
+/**
+ * POST /api/riders/register
+ *
+ * Creates a new rider registration document with all data collected
+ * during the multi-step sign-up flow (basic info, national ID,
+ * driver licence, selfie).  No authentication required.
+ *
+ * @returns 201 { success, registrationId } on success
+ * @returns 400 { success: false, message } when required fields are missing
+ */
 export const registerRider = async (req: Request, res: Response) => {
   try {
     const {
@@ -474,6 +497,217 @@ export const updateRegistrationVehicleBook = async (req: Request, res: Response)
   } catch (error) {
     console.error('❌ Update Registration Vehicle Book Error:', error);
     return res.status(500).json({ success: false, message: 'Failed to update' });
+  }
+};
+
+// DELETE /api/riders/registrations/:registrationId
+export const deleteRegistration = async (req: Request, res: Response) => {
+  try {
+    const { registrationId } = req.params;
+    const deleted = await RiderRegistration.findByIdAndDelete(registrationId);
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'Registration not found' });
+    }
+    console.log('🗑️ Registration deleted:', registrationId);
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Delete Registration Error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// PATCH /api/riders/registrations/:registrationId/linked-accounts
+export const updateLinkedAccounts = async (req: Request, res: Response) => {
+  try {
+    const { registrationId } = req.params;
+    const { linkedGoogle } = req.body;
+
+    const update: Record<string, boolean> = {};
+    if (typeof linkedGoogle === 'boolean') update.linkedGoogle = linkedGoogle;
+
+    const updated = await RiderRegistration.findByIdAndUpdate(
+      registrationId,
+      update,
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Registration not found' });
+    }
+
+    return res.json({
+      success: true,
+      data: { linkedGoogle: updated.linkedGoogle ?? false },
+    });
+  } catch (error) {
+    console.error('❌ Update Linked Accounts Error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// PATCH /api/riders/registrations/:registrationId/communications
+export const updateCommunications = async (req: Request, res: Response) => {
+  try {
+    const { registrationId } = req.params;
+    const { marketingEmail, marketingPhone } = req.body;
+
+    const update: Record<string, boolean> = {};
+    if (typeof marketingEmail === 'boolean') update.marketingEmail = marketingEmail;
+    if (typeof marketingPhone === 'boolean') update.marketingPhone = marketingPhone;
+
+    const updated = await RiderRegistration.findByIdAndUpdate(
+      registrationId,
+      update,
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Registration not found' });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        marketingEmail: updated.marketingEmail ?? false,
+        marketingPhone: updated.marketingPhone ?? false,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Update Communications Error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// GET /api/riders/registrations/:registrationId/emergency-contacts
+export const getEmergencyContacts = async (req: Request, res: Response) => {
+  try {
+    const { registrationId } = req.params;
+    const reg = await RiderRegistration.findById(registrationId).lean();
+    if (!reg) {
+      return res.status(404).json({ success: false, message: 'Registration not found' });
+    }
+    return res.json({ success: true, data: reg.emergencyContacts || [] });
+  } catch (error) {
+    console.error('❌ Get Emergency Contacts Error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// POST /api/riders/registrations/:registrationId/emergency-contacts
+export const addEmergencyContact = async (req: Request, res: Response) => {
+  try {
+    const { registrationId } = req.params;
+    const { name, phone, countryCode } = req.body;
+
+    if (!name?.trim() || !phone?.trim()) {
+      return res.status(400).json({ success: false, message: 'name and phone are required' });
+    }
+    if (!/^\d{9,10}$/.test(phone.trim())) {
+      return res.status(400).json({ success: false, message: 'Phone number must be 9-10 digits' });
+    }
+
+    const existing = await RiderRegistration.findById(registrationId).lean();
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Registration not found' });
+    }
+    if ((existing.emergencyContacts?.length ?? 0) >= 3) {
+      return res.status(400).json({ success: false, message: 'Maximum 3 emergency contacts allowed' });
+    }
+
+    const updated = await RiderRegistration.findByIdAndUpdate(
+      registrationId,
+      {
+        $push: {
+          emergencyContacts: {
+            name: name.trim(),
+            phone: phone.trim(),
+            countryCode: countryCode?.trim() || '+66',
+          },
+        },
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Registration not found' });
+    }
+
+    return res.status(201).json({ success: true, data: updated.emergencyContacts });
+  } catch (error) {
+    console.error('❌ Add Emergency Contact Error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// PATCH /api/riders/registrations/:registrationId/emergency-contacts/:contactId
+export const updateEmergencyContact = async (req: Request, res: Response) => {
+  try {
+    const { registrationId, contactId } = req.params;
+    const { name, phone, countryCode } = req.body;
+
+    if (!name?.trim() || !phone?.trim()) {
+      return res.status(400).json({ success: false, message: 'name and phone are required' });
+    }
+    if (!/^\d{9,10}$/.test(phone.trim())) {
+      return res.status(400).json({ success: false, message: 'Phone number must be 9-10 digits' });
+    }
+
+    const updated = await RiderRegistration.findOneAndUpdate(
+      { _id: registrationId, 'emergencyContacts._id': contactId },
+      {
+        $set: {
+          'emergencyContacts.$.name': name.trim(),
+          'emergencyContacts.$.phone': phone.trim(),
+          'emergencyContacts.$.countryCode': countryCode?.trim() || '+66',
+        },
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Registration or contact not found' });
+    }
+
+    return res.json({ success: true, data: updated.emergencyContacts });
+  } catch (error) {
+    console.error('❌ Update Emergency Contact Error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// DELETE /api/riders/registrations/:registrationId/emergency-contacts/:contactId
+export const deleteEmergencyContact = async (req: Request, res: Response) => {
+  try {
+    const { registrationId, contactId } = req.params;
+
+    const updated = await RiderRegistration.findByIdAndUpdate(
+      registrationId,
+      { $pull: { emergencyContacts: { _id: contactId } } },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Registration not found' });
+    }
+
+    return res.json({ success: true, data: updated.emergencyContacts });
+  } catch (error) {
+    console.error('❌ Delete Emergency Contact Error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// GET /api/riders/registrations/latest
+export const getLatestRegistration = async (req: Request, res: Response) => {
+  try {
+    const registration = await RiderRegistration.findOne().sort({ createdAt: -1 }).lean();
+    if (!registration) {
+      return res.status(404).json({ success: false, message: 'No registrations found' });
+    }
+    return res.json({ success: true, data: registration });
+  } catch (error) {
+    console.error('❌ Get Latest Registration Error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 

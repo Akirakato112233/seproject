@@ -1,17 +1,51 @@
+/**
+ * @module models/RiderRegistration
+ *
+ * Mongoose model for the `rider_registrations` collection.
+ *
+ * Each document represents one rider sign-up application and accumulates
+ * data across multiple onboarding steps:
+ *   1. Basic info (name, phone, city, vehicle type)
+ *   2. National ID scan (Thai / English name, ID number, dates, photo)
+ *   3. Driver licence scan
+ *   4. Selfie verification
+ *   5. Background check & consent
+ *   6. Terms acceptance & marketing preferences
+ *   7. Vehicle details & registration book
+ *   8. Emergency contacts (max 3)
+ *   9. Linked third-party accounts (Google)
+ *
+ * After all steps the document stays in `status: 'pending'` until an
+ * admin approves or rejects it.
+ */
+
 import mongoose, { Schema, Document } from 'mongoose';
 
+/**
+ * TypeScript interface mirroring every field on a RiderRegistration
+ * document.  Optional fields (`?`) are populated in later onboarding
+ * steps and may be `undefined` until then.
+ */
 export interface IRiderRegistration extends Document {
-    // Basic info (from register screen)
+    // ── Basic info (from register screen) ──────────────────────────
+    /** Given / first name */
     firstName: string;
+    /** Family / last name */
     lastName: string;
+    /** Computed: firstName + " " + lastName */
     fullName: string;
+    /** Mobile number (digits only, no country code prefix) */
     phone: string;
+    /** Country dialing code, e.g. "+66" */
     countryCode: string;
+    /** City or province chosen during sign-up */
     city: string;
+    /** Whether the rider accepted the initial terms */
     agreedToTerms: boolean;
+    /** Type of vehicle: "motorcycle" | "car" | … */
     vehicleType: string;
 
-    // National ID (from national-id screen)
+    // ── National ID (from national-id screen) ──────────────────────
     nameTH: string;
     nameEN: string;
     idNumber: string;
@@ -30,10 +64,12 @@ export interface IRiderRegistration extends Document {
     licenseProvince: string;
     licenseUri: string;
 
-    // Selfie photo
+    // ── Selfie photo ─────────────────────────────────────────────────
+    /** URI to the selfie photo stored in Supabase */
     selfieUri: string;
 
-    // Status for admin review
+    // ── Admin review status ───────────────────────────────────────
+    /** Current review status: pending → approved | rejected */
     status: 'pending' | 'approved' | 'rejected';
 
     // Verify Documents (background check) — ต่อจาก rider_registrations
@@ -80,6 +116,14 @@ export interface IRiderRegistration extends Document {
     packageDistrict?: string;
     packageChoice?: string;
     packageDisclaimerAgreed?: boolean;
+
+    // ── Linked accounts ─────────────────────────────────────────────
+    /** Whether the rider's Google account is currently linked */
+    linkedGoogle?: boolean;
+
+    // ── Emergency Contacts (max 3) ────────────────────────────────
+    /** Array of up to 3 emergency contact persons */
+    emergencyContacts?: { name: string; phone: string; countryCode: string }[];
 
     // Vehicle Registration Details (เล่มรถ) — กรณีผู้สมัครเป็นเจ้าของรถ
     vehicleBookPhotoUri?: string;
@@ -170,6 +214,14 @@ const RiderRegistrationSchema = new Schema<IRiderRegistration>(
         packageDistrict: { type: String },
         packageChoice: { type: String },
         packageDisclaimerAgreed: { type: Boolean },
+
+        linkedGoogle: { type: Boolean, default: false },
+
+        emergencyContacts: [{
+            name: { type: String, required: true },
+            phone: { type: String, required: true },
+            countryCode: { type: String, default: '+66' },
+        }],
 
         vehicleBookPhotoUri: { type: String },
         vehicleRegistrationNo: { type: String },

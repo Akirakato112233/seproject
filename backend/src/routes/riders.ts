@@ -1,7 +1,10 @@
 import { Router } from 'express';
-import { getRiderById, getRandomRiderId, registerRider, updateRegistrationBackgroundCheck, updateRegistrationConsent, updateRegistrationTermsAndInfo, updateRegistrationQuestionnaire, updateRegistrationVehicleDetails, updateRegistrationVehicleBook, updateRegistrationPlateColor, updateRegistrationOwnership, updateRegistrationPackage } from '../controllers/riderController';
+import { getRiderById, getRandomRiderId, getLatestRegistration, registerRider, deleteRegistration, updateRegistrationBackgroundCheck, updateRegistrationConsent, updateRegistrationTermsAndInfo, updateRegistrationQuestionnaire, updateRegistrationVehicleDetails, updateRegistrationVehicleBook, updateRegistrationPlateColor, updateRegistrationOwnership, updateRegistrationPackage, getEmergencyContacts, addEmergencyContact, updateEmergencyContact, deleteEmergencyContact, updateCommunications, updateLinkedAccounts } from '../controllers/riderController';
 
 const router = Router();
+
+// GET /api/riders/registrations/latest - ดึงข้อมูลผู้สมัคร rider ล่าสุด
+router.get('/registrations/latest', getLatestRegistration);
 
 // POST /api/riders/register - บันทึกข้อมูล rider ใหม่ (ไม่ต้อง auth)
 router.post('/register', registerRider);
@@ -32,6 +35,21 @@ router.patch('/registrations/:registrationId/package', updateRegistrationPackage
 
 // PATCH /api/riders/registrations/:registrationId/vehicle-book - รูปรายการจดทะเบียนรถ (เล่มรถ)
 router.patch('/registrations/:registrationId/vehicle-book', updateRegistrationVehicleBook);
+
+// Delete registration
+router.delete('/registrations/:registrationId', deleteRegistration);
+
+// Linked accounts
+router.patch('/registrations/:registrationId/linked-accounts', updateLinkedAccounts);
+
+// Communications preferences
+router.patch('/registrations/:registrationId/communications', updateCommunications);
+
+// Emergency Contacts
+router.get('/registrations/:registrationId/emergency-contacts', getEmergencyContacts);
+router.post('/registrations/:registrationId/emergency-contacts', addEmergencyContact);
+router.patch('/registrations/:registrationId/emergency-contacts/:contactId', updateEmergencyContact);
+router.delete('/registrations/:registrationId/emergency-contacts/:contactId', deleteEmergencyContact);
 
 router.get('/random/id', getRandomRiderId);
 router.get('/:id', getRiderById);

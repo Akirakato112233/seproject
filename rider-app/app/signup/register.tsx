@@ -46,10 +46,14 @@ export default function RegisterScreen() {
     const [showCountryModal, setShowCountryModal] = useState(false);
     const [showCityModal, setShowCityModal] = useState(false);
 
+    const isPhoneValid = /^0\d{8,9}$/.test(phone);
+    const phoneHasError = phone.length > 0 && phone[0] !== '0';
+    const phoneLengthError = phone.length > 0 && phone[0] === '0' && phone.length < 9;
+
     const canContinue =
         firstName.trim().length > 0 &&
         lastName.trim().length > 0 &&
-        phone.trim().length > 0 &&
+        isPhoneValid &&
         city !== null &&
         agreed;
 
@@ -60,6 +64,10 @@ export default function RegisterScreen() {
         }
         if (!phone.trim()) {
             Alert.alert('กรุณากรอกข้อมูล', 'กรุณากรอกหมายเลขโทรศัพท์');
+            return;
+        }
+        if (!isPhoneValid) {
+            Alert.alert('เบอร์ไม่ถูกต้อง', 'กรุณากรอกเบอร์โทรศัพท์ที่ขึ้นต้นด้วย 0 จำนวน 9-10 หลัก (เช่น 0812345678)');
             return;
         }
         if (!city) {
@@ -118,14 +126,21 @@ export default function RegisterScreen() {
                         </TouchableOpacity>
 
                         <TextInput
-                            style={s.phoneInput}
-                            placeholder="Mobile number"
+                            style={[s.phoneInput, phoneHasError && s.inputError]}
+                            placeholder="0XXXXXXXXX"
                             placeholderTextColor="#aaa"
                             keyboardType="phone-pad"
+                            maxLength={10}
                             value={phone}
-                            onChangeText={setPhone}
+                            onChangeText={(t) => setPhone(t.replace(/\D/g, ''))}
                         />
                     </View>
+                    {phoneHasError && (
+                        <Text style={s.errorHint}>เบอร์โทรต้องขึ้นต้นด้วย 0</Text>
+                    )}
+                    {phoneLengthError && (
+                        <Text style={s.warningHint}>กรอกให้ครบ 9-10 หลัก ({phone.length}/10)</Text>
+                    )}
 
                     {/* City Picker */}
                     <TouchableOpacity style={s.pickerBtn} onPress={() => setShowCityModal(true)}>
@@ -277,6 +292,23 @@ const s = StyleSheet.create({
         fontSize: 15,
         color: '#0F172A',
         height: 52,
+    },
+    inputError: {
+        borderColor: '#EF4444',
+    },
+    errorHint: {
+        color: '#EF4444',
+        fontSize: 13,
+        fontWeight: '500',
+        marginTop: -8,
+        marginBottom: 14,
+    },
+    warningHint: {
+        color: '#F59E0B',
+        fontSize: 13,
+        fontWeight: '500',
+        marginTop: -8,
+        marginBottom: 14,
     },
 
     pickerBtn: {
