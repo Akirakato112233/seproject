@@ -16,8 +16,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSignup } from '../../context/SignupContext';
-import { useAuth } from '../../context/AuthContext';
-
 const SHORT_DESC = 'ใบขับขี่ที่ถูกต้อง ควรมีลักษณะดัง..';
 const FULL_DESC =
     'ใบขับขี่ที่ถูกต้อง ควรมีลักษณะดังต่อไปนี้:\n• โปรดอัพโหลดใบขับขี่สาธารณะ (ถ้ามี)\n• กรณีไม่มีใบขับขี่สาธารณะ สามารถถ่ายโหลดใบขับขี่ส่วนบุคคลได้\n• ข้อมูลในใบขับขี่ต้องตรงกับบัตรประจำตัวประชาชน\n• ใบขับขี่อยู่ในสภาพสมบูรณ์และไม่หมดอายุ\n• ไม่แก้ไขและตกแต่งรูป\n• เห็นข้อมูลชัดเจนและครบถ้วน';
@@ -25,7 +23,6 @@ const FULL_DESC =
 export default function DriverLicenseScreen() {
     const router = useRouter();
     const { data, setField, submit } = useSignup();
-    const { setDevMode } = useAuth();
 
     const [licenseNo, setLicenseNo] = useState('');
     const [licenseType, setLicenseType] = useState('');
@@ -44,6 +41,24 @@ export default function DriverLicenseScreen() {
         !!data.licenseUri;
 
     const handleContinue = async () => {
+        // Ensure selfie has been captured before final submit
+        if (!data.selfieUri) {
+            Alert.alert(
+                'กรุณาถ่ายรูปเซลฟี่',
+                'โปรดถ่ายและอัปโหลดรูปเซลฟี่ของคุณก่อนดำเนินการต่อ',
+                [
+                    {
+                        text: 'ไปถ่ายรูป',
+                        onPress: () => {
+                            router.push('/signup/selfie-guide' as any);
+                        },
+                    },
+                    { text: 'ยกเลิก', style: 'cancel' },
+                ],
+            );
+            return;
+        }
+
         // Validate all required fields
         if (!licenseNo.trim()) { Alert.alert('กรุณากรอกข้อมูล', 'กรุณากรอกเลขใบขับขี่'); return; }
         if (!licenseType.trim()) { Alert.alert('กรุณากรอกข้อมูล', 'กรุณากรอกชนิดใบขับขี่'); return; }
@@ -71,11 +86,11 @@ export default function DriverLicenseScreen() {
         setLoading(false);
 
         if (result.success) {
-            Alert.alert(
-                'สมัครสำเร็จ! 🎉',
-                'ข้อมูลของคุณถูกบันทึกเรียบร้อยแล้ว ทีมงานจะตรวจสอบและแจ้งกลับภายใน 1-3 วันทำการ',
-                [{ text: 'เข้าสู่แอพ', onPress: () => { setDevMode(true); router.replace('/(tabs)'); } }]
-            );
+            const regId = result.registrationId ? String(result.registrationId) : '';
+            router.replace({
+                pathname: '/verify-documents',
+                params: { registrationId: regId },
+            } as any);
         } else {
             Alert.alert('เกิดข้อผิดพลาด', result.message ?? 'ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่');
         }

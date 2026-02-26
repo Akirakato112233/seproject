@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useSignup } from '../../context/SignupContext';
 
 const STEPS = [
     {
@@ -34,6 +35,7 @@ const STEPS = [
 export default function CarQualificationScreen() {
     const router = useRouter();
     const { setDevMode } = useAuth();
+    const { setField } = useSignup();
 
     const [step, setStep] = useState(0);
     // เก็บ answers: null = ยังไม่ตอบ, true = Yes, false = No
@@ -57,7 +59,8 @@ export default function CarQualificationScreen() {
                 setFirstNoStep(firstNo);
                 setShowInfo(true);
             } else {
-                // ทุกข้อ Yes → ไปหน้า selfie guide
+                // ทุกข้อ Yes → บันทึก vehicleType แล้วไปหน้า selfie guide
+                setField('vehicleType', 'car');
                 router.push({ pathname: '/signup/selfie-guide' as any, params: { vehicleType: 'car' } });
             }
         } else {

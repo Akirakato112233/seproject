@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
@@ -7,12 +7,14 @@ import {
     ScrollView,
     Image,
     Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useSignup } from '../../context/SignupContext';
+import { uploadFileFromUri } from '../../services/uploadBackgroundDoc';
 
 // ── Config per doc type ─────────────────────────────────────────────────────
 const DOC_CONFIG: Record<string, {
@@ -59,6 +61,7 @@ export default function UploadDocGuideScreen() {
     const router = useRouter();
     const { setField } = useSignup();
     const { type } = useLocalSearchParams<{ type?: string }>();
+    const [uploading, setUploading] = useState(false);
 
     const config = DOC_CONFIG[type ?? 'id'] ?? DOC_CONFIG.id;
 
@@ -78,8 +81,20 @@ export default function UploadDocGuideScreen() {
 
         if (!result.canceled && result.assets.length > 0) {
             const uri = result.assets[0].uri;
-            setField(config.contextKey, uri);
-            router.back();
+            setUploading(true);
+            try {
+                const url = await uploadFileFromUri(uri, {
+                    mimeType: 'image/jpeg',
+                    prefix: config.contextKey === 'idFrontUri' ? 'id' : 'license',
+                });
+                setField(config.contextKey, url);
+                router.back();
+            } catch (e) {
+                console.error(e);
+                Alert.alert('อัปโหลดไม่สำเร็จ', e instanceof Error ? e.message : 'กรุณาลองใหม่');
+            } finally {
+                setUploading(false);
+            }
         }
     };
 
@@ -123,8 +138,16 @@ export default function UploadDocGuideScreen() {
             </ScrollView>
 
             <View style={s.footer}>
-                <TouchableOpacity style={s.uploadBtn} onPress={handleUpload}>
-                    <Text style={s.uploadText}>Upload Document</Text>
+                <TouchableOpacity
+                    style={[s.uploadBtn, uploading && { opacity: 0.7 }]}
+                    onPress={handleUpload}
+                    disabled={uploading}
+                >
+                    {uploading ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <Text style={s.uploadText}>Upload Document</Text>
+                    )}
                 </TouchableOpacity>
             </View>
         </SafeAreaView>

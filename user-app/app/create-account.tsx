@@ -88,7 +88,7 @@ export default function CreateAccountScreen() {
   const handleMobileGoogleSignIn = async () => {
     try {
       setIsLoading(true);
-      const scheme = 'exp://192.168.0.247:8081';
+      const scheme = 'exp://192.168.1.4:8081';
       const authUrl = `${BACKEND_URL}/api/google/start?redirect_scheme=${encodeURIComponent(scheme)}`;
     
       const result = await WebBrowser.openAuthSessionAsync(
@@ -128,7 +128,7 @@ export default function CreateAccountScreen() {
   const devSkipLogin = async () => {
     try {
       // ดึงข้อมูล dev user จาก backend
-      const response = await fetch('http://192.168.0.247:3000/api/auth/dev-user');
+      const response = await fetch('http://192.168.1.4:3000/api/auth/dev-user');
       const data = await response.json();
       
       if (data.success && data.user) {

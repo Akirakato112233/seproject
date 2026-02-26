@@ -35,6 +35,67 @@ export interface IRiderRegistration extends Document {
 
     // Status for admin review
     status: 'pending' | 'approved' | 'rejected';
+
+    // Verify Documents (background check) — ต่อจาก rider_registrations
+    bgCheckNationalId?: string;
+    addressOnId?: string;
+    fatherFullName?: string;
+    motherFullName?: string;
+    hasDocument?: boolean;
+    documentUrl?: string;
+    consentA?: boolean;
+    consentB?: boolean;
+
+    // Consent Section (หลังตรวจสอบประวัติ)
+    consentDocumentsTrue?: boolean;
+    consentHealthDeclaration?: boolean;
+
+    // Terms, Conditions, and Receipt of Information
+    agreedPrivacyNotice?: boolean;
+    agreedTermsTransport?: boolean;
+    agreedTermsPayments?: boolean;
+    agreedTermsFamilyAccount?: boolean;
+    agreedCodeOfConduct?: boolean;
+    marketingSms?: boolean;
+    marketingPhone?: boolean;
+    marketingEmail?: boolean;
+    marketingPush?: boolean;
+    marketingChat?: boolean;
+
+    // Questionnaire
+    hadDrivingExperienceOtherApps?: boolean;
+
+    // Vehicle Details
+    vehicleRegistrationBook?: 'ready' | 'submit_later';
+    plateColor?: 'white' | 'green' | 'yellow' | 'red';
+
+    // Ownership of vehicle
+    ownershipType?: 'self' | 'relative' | 'company';
+    ownershipRelation?: string;
+    ownershipHolderName?: string;
+    ownershipConsentAgreed?: boolean;
+
+    // Package / equipment selection
+    packageProvince?: string;
+    packageDistrict?: string;
+    packageChoice?: string;
+    packageDisclaimerAgreed?: boolean;
+
+    // Vehicle Registration Details (เล่มรถ) — กรณีผู้สมัครเป็นเจ้าของรถ
+    vehicleBookPhotoUri?: string;
+    vehicleRegistrationNo?: string;
+    vehicleBrand?: string;
+    vehicleModel?: string;
+    vehicleColor?: string;
+    vehicleYear?: string;
+    vehicleRegistrationProvince?: string;
+    vehicleFuel?: string;
+    vehicleEngineCc?: string;
+    rightsHolderName?: string;
+    rightsHolderId?: string;
+    possessorName?: string;
+    possessorId?: string;
+    vehicleBookDisclaimerAgreed?: boolean;
 }
 
 const RiderRegistrationSchema = new Schema<IRiderRegistration>(
@@ -70,6 +131,60 @@ const RiderRegistrationSchema = new Schema<IRiderRegistration>(
 
         // Selfie
         selfieUri: { type: String, required: true },
+
+        // Verify Documents (background check)
+        bgCheckNationalId: { type: String },
+        addressOnId: { type: String },
+        fatherFullName: { type: String },
+        motherFullName: { type: String },
+        hasDocument: { type: Boolean },
+        documentUrl: { type: String },
+        consentA: { type: Boolean },
+        consentB: { type: Boolean },
+
+        consentDocumentsTrue: { type: Boolean },
+        consentHealthDeclaration: { type: Boolean },
+
+        agreedPrivacyNotice: { type: Boolean },
+        agreedTermsTransport: { type: Boolean },
+        agreedTermsPayments: { type: Boolean },
+        agreedTermsFamilyAccount: { type: Boolean },
+        agreedCodeOfConduct: { type: Boolean },
+        marketingSms: { type: Boolean },
+        marketingPhone: { type: Boolean },
+        marketingEmail: { type: Boolean },
+        marketingPush: { type: Boolean },
+        marketingChat: { type: Boolean },
+
+        hadDrivingExperienceOtherApps: { type: Boolean },
+
+        vehicleRegistrationBook: { type: String, enum: ['ready', 'submit_later'] },
+        plateColor: { type: String, enum: ['white', 'green', 'yellow', 'red'] },
+
+        ownershipType: { type: String, enum: ['self', 'relative', 'company'] },
+        ownershipRelation: { type: String },
+        ownershipHolderName: { type: String },
+        ownershipConsentAgreed: { type: Boolean },
+
+        packageProvince: { type: String },
+        packageDistrict: { type: String },
+        packageChoice: { type: String },
+        packageDisclaimerAgreed: { type: Boolean },
+
+        vehicleBookPhotoUri: { type: String },
+        vehicleRegistrationNo: { type: String },
+        vehicleBrand: { type: String },
+        vehicleModel: { type: String },
+        vehicleColor: { type: String },
+        vehicleYear: { type: String },
+        vehicleRegistrationProvince: { type: String },
+        vehicleFuel: { type: String },
+        vehicleEngineCc: { type: String },
+        rightsHolderName: { type: String },
+        rightsHolderId: { type: String },
+        possessorName: { type: String },
+        possessorId: { type: String },
+        vehicleBookDisclaimerAgreed: { type: Boolean },
 
         // Admin review status
         status: {

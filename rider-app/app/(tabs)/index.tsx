@@ -4,10 +4,10 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   Platform,
   Modal,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
 import { WebView } from "react-native-webview";
@@ -16,7 +16,8 @@ import { useDelivery, Order, LatLng } from "../../context/DeliveryContext";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 
 // Longdo Map API Key
-const LONGDO_API_KEY = process.env.EXPO_PUBLIC_LONGDO_MAP_API_KEY || "YOUR_LONGDO_API_KEY";
+// TODO: later move to EXPO_PUBLIC_LONGDO_MAP_API_KEY in .env
+const LONGDO_API_KEY = "d4ceb6847662fe82cb2411759980ffa4";
 
 // พิกัดมหาวิทยาลัยเกษตรศาสตร์ วิทยาเขตศรีราชา
 // 199 ตำบลทุ่งสุขลา อำเภอศรีราชา ชลบุรี 20230

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
@@ -7,12 +7,15 @@ import {
     StyleSheet,
     Dimensions,
     ScrollView,
+    Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSignup } from '../../context/SignupContext';
 import { useAuth } from '../../context/AuthContext';
+import { uploadFileFromUri } from '../../services/uploadBackgroundDoc';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const PHOTO_SIZE = SCREEN_W * 0.55;
@@ -21,6 +24,7 @@ export default function PhotoPreviewScreen() {
     const router = useRouter();
     const { setField } = useSignup();
     const { setDevMode } = useAuth();
+    const [uploading, setUploading] = useState(false);
 
     // Photo URI is passed from take-selfie via route params
     const { uri } = useLocalSearchParams<{ uri?: string }>();
@@ -30,12 +34,19 @@ export default function PhotoPreviewScreen() {
         router.back(); // Go back to take-selfie
     };
 
-    const handleUpload = () => {
-        if (photoUri) {
-            setField('selfieUri', photoUri);
+    const handleUpload = async () => {
+        if (!photoUri) return;
+        setUploading(true);
+        try {
+            const url = await uploadFileFromUri(photoUri, { mimeType: 'image/jpeg', prefix: 'selfie' });
+            setField('selfieUri', url);
+            router.push('/signup/selfie-guide' as any);
+        } catch (e) {
+            console.error(e);
+            Alert.alert('อัปโหลดไม่สำเร็จ', e instanceof Error ? e.message : 'กรุณาลองใหม่');
+        } finally {
+            setUploading(false);
         }
-        // Go back to selfie-guide so photo appears in the circle
-        router.push('/signup/selfie-guide' as any);
     };
 
     return (
@@ -81,8 +92,16 @@ export default function PhotoPreviewScreen() {
 
             {/* Upload */}
             <View style={s.footer}>
-                <TouchableOpacity style={s.uploadBtn} onPress={handleUpload}>
-                    <Text style={s.uploadText}>Upload</Text>
+                <TouchableOpacity
+                    style={[s.uploadBtn, uploading && { opacity: 0.7 }]}
+                    onPress={handleUpload}
+                    disabled={uploading}
+                >
+                    {uploading ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <Text style={s.uploadText}>Upload</Text>
+                    )}
                 </TouchableOpacity>
             </View>
         </SafeAreaView>
