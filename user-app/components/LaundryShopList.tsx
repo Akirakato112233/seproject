@@ -18,7 +18,7 @@ export const LaundryShopList: React.FC<LaundryShopListProps> = ({ shops, onShopP
     <ScrollView style={styles.shopListContainer} showsVerticalScrollIndicator={false}>
       {shops.map((shop) => (
         <LaundryShopCard
-          key={shop.id}
+          key={shop._id || shop.id}
           shop={shop}
           onPress={() => onShopPress?.(shop)}
         />

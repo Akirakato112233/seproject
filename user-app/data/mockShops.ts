@@ -43,9 +43,12 @@ export const mockShops: any[] = [
   },
   {
     id: '2',
+    _id: '2',
     name: 'Clean & Fresh Laundry',
     rating: 3.7,
     reviewCount: 850,
+    status: false, // ปิด - สำหรับทดสอบ UI
+    openingHours: [{ days: ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์'], open: '09:00', close: '20:00' }],
     priceLevel: 2, 
     type: 'full',
     deliveryFee: 20,
