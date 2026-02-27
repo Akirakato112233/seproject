@@ -1,8 +1,19 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 
 // ตัวอย่างเอกสาร 2 รูป (เปลี่ยน path ให้ตรงกับไฟล์จริงใน assets/images)
 const SAMPLE_1 = require('../../assets/images/verify-doc-sample-1.png');
@@ -22,6 +33,90 @@ const AVOID = [
 
 export default function GuidelinesScreen() {
   const router = useRouter();
+  const {
+    registrationId,
+    nationalId,
+    addressOnId,
+    fatherFullName,
+    motherFullName,
+    hasDocument,
+    consentA,
+    consentB,
+  } = useLocalSearchParams<{
+    registrationId?: string;
+    nationalId?: string;
+    addressOnId?: string;
+    fatherFullName?: string;
+    motherFullName?: string;
+    hasDocument?: string;
+    consentA?: string;
+    consentB?: string;
+  }>();
+  const insets = useSafeAreaInsets();
+  const [uploading, setUploading] = useState(false);
+
+  const getFormParams = () => ({
+    registrationId: (registrationId ?? '').trim(),
+    nationalId: nationalId ?? '',
+    addressOnId: addressOnId ?? '',
+    fatherFullName: fatherFullName ?? '',
+    motherFullName: motherFullName ?? '',
+    hasDocument: hasDocument ?? '',
+    consentA: consentA ?? '',
+    consentB: consentB ?? '',
+  });
+
+  const handleUploadDocument = async () => {
+    try {
+      setUploading(true);
+      try {
+        const result = await DocumentPicker.getDocumentAsync({
+          type: ['image/*', 'application/pdf'],
+          copyToCacheDirectory: true,
+        });
+        if (result.canceled) return;
+        const file = result.assets[0];
+        router.replace({
+          pathname: '/verify-documents',
+          params: {
+            ...getFormParams(),
+            imageUri: file.uri,
+            selectedFileName: file.name ?? 'document',
+            selectedFileMimeType: file.mimeType ?? '',
+          },
+        } as any);
+      } catch (e) {
+        Alert.alert('Error', 'Could not open file picker. Trying photo gallery...');
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission required', 'Please allow access to photos.');
+          return;
+        }
+        const imgResult = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [4, 3],
+          quality: 0.8,
+        });
+        if (imgResult.canceled || !imgResult.assets[0]) return;
+        const asset = imgResult.assets[0];
+        router.replace({
+          pathname: '/verify-documents',
+          params: {
+            ...getFormParams(),
+            imageUri: asset.uri,
+            selectedFileName: 'image.jpg',
+            selectedFileMimeType: 'image/jpeg',
+          },
+        } as any);
+      }
+    } catch (err) {
+      console.error(err);
+      Alert.alert('เกิดข้อผิดพลาด', 'ไม่สามารถเลือกไฟล์ได้ กรุณาลองใหม่');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={s.safeArea} edges={['top']}>
@@ -35,7 +130,7 @@ export default function GuidelinesScreen() {
 
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={s.content}
+        contentContainerStyle={[s.content, { paddingBottom: 100 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* รูปบน: ตัวอย่างเอกสารรูปแรก (เต็มความกว้าง) */}
@@ -77,6 +172,21 @@ export default function GuidelinesScreen() {
           </View>
         ))}
       </ScrollView>
+
+      <View style={[s.footer, { paddingBottom: Math.max(24, insets.bottom + 12) }]}>
+        <TouchableOpacity
+          style={s.uploadBtn}
+          onPress={handleUploadDocument}
+          disabled={uploading}
+          activeOpacity={0.85}
+        >
+          {uploading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={s.uploadBtnText}>Upload Document</Text>
+          )}
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -139,5 +249,19 @@ const s = StyleSheet.create({
   bulletRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
   bullet: { fontSize: 16, color: '#475569', marginRight: 8 },
   bulletText: { flex: 1, fontSize: 14, color: '#475569', lineHeight: 22 },
+  footer: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  uploadBtn: {
+    backgroundColor: '#0E3A78',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  uploadBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
 });
 

@@ -299,13 +299,13 @@ MONGODB_URI=mongodb://localhost:27017/laundry
 
 ```typescript
 // สำหรับ Android Emulator
-const API_BASE_URL = 'http://192.168.1.4:3000/api';
+const API_BASE_URL = 'http://10.64.66.7:3000/api';
 
 // สำหรับ iOS Simulator
 const API_BASE_URL = 'http://localhost:3000/api';
 
 // สำหรับ Device จริง (ใช้ IP address ของคอมพิวเตอร์)
-const API_BASE_URL = 'http://192.168.1.4:3000/api';
+const API_BASE_URL = 'http://10.64.66.7:3000/api';
 ```
 
 ### 2. เปลี่ยน `useMockData` ใน `app/index.tsx`

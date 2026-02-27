@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -30,7 +30,31 @@ const CONSENT_B =
 
 export default function VerifyDocumentsScreen() {
   const router = useRouter();
-  const { registrationId } = useLocalSearchParams<{ registrationId?: string }>();
+  const {
+    registrationId,
+    imageUri: paramImageUri,
+    selectedFileName: paramFileName,
+    selectedFileMimeType: paramMimeType,
+    nationalId: paramNationalId,
+    addressOnId: paramAddressOnId,
+    fatherFullName: paramFatherFullName,
+    motherFullName: paramMotherFullName,
+    hasDocument: paramHasDocument,
+    consentA: paramConsentA,
+    consentB: paramConsentB,
+  } = useLocalSearchParams<{
+    registrationId?: string;
+    imageUri?: string;
+    selectedFileName?: string;
+    selectedFileMimeType?: string;
+    nationalId?: string;
+    addressOnId?: string;
+    fatherFullName?: string;
+    motherFullName?: string;
+    hasDocument?: string;
+    consentA?: string;
+    consentB?: string;
+  }>();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [nationalId, setNationalId] = useState('');
@@ -45,6 +69,33 @@ export default function VerifyDocumentsScreen() {
   const [consentB, setConsentB] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
+  useEffect(() => {
+    if (paramImageUri) {
+      setImageUri(paramImageUri);
+      setSelectedFileName(paramFileName ?? null);
+      setSelectedFileMimeType(paramMimeType ?? null);
+    }
+    if (paramNationalId !== undefined) setNationalId(paramNationalId ?? '');
+    if (paramAddressOnId !== undefined) setAddressOnId(paramAddressOnId ?? '');
+    if (paramFatherFullName !== undefined) setFatherFullName(paramFatherFullName ?? '');
+    if (paramMotherFullName !== undefined) setMotherFullName(paramMotherFullName ?? '');
+    if (paramHasDocument !== undefined)
+      setHasDocument(paramHasDocument === 'true' ? true : paramHasDocument === 'false' ? false : null);
+    if (paramConsentA !== undefined) setConsentA(paramConsentA === 'true');
+    if (paramConsentB !== undefined) setConsentB(paramConsentB === 'true');
+  }, [
+    paramImageUri,
+    paramFileName,
+    paramMimeType,
+    paramNationalId,
+    paramAddressOnId,
+    paramFatherFullName,
+    paramMotherFullName,
+    paramHasDocument,
+    paramConsentA,
+    paramConsentB,
+  ]);
+
   const isFormValid =
     nationalId.trim().length >= 13 &&
     addressOnId.trim().length > 0 &&
@@ -54,6 +105,17 @@ export default function VerifyDocumentsScreen() {
     (hasDocument === false || !!imageUri) &&
     consentA &&
     consentB;
+
+  const getGuidelinesParams = () => ({
+    registrationId: (registrationId ?? '').trim(),
+    nationalId,
+    addressOnId,
+    fatherFullName,
+    motherFullName,
+    hasDocument: hasDocument === null ? '' : String(hasDocument),
+    consentA: String(consentA),
+    consentB: String(consentB),
+  });
 
   const pickFile = async () => {
     try {
@@ -255,7 +317,18 @@ export default function VerifyDocumentsScreen() {
                 <Text style={s.uploadSectionLabel}>Information for</Text>
                 <Text style={s.uploadSectionLabel}>Criminal Background</Text>
               </View>
-              <TouchableOpacity style={s.uploadPhotoBtn} onPress={pickFile} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={s.uploadPhotoBtn}
+                onPress={() =>
+                  imageUri
+                    ? pickFile()
+                    : router.push({
+                        pathname: '/verify-documents/guidelines',
+                        params: getGuidelinesParams(),
+                      } as any)
+                }
+                activeOpacity={0.8}
+              >
                 {imageUri ? (
                   selectedFileMimeType?.startsWith('image/') ? (
                     <Image source={{ uri: imageUri }} style={s.uploadPhotoThumb} />
@@ -276,7 +349,12 @@ export default function VerifyDocumentsScreen() {
               </TouchableOpacity>
             </View>
             <TouchableOpacity
-              onPress={() => router.push('/verify-documents/guidelines')}
+              onPress={() =>
+                router.push({
+                  pathname: '/verify-documents/guidelines',
+                  params: getGuidelinesParams(),
+                } as any)
+              }
               style={s.guidelineLinkWrap}
             >
               <Text style={s.guidelineLink}>View Document Upload Guidelines</Text>

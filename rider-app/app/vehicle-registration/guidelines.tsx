@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,16 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadFileFromUri } from '../../services/uploadBackgroundDoc';
 
-const SAMPLE_DOC = require('../../assets/images/image.png');
+const SAMPLE_DOC = require('../../assets/images/vehicle-book-sample.jpg');
 
 const REQUIREMENTS = [
   'ต้องเป็น หน้าเล่มรถจริง (ไม่ใช่สำเนาเอกสารอื่น)',
@@ -28,7 +32,39 @@ const AVOID = [
 
 export default function VehicleBookGuidelinesScreen() {
   const router = useRouter();
+  const { registrationId } = useLocalSearchParams<{ registrationId?: string }>();
   const insets = useSafeAreaInsets();
+  const [uploading, setUploading] = useState(false);
+
+  const handleUploadDocument = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('ต้องการสิทธิ์', 'กรุณาอนุญาตการเข้าถึงรูปภาพ');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 10],
+      quality: 0.9,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const uri = result.assets[0].uri;
+    setUploading(true);
+    try {
+      const url = await uploadFileFromUri(uri, { prefix: 'vehicle-book' });
+      const regId = (registrationId ?? '').trim();
+      router.replace({
+        pathname: '/vehicle-registration',
+        params: regId ? { registrationId: regId, photoUri: uri, photoUploadUrl: url } : { photoUri: uri, photoUploadUrl: url },
+      } as any);
+    } catch (e) {
+      console.error(e);
+      Alert.alert('อัปโหลดไม่สำเร็จ', e instanceof Error ? e.message : 'กรุณาลองใหม่');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={s.safeArea} edges={['top']}>
@@ -45,8 +81,10 @@ export default function VehicleBookGuidelinesScreen() {
         contentContainerStyle={[s.content, { paddingBottom: 100 }]}
         showsVerticalScrollIndicator
       >
-        <Text style={s.subtitle}>รายการจดทะเบียน</Text>
-        <Text style={s.instruction}>ใช้หน้าข้อมูลรถ และหน้าข้อมูลเจ้าของรถ</Text>
+        <View style={s.titleBlock}>
+          <Text style={s.titleMain}>รายการจดทะเบียน</Text>
+          <Text style={s.titleSub}>ใช้หน้าข้อมูลรถ และหน้าข้อมูลเจ้าของรถ</Text>
+        </View>
 
         <View style={s.sampleBox}>
           <Image source={SAMPLE_DOC} style={s.sampleImage} resizeMode="contain" />
@@ -77,8 +115,17 @@ export default function VehicleBookGuidelinesScreen() {
       </ScrollView>
 
       <View style={[s.footer, { paddingBottom: Math.max(24, insets.bottom + 12) }]}>
-        <TouchableOpacity style={s.uploadBtn} onPress={() => router.back()} activeOpacity={0.85}>
-          <Text style={s.uploadBtnText}>Upload Document</Text>
+        <TouchableOpacity
+          style={s.uploadBtn}
+          onPress={handleUploadDocument}
+          disabled={uploading}
+          activeOpacity={0.85}
+        >
+          {uploading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={s.uploadBtnText}>Upload Document</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -101,8 +148,21 @@ const s = StyleSheet.create({
   backBtn: { padding: 4 },
   scroll: { flex: 1, backgroundColor: '#F8FAFC' },
   content: { padding: 20 },
-  subtitle: { fontSize: 16, color: '#64748B', marginBottom: 4 },
-  instruction: { fontSize: 15, color: '#0E3A78', marginBottom: 20 },
+  titleBlock: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  titleMain: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0E3A78',
+    marginBottom: 4,
+  },
+  titleSub: {
+    fontSize: 15,
+    color: '#0E3A78',
+    textAlign: 'center',
+  },
   sampleBox: {
     backgroundColor: '#E2E8F0',
     borderRadius: 12,

@@ -184,11 +184,11 @@ router.post('/register', async (req: Request, res: Response) => {
 /**
  * GET /api/google/start
  * Redirect user to Google OAuth consent screen
- * Query: ?redirect_scheme=exp://192.168.1.4:8081
+ * Query: ?redirect_scheme=exp://10.64.66.7:8081
  */
 router.get('/start', (req: Request, res: Response) => {
     res.setHeader('ngrok-skip-browser-warning', '1');
-    const redirectScheme = (req.query.redirect_scheme as string) || 'exp://192.168.1.4:8081';
+    const redirectScheme = (req.query.redirect_scheme as string) || 'exp://10.64.66.7:8081';
     const GOOGLE_CLIENT_ID = '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
     const CALLBACK_URL = `https://putative-renea-whisperingly.ngrok-free.dev/api/google/callback`;
 
@@ -213,7 +213,7 @@ router.get('/start', (req: Request, res: Response) => {
 router.get('/callback', async (req: Request, res: Response) => {
     try {
             const { code, state } = req.query;
-        const redirectScheme = (state as string) || 'exp://192.168.1.4:8081';
+        const redirectScheme = (state as string) || 'exp://10.64.66.7:8081';
         const GOOGLE_CLIENT_ID = '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
         const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
         const CALLBACK_URL = `https://putative-renea-whisperingly.ngrok-free.dev/api/google/callback`;

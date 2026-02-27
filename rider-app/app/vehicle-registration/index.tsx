@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -47,7 +47,8 @@ function getInitialValues(): Record<FieldKey, string> {
 
 export default function VehicleRegistrationScreen() {
   const router = useRouter();
-  const { registrationId } = useLocalSearchParams<{ registrationId?: string }>();
+  const { registrationId, photoUri: paramPhotoUri, photoUploadUrl: paramUploadUrl } =
+    useLocalSearchParams<{ registrationId?: string; photoUri?: string; photoUploadUrl?: string }>();
   const insets = useSafeAreaInsets();
   const [values, setValues] = useState(getInitialValues);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -55,6 +56,13 @@ export default function VehicleRegistrationScreen() {
   const [uploading, setUploading] = useState(false);
   const [disclaimerAgreed, setDisclaimerAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (paramUploadUrl && paramPhotoUri) {
+      setPhotoUri(paramPhotoUri);
+      setPhotoUploadUrl(paramUploadUrl);
+    }
+  }, [paramUploadUrl, paramPhotoUri]);
 
   const updateField = (key: FieldKey, text: string) => {
     setValues((prev) => ({ ...prev, [key]: text }));
@@ -167,15 +175,23 @@ export default function VehicleRegistrationScreen() {
             <Image source={ILLUSTRATION} style={s.illustrationImage} resizeMode="cover" />
           </View>
 
-          <Text style={s.title}>รูปรายการจดทะเบียนรถ</Text>
-          <Text style={s.subtitle}>(เล่มรถ)</Text>
-          <Text style={s.intro}>กรณีที่ผู้สมัครเป็นเจ้าของรถ*</Text>
-
-          <View style={s.uploadRow}>
+          <View style={s.titleUploadRow}>
+            <View style={s.titleBlock}>
+              <Text style={s.title}>รูปรายการจดทะเบียนรถ</Text>
+              <Text style={s.subtitle}>(เล่มรถ)</Text>
+              <Text style={s.intro}>กรณีที่ผู้สมัครเป็นเจ้าของรถ*</Text>
+            </View>
             <View style={s.uploadBox}>
               <TouchableOpacity
                 style={s.uploadTouch}
-                onPress={pickAndUploadPhoto}
+                onPress={() =>
+                  photoUri
+                    ? pickAndUploadPhoto()
+                    : router.push({
+                        pathname: '/vehicle-registration/guidelines',
+                        params: { registrationId: (registrationId ?? '').trim() },
+                      } as any)
+                }
                 disabled={uploading}
                 activeOpacity={0.8}
               >
@@ -194,7 +210,12 @@ export default function VehicleRegistrationScreen() {
           </View>
 
           <TouchableOpacity
-            onPress={() => router.push('/vehicle-registration/guidelines')}
+            onPress={() =>
+              router.push({
+                pathname: '/vehicle-registration/guidelines',
+                params: { registrationId: (registrationId ?? '').trim() },
+              } as any)
+            }
             style={s.guidelineLink}
           >
             <Text style={s.guidelineLinkText}>ดูตัวอย่างการอัปโหลดเอกสาร</Text>
@@ -269,13 +290,21 @@ const s = StyleSheet.create({
     backgroundColor: '#BFDBFE',
   },
   illustrationImage: { width: '100%', height: '100%' },
+  titleUploadRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    gap: 16,
+  },
+  titleBlock: { flex: 1 },
   title: { fontSize: 20, fontWeight: '700', color: '#0F172A' },
   subtitle: { fontSize: 16, color: '#64748B', marginBottom: 4 },
-  intro: { fontSize: 14, color: '#334155', marginBottom: 16 },
-  uploadRow: { flexDirection: 'row', marginBottom: 8 },
+  intro: { fontSize: 14, color: '#334155' },
   uploadBox: {
     width: 120,
     height: 100,
+    flexShrink: 0,
     borderRadius: 12,
     borderWidth: 2,
     borderStyle: 'dashed',
