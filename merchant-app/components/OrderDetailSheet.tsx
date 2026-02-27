@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Colors } from '../constants/colors';
 
-export type OrderDetailStatus = 'wait_for_rider' | 'washing' | 'in_progress' | 'ready_for_delivery';
+export type OrderDetailStatus = 'wait_for_rider' | 'washing' | 'in_progress' | 'ready_for_delivery' | 'completed';
 
 export interface OrderDetailData {
   id: string;
@@ -48,18 +48,21 @@ export function OrderDetailSheet({
   const isWaitForRider = order.status === 'wait_for_rider';
   const isWashing = order.status === 'washing';
   const isInProgress = order.status === 'in_progress';
+  const isCompleted = order.status === 'completed';
   const statusLabel =
-    isWaitForRider
-      ? 'Waiting for rider'
-      : isWashing
-        ? 'In progress'
-        : isInProgress
-          ? 'Ready for pickup'
-          : 'Delivering';
+    isCompleted
+      ? 'Completed'
+      : isWaitForRider
+        ? 'Waiting for rider'
+        : isWashing
+          ? 'In progress'
+          : isInProgress
+            ? 'Ready for pickup'
+            : 'Delivering';
   const actionLabel =
     order.actionLabel ??
     (isWaitForRider ? 'Rider arrived' : isWashing ? 'Ready for pickup' : isInProgress ? 'Rider picked up' : '');
-  const showAction = order.showAction !== false && !!actionLabel;
+  const showAction = !isCompleted && order.showAction !== false && !!actionLabel;
 
   return (
     <Modal visible={visible} transparent animationType="slide">
@@ -74,13 +77,15 @@ export function OrderDetailSheet({
                   <View
                     style={[
                       s.statusBadge,
-                      isWaitForRider
-                        ? s.statusWait
-                        : isWashing
-                          ? s.statusWashing
-                          : isInProgress
-                            ? s.statusInProgress
-                            : s.statusReady,
+                      isCompleted
+                        ? s.statusCompleted
+                        : isWaitForRider
+                          ? s.statusWait
+                          : isWashing
+                            ? s.statusWashing
+                            : isInProgress
+                              ? s.statusInProgress
+                              : s.statusReady,
                     ]}
                   >
                     <Text style={s.statusText}>
@@ -246,6 +251,7 @@ const s = StyleSheet.create({
   statusWashing: { backgroundColor: Colors.primaryBlue },
   statusInProgress: { backgroundColor: '#f59e0b' },
   statusReady: { backgroundColor: Colors.successGreen },
+  statusCompleted: { backgroundColor: '#6b7280' },
   statusText: { fontSize: 12, fontWeight: '700', color: Colors.white },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   paymentBadge: {

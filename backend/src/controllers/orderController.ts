@@ -12,6 +12,13 @@ const findOrderWithModel = async (orderId: string) => {
 
     const merchantOrder = await OrderForMerchant.findById(orderId);
     if (merchantOrder) {
+        // ถ้า accept แล้ว (มี ordersId) ให้ใช้ order จาก orders แทน
+        if (merchantOrder.ordersId) {
+            const linkedOrder = await Order.findById(merchantOrder.ordersId);
+            if (linkedOrder) {
+                return { order: linkedOrder, model: Order };
+            }
+        }
         return { order: merchantOrder, model: OrderForMerchant };
     }
 
@@ -199,11 +206,21 @@ export const merchantUpdateOrderStatus = async (req: AuthRequest, res: Response)
             });
         }
 
+        const updateId = String(order._id);
         const updated = await foundOrder.model.findByIdAndUpdate(
-            orderId,
+            updateId,
             { status },
             { new: true }
         );
+
+        // Sync: ถ้าเป็น Order ให้อัปเดต OrderForMerchant, ถ้าเป็น OrderForMerchant ให้อัปเดต Order
+        if (updated) {
+            if ((order as any).merchantOrderId) {
+                await OrderForMerchant.findByIdAndUpdate((order as any).merchantOrderId, { status });
+            } else if ((order as any).ordersId) {
+                await Order.findByIdAndUpdate((order as any).ordersId, { status });
+            }
+        }
 
         // เมื่อออเดอร์เปลี่ยนเป็น deliverying หรือ completed และชำระด้วย wallet ให้โอนเงินเข้า balance ร้าน (ยอดคงเหลืออัปเดต) — ทำครั้งเดียวเมื่อเข้า deliverying/completed ครั้งแรก
         const isFirstTimeDeliveryingOrCompleted =
@@ -229,7 +246,7 @@ export const merchantUpdateOrderStatus = async (req: AuthRequest, res: Response)
     }
 };
 
-// Merchant รับ order (rider_coming -> at_shop) - ไม่ต้อง auth
+// Merchant รับ order - ถ้าจาก ordersformerchant ให้ copy ไป POST ลง orders collection ด้วย
 export const merchantAcceptOrder = async (req: AuthRequest, res: Response) => {
     try {
         const { orderId } = req.params;
@@ -247,7 +264,35 @@ export const merchantAcceptOrder = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ success: false, message: 'Order cannot be accepted' });
         }
 
-        const updated = await foundOrder.model.findByIdAndUpdate(
+        // ถ้า order มาจาก ordersformerchant ให้ copy ไป POST ลง orders collection
+        if (foundOrder!.model.modelName === 'OrderForMerchant') {
+            const orderData = {
+                userId: order.userId,
+                userDisplayName: order.userDisplayName,
+                userAddress: order.userAddress,
+                shopId: order.shopId,
+                shopName: order.shopName,
+                items: order.items,
+                serviceTotal: order.serviceTotal,
+                deliveryFee: order.deliveryFee,
+                total: order.total,
+                paymentMethod: order.paymentMethod,
+                status: 'rider_coming' as const,
+                merchantOrderId: order._id,
+            };
+            const newOrder = await Order.create(orderData);
+
+            // อัปเดต ordersformerchant เป็น rider_coming และเก็บ ordersId (เพื่อ merchant ดึงจาก ordersformerchant ได้)
+            await OrderForMerchant.findByIdAndUpdate(orderId, {
+                status: 'rider_coming',
+                ordersId: newOrder._id,
+            });
+
+            return res.json({ success: true, order: newOrder });
+        }
+
+        // order อยู่ใน orders อยู่แล้ว แค่อัปเดต status
+        const updated = await foundOrder!.model.findByIdAndUpdate(
             orderId,
             { status: 'rider_coming' },
             { new: true }
@@ -280,6 +325,13 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
 
         if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+
+        // Sync status ไปที่ ordersformerchant เสมอ (merchant ดึงจาก ordersformerchant เท่านั้น)
+        if ((order as any).merchantOrderId) {
+            await OrderForMerchant.findByIdAndUpdate((order as any).merchantOrderId, {
+                status,
+            });
         }
 
         // เมื่อสถานะเป็น completed และชำระ wallet และยังไม่เคยโอน — โอนเข้า balance ร้าน
@@ -328,7 +380,7 @@ export const getOrderHistory = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// ดึง Order ที่รอ Merchant รับงาน (สำหรับร้าน - filter ตาม shopId)
+// ดึง Order ที่รอ Merchant รับงาน (จาก ordersformerchant เท่านั้น)
 export const getMerchantPendingOrders = async (req: AuthRequest, res: Response) => {
     try {
         const { shopId } = req.params;
@@ -336,12 +388,7 @@ export const getMerchantPendingOrders = async (req: AuthRequest, res: Response) 
             return res.status(400).json({ success: false, message: 'shopId is required' });
         }
 
-        const [orders, merchantOrders] = await Promise.all([
-            Order.find({ shopId, status: 'decision' }),
-            OrderForMerchant.find({ shopId, status: 'decision' })
-        ]);
-
-        const allOrders = mergeAndSortByCreatedAt(orders, merchantOrders);
+        const allOrders = await OrderForMerchant.find({ shopId, status: 'decision' }).sort({ createdAt: -1 });
 
         const formattedOrders = allOrders.map((order) => {
             const firstItem = Array.isArray(order.items) && order.items.length > 0
@@ -375,7 +422,7 @@ export const getMerchantPendingOrders = async (req: AuthRequest, res: Response) 
     }
 };
 
-// ดึง Order ที่ร้านกำลังดำเนินการ (rider_coming, at_shop, in_progress, deliverying)
+// ดึง Order ที่ร้านกำลังดำเนินการ (จาก ordersformerchant เท่านั้น)
 export const getMerchantCurrentOrders = async (req: AuthRequest, res: Response) => {
     try {
         const { shopId } = req.params;
@@ -388,12 +435,7 @@ export const getMerchantCurrentOrders = async (req: AuthRequest, res: Response) 
             status: { $in: ['rider_coming', 'at_shop', 'out_for_delivery', 'in_progress', 'deliverying'] }
         };
 
-        const [orders, merchantOrders] = await Promise.all([
-            Order.find(currentStatusQuery),
-            OrderForMerchant.find(currentStatusQuery)
-        ]);
-
-        const allOrders = mergeAndSortByCreatedAt(orders, merchantOrders);
+        const allOrders = await OrderForMerchant.find(currentStatusQuery).sort({ updatedAt: -1 });
 
         const formattedOrders = allOrders.map((order) => {
             const firstItem = Array.isArray(order.items) && order.items.length > 0
@@ -445,7 +487,7 @@ const mergeAndSortByUpdatedAt = <T extends { updatedAt?: Date }>(...groups: T[][
         );
 };
 
-// ดึงประวัติออเดอร์ที่ completed ของร้าน จาก orders + ordersformerchant
+// ดึงประวัติออเดอร์ที่ completed ของร้าน (จาก ordersformerchant เท่านั้น)
 export const getMerchantOrderHistory = async (req: AuthRequest, res: Response) => {
     try {
         const { shopId } = req.params;
@@ -453,14 +495,9 @@ export const getMerchantOrderHistory = async (req: AuthRequest, res: Response) =
             return res.status(400).json({ success: false, message: 'shopId is required' });
         }
 
-        const historyQuery = { shopId, status: { $in: ['completed', 'deliverying'] } };
+        const historyQuery = { shopId, status: 'completed' };
 
-        const [orders, merchantOrders] = await Promise.all([
-            Order.find(historyQuery).sort({ updatedAt: -1 }).limit(100),
-            OrderForMerchant.find(historyQuery).sort({ updatedAt: -1 }).limit(100)
-        ]);
-
-        const allOrders = mergeAndSortByUpdatedAt(orders, merchantOrders);
+        const allOrders = await OrderForMerchant.find(historyQuery).sort({ updatedAt: -1 }).limit(100);
 
         const formattedOrders = allOrders.map((order) => {
             const firstItem = Array.isArray(order.items) && order.items.length > 0
@@ -491,7 +528,7 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
     try {
         console.log('📦 Fetching pending orders...');
         const pendingQuery = {
-            status: { $in: ['pending', 'decision'] }  // ไม่รวม 'rider_coming' เพราะถูกรับไปแล้ว
+            status: { $in: ['pending', 'decision', 'rider_coming'] }  // rider_coming = merchant accept แล้ว รอ rider รับ
         };
 
         const allOrders = await Order.find(pendingQuery).sort({ createdAt: -1 });

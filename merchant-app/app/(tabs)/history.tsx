@@ -103,10 +103,7 @@ export default function HistoryScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
-      <MerchantHeader
-        shopName={shop?.name ?? 'Loading...'}
-        onWalletPress={() => router.push('/(tabs)/wallet')}
-      />
+      <MerchantHeader shopName={shop?.name ?? 'Loading...'} />
 
       <View style={s.content}>
         <Text style={s.title}>History</Text>

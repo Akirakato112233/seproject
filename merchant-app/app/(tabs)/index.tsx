@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   StyleSheet,
@@ -22,7 +22,7 @@ import {
   type OrderDetailStatus,
 } from '../../components/OrderDetailSheet';
 
-type OrderFilter = 'all' | 'in_progress' | 'ready' | 'deliverying';
+type OrderFilter = 'all' | 'neworder' | 'in_progress' | 'ready' | 'deliverying' | 'completed';
 
 interface ApiPendingOrder {
   id: string;
@@ -77,7 +77,7 @@ function apiOrderToNewOrderData(order: ApiPendingOrder): NewOrderData {
 export default function DashboardScreen() {
   const router = useRouter();
   const { shop, refreshShop } = useShop();
-  const { currentOrders, setRiderArrived, setOrderReady, completeOrder, refreshCurrentOrders } = useOrders();
+  const { currentOrders, completedOrders, setRiderArrived, setOrderReady, completeOrder, refreshCurrentOrders } = useOrders();
 
   useEffect(() => {
     refreshShop();
@@ -90,6 +90,7 @@ export default function DashboardScreen() {
   const [selectedOrder, setSelectedOrder] = useState<(typeof currentOrders)[0] | null>(null);
   const [orderDetailVisible, setOrderDetailVisible] = useState(false);
   const [pendingOrders, setPendingOrders] = useState<ApiPendingOrder[]>([]);
+  const prevPendingCountRef = useRef(0);
 
   const fetchPendingOrders = useCallback(async () => {
     if (!shop?._id) return;
@@ -111,11 +112,26 @@ export default function DashboardScreen() {
     return () => clearInterval(interval);
   }, [fetchPendingOrders]);
 
-  const handleShowNewOrder = () => {
-    const first = pendingOrders[0];
-    if (first) {
-      setPendingNewOrder(apiOrderToNewOrderData(first));
-      setPendingOrderIndex(0);
+  // Auto-show pop-up ทันทีเมื่อมี order ใหม่เข้ามา
+  useEffect(() => {
+    const n = pendingOrders.length;
+    if (n > prevPendingCountRef.current) {
+      const first = pendingOrders[0];
+      if (first) {
+        setPendingNewOrder(apiOrderToNewOrderData(first));
+        setPendingOrderIndex(0);
+        setShowNewOrder(true);
+      }
+    }
+    prevPendingCountRef.current = n;
+  }, [pendingOrders]);
+
+  const handleShowNewOrder = (index?: number) => {
+    const idx = index ?? 0;
+    const order = pendingOrders[idx];
+    if (order) {
+      setPendingNewOrder(apiOrderToNewOrderData(order));
+      setPendingOrderIndex(idx);
       setShowNewOrder(true);
     }
   };
@@ -172,21 +188,52 @@ export default function DashboardScreen() {
   const deliveringCount = currentOrders.filter((o) => o.status === 'ready' && o.statusRaw === 'deliverying').length;
 
   const filteredOrders =
-    filter === 'all'
-      ? currentOrders
-      : filter === 'in_progress'
-        ? currentOrders.filter((o) => o.status === 'wait_for_rider' || o.status === 'washing')
-        : filter === 'ready'
-          ? currentOrders.filter((o) => o.status === 'ready' && o.statusRaw !== 'deliverying')
-          : currentOrders.filter((o) => o.status === 'ready' && o.statusRaw === 'deliverying');
+    filter === 'neworder'
+      ? []
+      : filter === 'completed'
+        ? []
+        : filter === 'all'
+          ? currentOrders
+          : filter === 'in_progress'
+            ? currentOrders.filter((o) => o.status === 'wait_for_rider' || o.status === 'washing')
+            : filter === 'ready'
+              ? currentOrders.filter((o) => o.status === 'ready' && o.statusRaw !== 'deliverying')
+              : currentOrders.filter((o) => o.status === 'ready' && o.statusRaw === 'deliverying');
+
+  const listData =
+    filter === 'neworder'
+      ? pendingOrders.map((o) => ({
+          id: o.id,
+          customerName: o.customerName || 'Customer',
+          orderId: o.orderId || `ORD-${o.id.slice(-4)}`,
+          serviceType: o.serviceType || 'Wash & Fold',
+          total: o.total || 0,
+          status: 'new_order' as const,
+          statusRaw: 'decision' as const,
+          pickupText: undefined as string | undefined,
+          dueText: undefined as string | undefined,
+        }))
+      : filter === 'completed'
+        ? completedOrders.map((o) => ({
+            id: o.id,
+            customerName: o.customerName,
+            orderId: o.orderId,
+            serviceType: o.serviceType,
+            total: o.total,
+            status: 'completed' as const,
+            statusRaw: 'completed' as const,
+            pickupText: undefined as string | undefined,
+            dueText: o.completedAt ? `Completed ${o.completedAt.toLocaleDateString()}` : undefined,
+          }))
+        : filteredOrders;
 
   const searchFiltered = search
-    ? filteredOrders.filter(
+    ? listData.filter(
         (o) =>
           o.customerName.toLowerCase().includes(search.toLowerCase()) ||
           o.orderId.toLowerCase().includes(search.toLowerCase())
       )
-    : filteredOrders;
+    : listData;
 
   const handleOrderAction = async () => {
     if (!selectedOrder) return;
@@ -202,13 +249,31 @@ export default function DashboardScreen() {
     setSelectedOrder(null);
   };
 
-  const openOrderDetail = (order: (typeof currentOrders)[0]) => {
-    setSelectedOrder(order);
+  const openOrderDetail = (order: (typeof currentOrders)[0] | { id: string; customerName: string; orderId: string; serviceType: string; total: number; status: string }) => {
+    setSelectedOrder(order as (typeof currentOrders)[0]);
     setOrderDetailVisible(true);
+  };
+
+  const handleNewOrderCardPress = (orderId: string) => {
+    const idx = pendingOrders.findIndex((o) => o.id === orderId);
+    if (idx >= 0) handleShowNewOrder(idx);
   };
 
   const getOrderDetailData = (): OrderDetailData | null => {
     if (!selectedOrder) return null;
+    if ((selectedOrder as { status?: string }).status === 'completed') {
+      return {
+        id: (selectedOrder.orderId || '').replace('ORD-', '') || selectedOrder.id.slice(-4),
+        status: 'completed',
+        total: selectedOrder.total,
+        isPaid: true,
+        paymentMethod: selectedOrder.paymentMethod || 'Cash',
+        customerName: selectedOrder.customerName,
+        customerPhone: '086-555-4444',
+        orderDate: 'Completed',
+        showAction: false,
+      };
+    }
     const status: OrderDetailStatus =
       selectedOrder.status === 'wait_for_rider'
         ? 'wait_for_rider'
@@ -253,7 +318,7 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
-      <MerchantHeader shopName={shop?.name ?? 'Loading...'} onWalletPress={() => router.push('/(tabs)/wallet')} />
+      <MerchantHeader shopName={shop?.name ?? 'Loading...'} />
 
       <TouchableOpacity
         style={s.balanceCard}
@@ -267,37 +332,30 @@ export default function DashboardScreen() {
         <Text style={s.balanceAmount}>฿{(shop?.balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
       </TouchableOpacity>
 
-      {pendingOrders.length > 0 && (
-        <TouchableOpacity
-          style={s.newOrderBanner}
-          onPress={handleShowNewOrder}
-        >
-          <Ionicons name="notifications" size={20} color={Colors.white} />
-          <Text style={s.newOrderBannerText}>
-            {pendingOrders.length === 1
-              ? 'New order - Tap to view'
-              : `New orders (${pendingOrders.length}) - Tap to view`}
-          </Text>
-          <Ionicons name="chevron-forward" size={18} color={Colors.white} />
-        </TouchableOpacity>
-      )}
-
       <View style={s.summaryRow}>
+        <View style={[s.summaryCard, s.newOrderCard]}>
+          <Text style={[s.summaryLabel, s.newOrderValue]}>New order</Text>
+          <Text style={[s.summaryValue, s.newOrderValue]}>{pendingOrders.length}</Text>
+        </View>
         <View style={[s.summaryCard, s.waitCard]}>
-          <Text style={s.summaryLabel}>Waiting for rider</Text>
+          <Text style={[s.summaryLabel, s.waitValue]}>Waiting for rider</Text>
           <Text style={[s.summaryValue, s.waitValue]}>{waitForRiderCount}</Text>
         </View>
         <View style={[s.summaryCard, s.washingCard]}>
-          <Text style={s.summaryLabel}>In progress</Text>
+          <Text style={[s.summaryLabel, s.washingValue]}>In progress</Text>
           <Text style={[s.summaryValue, s.washingValue]}>{washingCount}</Text>
         </View>
         <View style={[s.summaryCard, s.readyCard]}>
-          <Text style={s.summaryLabel}>Ready for pickup</Text>
+          <Text style={[s.summaryLabel, s.readyValue]}>Ready for pickup</Text>
           <Text style={[s.summaryValue, s.readyValue]}>{readyCount}</Text>
         </View>
         <View style={[s.summaryCard, s.deliveringCard]}>
-          <Text style={s.summaryLabel}>Delivering</Text>
+          <Text style={[s.summaryLabel, s.deliveringValue]}>Delivering</Text>
           <Text style={[s.summaryValue, s.deliveringValue]}>{deliveringCount}</Text>
+        </View>
+        <View style={[s.summaryCard, s.completedCard]}>
+          <Text style={[s.summaryLabel, s.completedValue]}>Completed</Text>
+          <Text style={[s.summaryValue, s.completedValue]}>{completedOrders.length}</Text>
         </View>
       </View>
 
@@ -316,9 +374,11 @@ export default function DashboardScreen() {
         {(
           [
             ['all', 'All'],
+            ['neworder', 'New order'],
             ['in_progress', 'In progress'],
             ['ready', 'Ready for pickup'],
             ['deliverying', 'Delivering'],
+            ['completed', 'Completed'],
           ] as const
         ).map(([key, label]) => (
           <TouchableOpacity
@@ -333,7 +393,9 @@ export default function DashboardScreen() {
         ))}
       </View>
 
-      <Text style={s.sectionTitle}>Current Orders</Text>
+      <Text style={s.sectionTitle}>
+        {filter === 'neworder' ? 'New Orders' : filter === 'completed' ? 'Completed Orders' : 'Current Orders'}
+      </Text>
 
       <FlatList
         data={searchFiltered}
@@ -342,27 +404,43 @@ export default function DashboardScreen() {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={s.orderCard}
-            onPress={() => openOrderDetail(item)}
+            onPress={() =>
+              filter === 'neworder'
+                ? handleNewOrderCardPress(item.id)
+                : openOrderDetail(item)
+            }
             activeOpacity={0.8}
           >
             <View style={s.orderLeft}>
               <View
                 style={[
                   s.orderIcon,
-                  item.status === 'wait_for_rider'
-                    ? s.orderIconWait
-                    : item.status === 'washing'
-                      ? s.orderIconWashing
-                      : s.orderIconReady,
+                  item.status === 'new_order'
+                    ? s.orderIconNew
+                    : item.status === 'completed'
+                      ? s.orderIconCompleted
+                      : item.status === 'wait_for_rider'
+                        ? s.orderIconWait
+                        : item.status === 'washing'
+                          ? s.orderIconWashing
+                          : item.statusRaw === 'deliverying'
+                            ? s.orderIconDelivering
+                            : s.orderIconReady,
                 ]}
               >
                 <Ionicons
                   name={
-                    item.status === 'wait_for_rider'
-                      ? 'bicycle-outline'
-                      : item.status === 'washing'
-                        ? 'shirt-outline'
-                        : 'bag-handles-outline'
+                    item.status === 'new_order'
+                      ? 'notifications-outline'
+                      : item.status === 'completed'
+                        ? 'checkmark-done-outline'
+                        : item.status === 'wait_for_rider'
+                          ? 'bicycle-outline'
+                          : item.status === 'washing'
+                            ? 'shirt-outline'
+                            : item.statusRaw === 'deliverying'
+                              ? 'car-outline'
+                              : 'bag-handles-outline'
                   }
                   size={24}
                   color={Colors.white}
@@ -391,30 +469,46 @@ export default function DashboardScreen() {
               <View
                 style={[
                   s.statusBadge,
-                  item.status === 'wait_for_rider'
-                    ? s.statusWait
-                    : item.status === 'washing'
-                      ? s.statusWashing
-                      : s.statusReady,
+                  item.status === 'new_order'
+                    ? s.statusNew
+                    : item.status === 'completed'
+                      ? s.statusCompleted
+                      : item.status === 'wait_for_rider'
+                        ? s.statusWait
+                        : item.status === 'washing'
+                          ? s.statusWashing
+                          : item.statusRaw === 'deliverying'
+                            ? s.statusDelivering
+                            : s.statusReady,
                 ]}
               >
                 <Text
                   style={[
                     s.statusText,
-                    item.status === 'wait_for_rider'
-                      ? s.statusTextWait
-                      : item.status === 'washing'
-                        ? s.statusTextWashing
-                        : s.statusTextReady,
+                    item.status === 'new_order'
+                      ? s.statusTextNew
+                      : item.status === 'completed'
+                        ? s.statusTextCompleted
+                        : item.status === 'wait_for_rider'
+                          ? s.statusTextWait
+                          : item.status === 'washing'
+                            ? s.statusTextWashing
+                            : item.statusRaw === 'deliverying'
+                              ? s.statusTextDelivering
+                              : s.statusTextReady,
                   ]}
                 >
-                  {item.status === 'wait_for_rider'
-                    ? 'Waiting for rider'
-                    : item.status === 'washing'
-                      ? 'In progress'
-                      : item.statusRaw === 'deliverying'
-                        ? 'Delivering'
-                        : 'Ready for pickup'}
+                  {item.status === 'new_order'
+                    ? 'New order'
+                    : item.status === 'completed'
+                      ? 'Completed'
+                      : item.status === 'wait_for_rider'
+                        ? 'Waiting for rider'
+                        : item.status === 'washing'
+                          ? 'In progress'
+                          : item.statusRaw === 'deliverying'
+                            ? 'Delivering'
+                            : 'Ready for pickup'}
                 </Text>
               </View>
               <Text style={s.orderPrice}>{item.total.toFixed(2)}฿</Text>
@@ -472,46 +566,36 @@ const s = StyleSheet.create({
     fontWeight: '800',
     color: Colors.successGreen,
   },
-  newOrderBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.primaryBlue,
-    marginHorizontal: 16,
-    marginTop: 8,
-    padding: 12,
-    borderRadius: 12,
-    gap: 8,
-  },
-  newOrderBannerText: {
-    flex: 1,
-    color: Colors.white,
-    fontWeight: '600',
-    fontSize: 14,
-  },
   summaryRow: {
     flexDirection: 'row',
     padding: 16,
     gap: 8,
+    flexWrap: 'wrap',
   },
   summaryCard: {
+    minWidth: 90,
     flex: 1,
     borderRadius: 12,
     padding: 12,
   },
-  waitCard: { backgroundColor: '#fef3c7' },
-  washingCard: { backgroundColor: '#e0f2fe' },
-  readyCard: { backgroundColor: '#dcfce7' },
-  deliveringCard: { backgroundColor: '#e0e7ff' },
+  newOrderCard: { backgroundColor: '#B3E5FC' },
+  waitCard: { backgroundColor: '#FFE0B2' },
+  washingCard: { backgroundColor: '#BBDEFB' },
+  readyCard: { backgroundColor: '#C8E6C9' },
+  deliveringCard: { backgroundColor: '#E1BEE7' },
+  completedCard: { backgroundColor: '#B2DFDB' },
   summaryLabel: {
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
   summaryValue: { fontSize: 26, fontWeight: '800', marginTop: 4 },
-  waitValue: { color: '#b45309' },
-  washingValue: { color: Colors.primaryBlue },
-  readyValue: { color: Colors.successGreen },
-  deliveringValue: { color: '#4338ca' },
+  newOrderValue: { color: '#0277BD' },
+  waitValue: { color: '#EF6C00' },
+  washingValue: { color: '#1565C0' },
+  readyValue: { color: '#2E7D32' },
+  deliveringValue: { color: '#6A1B9A' },
+  completedValue: { color: '#00695C' },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -567,9 +651,12 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  orderIconWait: { backgroundColor: '#f59e0b' },
-  orderIconWashing: { backgroundColor: Colors.primaryBlue },
-  orderIconReady: { backgroundColor: Colors.successGreen },
+  orderIconNew: { backgroundColor: '#0277BD' },
+  orderIconCompleted: { backgroundColor: '#00695C' },
+  orderIconWait: { backgroundColor: '#EF6C00' },
+  orderIconWashing: { backgroundColor: '#1565C0' },
+  orderIconReady: { backgroundColor: '#2E7D32' },
+  orderIconDelivering: { backgroundColor: '#6A1B9A' },
   customerName: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
   orderMeta: { fontSize: 13, color: Colors.textSecondary, marginTop: 2 },
   pickupRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
@@ -582,12 +669,18 @@ const s = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
   },
-  statusWait: { backgroundColor: '#fef3c7' },
-  statusWashing: { backgroundColor: '#dbeafe' },
-  statusReady: { backgroundColor: '#dcfce7' },
+  statusNew: { backgroundColor: '#B3E5FC' },
+  statusCompleted: { backgroundColor: '#B2DFDB' },
+  statusWait: { backgroundColor: '#FFE0B2' },
+  statusWashing: { backgroundColor: '#BBDEFB' },
+  statusReady: { backgroundColor: '#C8E6C9' },
+  statusDelivering: { backgroundColor: '#E1BEE7' },
   statusText: { fontSize: 10, fontWeight: '700' },
-  statusTextWait: { color: '#b45309' },
-  statusTextWashing: { color: Colors.primaryBlue },
-  statusTextReady: { color: Colors.successGreen },
+  statusTextNew: { color: '#0277BD' },
+  statusTextCompleted: { color: '#00695C' },
+  statusTextWait: { color: '#EF6C00' },
+  statusTextWashing: { color: '#1565C0' },
+  statusTextReady: { color: '#2E7D32' },
+  statusTextDelivering: { color: '#6A1B9A' },
   orderPrice: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary },
 });

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../constants/colors';
 import { useShop } from '../context/ShopContext';
 
@@ -8,12 +8,10 @@ const shopAvatarImg = require('../assets/images/shop-avatar.png');
 
 interface MerchantHeaderProps {
   shopName?: string;
-  onWalletPress?: () => void;
 }
 
 export function MerchantHeader({
   shopName = 'ร้านasukhai',
-  onWalletPress,
 }: MerchantHeaderProps) {
   const { shop, updateShop } = useShop();
   const [updating, setUpdating] = useState(false);
@@ -76,9 +74,6 @@ export function MerchantHeader({
             </>
           )}
         </Pressable>
-        <TouchableOpacity onPress={onWalletPress} style={s.walletBtn}>
-          <Ionicons name="wallet-outline" size={24} color={Colors.textPrimary} />
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -136,5 +131,4 @@ const s = StyleSheet.create({
   },
   toggleThumbOn: { backgroundColor: Colors.white },
   toggleThumbOff: { backgroundColor: '#1f2937' },
-  walletBtn: { padding: 8, minWidth: 40, minHeight: 40, alignItems: 'center', justifyContent: 'center' },
 });
