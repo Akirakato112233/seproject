@@ -2,7 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   FlatList,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -22,7 +24,7 @@ import {
   type OrderDetailStatus,
 } from '../../components/OrderDetailSheet';
 
-type OrderFilter = 'all' | 'neworder' | 'in_progress' | 'ready' | 'deliverying' | 'completed';
+type OrderFilter = 'all' | 'neworder' | 'looking_for_rider' | 'in_progress' | 'ready' | 'completed';
 
 interface ApiPendingOrder {
   id: string;
@@ -58,16 +60,18 @@ function formatPickupTime(createdAt: string): string {
   }
 }
 
-function apiOrderToNewOrderData(order: ApiPendingOrder): NewOrderData {
+function apiOrderToNewOrderData(order: ApiPendingOrder & { userDisplayName?: string }): NewOrderData {
+  const createdAt = order.createdAt;
+  const createdStr = typeof createdAt === 'string' ? createdAt : createdAt ? new Date(createdAt as Date).toISOString() : '';
   return {
-    id: order.orderId || order.id,
-    customerName: order.customerName || 'Customer',
+    id: order.orderId || String(order.id || '').slice(-4) || '?',
+    customerName: order.customerName || order.userDisplayName || 'Customer',
     distance: '4 KM',
-    total: order.total || 0,
+    total: Number(order.total) || 0,
     paymentMethod: order.paymentMethod || 'เงินสด',
     serviceType: order.serviceType || 'Wash & Fold Service',
     serviceDetail: order.serviceDetail || 'approx. 5-7 kg',
-    pickupTime: formatPickupTime(order.createdAt),
+    pickupTime: formatPickupTime(createdStr),
     note: order.items?.[0]?.details || undefined,
     expiresIn: 180,
     _rawId: order.id,
@@ -88,8 +92,10 @@ export default function DashboardScreen() {
   const [pendingNewOrder, setPendingNewOrder] = useState<NewOrderData | null>(null);
   const [pendingOrderIndex, setPendingOrderIndex] = useState(0);
   const [selectedOrder, setSelectedOrder] = useState<(typeof currentOrders)[0] | null>(null);
+  const [selectedPendingOrder, setSelectedPendingOrder] = useState<ApiPendingOrder | null>(null);
   const [orderDetailVisible, setOrderDetailVisible] = useState(false);
   const [pendingOrders, setPendingOrders] = useState<ApiPendingOrder[]>([]);
+  const [isAccepting, setIsAccepting] = useState(false);
   const prevPendingCountRef = useRef(0);
 
   const fetchPendingOrders = useCallback(async () => {
@@ -156,22 +162,31 @@ export default function DashboardScreen() {
 
   const handleAcceptOrder = async () => {
     if (!pendingNewOrder) {
+      console.log('[Merchant Accept Modal] ไม่มี pendingNewOrder');
       setShowNewOrder(false);
       return;
     }
-    const orderId = pendingNewOrder._rawId || pendingNewOrder.id;
+    const orderId = pendingNewOrder._rawId ?? pendingNewOrder.id;
+    const shopId = shop?._id;
+    const url = API.ORDERS_MERCHANT_ACCEPT(orderId);
+    console.log('[Merchant Accept Modal] เริ่มต้น', { orderId, shopId, url });
     try {
-      const res = await fetch(API.ORDERS_MERCHANT_ACCEPT(orderId), {
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shopId: shop?._id }),
+        body: JSON.stringify({ shopId }),
       });
+      const data = await res.json().catch(() => ({}));
+      console.log('[Merchant Accept Modal] Response', { status: res.status, ok: res.ok, data });
       if (res.ok) {
         await refreshCurrentOrders();
         await fetchPendingOrders();
+        setFilter('all');
+      } else {
+        console.warn('[Merchant Accept Modal] ล้มเหลว', data.message || data);
       }
     } catch (err) {
-      console.error('Error accepting order:', err);
+      console.error('[Merchant Accept Modal] Error:', err);
     }
     setPendingNewOrder(null);
     setShowNewOrder(false);
@@ -182,10 +197,11 @@ export default function DashboardScreen() {
     setShowNewOrder(false);
   };
 
-  const waitForRiderCount = currentOrders.filter((o) => o.status === 'wait_for_rider').length;
-  const washingCount = currentOrders.filter((o) => o.status === 'washing').length;
-  const readyCount = currentOrders.filter((o) => o.status === 'ready' && o.statusRaw !== 'deliverying').length;
-  const deliveringCount = currentOrders.filter((o) => o.status === 'ready' && o.statusRaw === 'deliverying').length;
+  const isDelivering = (sr: string | undefined) => sr === 'Delivering' || sr === 'deliverying';
+  const newOrderCount = pendingOrders.length;
+  const inProgressCount = currentOrders.filter((o) => o.status === 'washing').length;
+  const readyCount = currentOrders.filter((o) => o.status === 'ready' && !isDelivering(o.statusRaw)).length;
+  const completedCount = completedOrders.length;
 
   const filteredOrders =
     filter === 'neworder'
@@ -194,11 +210,13 @@ export default function DashboardScreen() {
         ? []
         : filter === 'all'
           ? currentOrders
-          : filter === 'in_progress'
-            ? currentOrders.filter((o) => o.status === 'wait_for_rider' || o.status === 'washing')
-            : filter === 'ready'
-              ? currentOrders.filter((o) => o.status === 'ready' && o.statusRaw !== 'deliverying')
-              : currentOrders.filter((o) => o.status === 'ready' && o.statusRaw === 'deliverying');
+          : filter === 'looking_for_rider'
+            ? currentOrders.filter((o) => o.status === 'wait_for_rider' && o.pickupText === 'Looking for rider')
+            : filter === 'in_progress'
+              ? currentOrders.filter((o) => o.status === 'washing')
+              : filter === 'ready'
+                ? currentOrders.filter((o) => o.status === 'ready' && !isDelivering(o.statusRaw))
+                : currentOrders;
 
   const listData =
     filter === 'neworder'
@@ -236,6 +254,44 @@ export default function DashboardScreen() {
     : listData;
 
   const handleOrderAction = async () => {
+    console.log('[Merchant Accept] handleOrderAction ถูกเรียก', { hasSelectedPending: !!selectedPendingOrder, hasSelectedOrder: !!selectedOrder });
+    // New order Accept
+    if (selectedPendingOrder) {
+      const orderId = selectedPendingOrder.id;
+      const shopId = shop?._id;
+      if (!shopId) {
+        Alert.alert('Error', 'ไม่พบข้อมูลร้าน กรุณารอโหลดหรือรีเฟรช');
+        return;
+      }
+      const url = API.ORDERS_MERCHANT_ACCEPT(orderId);
+      console.log('[Merchant Accept] เริ่มต้น', { orderId, shopId, url });
+      setIsAccepting(true);
+      try {
+        const body = JSON.stringify({ shopId });
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        });
+        const data = await res.json().catch(() => ({}));
+        console.log('[Merchant Accept] Response', { status: res.status, ok: res.ok, data });
+        if (res.ok) {
+          await refreshCurrentOrders();
+          await fetchPendingOrders();
+          setFilter('all');
+          setSelectedPendingOrder(null);
+          setOrderDetailVisible(false);
+        } else {
+          Alert.alert('Accept ล้มเหลว', data.message || String(data) || `Status ${res.status}`);
+        }
+      } catch (err) {
+        console.error('[Merchant Accept] Error:', err);
+        Alert.alert('Error', String(err));
+      } finally {
+        setIsAccepting(false);
+      }
+      return;
+    }
     if (!selectedOrder) return;
     if (selectedOrder.status === 'wait_for_rider') {
       await setRiderArrived(selectedOrder.id);
@@ -249,19 +305,64 @@ export default function DashboardScreen() {
     setSelectedOrder(null);
   };
 
+  const handleNewOrderDecline = () => {
+    setSelectedPendingOrder(null);
+    setOrderDetailVisible(false);
+  };
+
+  const closeOrderDetail = () => {
+    setOrderDetailVisible(false);
+    setSelectedOrder(null);
+    setSelectedPendingOrder(null);
+  };
+
   const openOrderDetail = (order: (typeof currentOrders)[0] | { id: string; customerName: string; orderId: string; serviceType: string; total: number; status: string }) => {
+    setSelectedPendingOrder(null);
     setSelectedOrder(order as (typeof currentOrders)[0]);
     setOrderDetailVisible(true);
   };
 
   const handleNewOrderCardPress = (orderId: string) => {
-    const idx = pendingOrders.findIndex((o) => o.id === orderId);
-    if (idx >= 0) handleShowNewOrder(idx);
+    const order = pendingOrders.find((o) => o.id === orderId);
+    if (order) {
+      setSelectedPendingOrder(order);
+      setSelectedOrder(null);
+      setOrderDetailVisible(true);
+    }
   };
 
   const getOrderDetailData = (): OrderDetailData | null => {
+    // New order (จาก pending) - แสดงแบบรูป 3
+    if (selectedPendingOrder) {
+      const o = selectedPendingOrder;
+      const firstItem = Array.isArray(o.items) && o.items.length > 0 ? o.items[0] : null;
+      const services = (o.items || []).map((it) => ({
+        name: it.name,
+        qty: it.details || '-',
+        price: it.price,
+      }));
+      return {
+        id: o.orderId?.replace('ORD-', '') || String(o.id).slice(-4),
+        status: 'new_order',
+        isNewOrder: true,
+        total: o.total || 0,
+        isPaid: false,
+        paymentMethod: o.paymentMethod || 'Cash',
+        customerName: o.customerName || 'Customer',
+        customerPhone: '086-555-4444',
+        orderDate: o.createdAt ? formatPickupTime(typeof o.createdAt === 'string' ? o.createdAt : new Date(o.createdAt).toISOString()) : 'Today, 2:00 PM - 4:00 PM',
+        services: services.length > 0 ? services : [{ name: o.serviceType || 'Wash & Fold', qty: o.serviceDetail || '-', price: 0 }],
+        note: firstItem?.details || undefined,
+        showAction: true,
+        actionLabel: 'Accept',
+      };
+    }
     if (!selectedOrder) return null;
     if ((selectedOrder as { status?: string }).status === 'completed') {
+      const items = selectedOrder.items || [];
+      const services = items.length > 0
+        ? items.map((it) => ({ name: it.name, qty: it.details || '-', price: it.price }))
+        : [{ name: selectedOrder.serviceType || 'Wash & Fold', qty: '-', price: 0 }];
       return {
         id: (selectedOrder.orderId || '').replace('ORD-', '') || selectedOrder.id.slice(-4),
         status: 'completed',
@@ -272,6 +373,8 @@ export default function DashboardScreen() {
         customerPhone: '086-555-4444',
         orderDate: 'Completed',
         showAction: false,
+        services,
+        note: items[0]?.details || undefined,
       };
     }
     const status: OrderDetailStatus =
@@ -295,9 +398,21 @@ export default function DashboardScreen() {
           : selectedOrder.status === 'ready' && selectedOrder.statusRaw === 'in_progress'
             ? 'Rider picked up'
             : '';
+    const items = selectedOrder.items || [];
+    const services = items.length > 0
+      ? items.map((it) => ({
+          name: it.name,
+          qty: it.details || '-',
+          price: it.price,
+        }))
+      : [{ name: selectedOrder.serviceType || 'Wash & Fold', qty: '-', price: 0 }];
+    const firstItem = items[0];
+    const note = firstItem?.details || undefined;
+
     return {
       id: displayId,
       status,
+      statusLabel: selectedOrder.status === 'wait_for_rider' ? selectedOrder.pickupText : undefined,
       total: selectedOrder.total,
       isPaid: selectedOrder.status === 'ready',
       paymentMethod: selectedOrder.paymentMethod || 'Cash',
@@ -306,11 +421,8 @@ export default function DashboardScreen() {
       orderDate: 'Today, 2:00 PM - 4:00 PM',
       riderName: 'Natthapong Saehaw',
       riderPhone: '093-579-2318',
-      services:
-        status === 'washing'
-          ? [{ name: 'Washing & Folding', qty: '5 kg x ฿40', price: 200 }]
-          : undefined,
-      note: status === 'washing' ? 'แยกผ้าขาว / สี' : undefined,
+      services,
+      note,
       showAction,
       actionLabel,
     };
@@ -335,27 +447,19 @@ export default function DashboardScreen() {
       <View style={s.summaryRow}>
         <View style={[s.summaryCard, s.newOrderCard]}>
           <Text style={[s.summaryLabel, s.newOrderValue]}>New order</Text>
-          <Text style={[s.summaryValue, s.newOrderValue]}>{pendingOrders.length}</Text>
-        </View>
-        <View style={[s.summaryCard, s.waitCard]}>
-          <Text style={[s.summaryLabel, s.waitValue]}>Waiting for rider</Text>
-          <Text style={[s.summaryValue, s.waitValue]}>{waitForRiderCount}</Text>
+          <Text style={[s.summaryValue, s.newOrderValue]}>{newOrderCount}</Text>
         </View>
         <View style={[s.summaryCard, s.washingCard]}>
           <Text style={[s.summaryLabel, s.washingValue]}>In progress</Text>
-          <Text style={[s.summaryValue, s.washingValue]}>{washingCount}</Text>
+          <Text style={[s.summaryValue, s.washingValue]}>{inProgressCount}</Text>
         </View>
         <View style={[s.summaryCard, s.readyCard]}>
           <Text style={[s.summaryLabel, s.readyValue]}>Ready for pickup</Text>
           <Text style={[s.summaryValue, s.readyValue]}>{readyCount}</Text>
         </View>
-        <View style={[s.summaryCard, s.deliveringCard]}>
-          <Text style={[s.summaryLabel, s.deliveringValue]}>Delivering</Text>
-          <Text style={[s.summaryValue, s.deliveringValue]}>{deliveringCount}</Text>
-        </View>
         <View style={[s.summaryCard, s.completedCard]}>
-          <Text style={[s.summaryLabel, s.completedValue]}>Completed</Text>
-          <Text style={[s.summaryValue, s.completedValue]}>{completedOrders.length}</Text>
+          <Text style={[s.summaryLabel, s.completedValue]}>Complete</Text>
+          <Text style={[s.summaryValue, s.completedValue]}>{completedCount}</Text>
         </View>
       </View>
 
@@ -370,17 +474,20 @@ export default function DashboardScreen() {
         />
       </View>
 
-      <View style={s.filterRow}>
-        {(
-          [
-            ['all', 'All'],
-            ['neworder', 'New order'],
-            ['in_progress', 'In progress'],
-            ['ready', 'Ready for pickup'],
-            ['deliverying', 'Delivering'],
-            ['completed', 'Completed'],
-          ] as const
-        ).map(([key, label]) => (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={s.filterRow}
+        style={s.filterScroll}
+      >
+        {[
+          ['all', 'All'],
+          ['neworder', 'New order'],
+          ['looking_for_rider', 'Looking for rider'],
+          ['in_progress', 'In progress'],
+          ['ready', 'Ready for pickup'],
+          ['completed', 'Completed'],
+        ].map(([key, label]) => (
           <TouchableOpacity
             key={key}
             style={[s.filterBtn, filter === key && s.filterBtnActive]}
@@ -391,7 +498,7 @@ export default function DashboardScreen() {
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
       <Text style={s.sectionTitle}>
         {filter === 'neworder' ? 'New Orders' : filter === 'completed' ? 'Completed Orders' : 'Current Orders'}
@@ -423,7 +530,7 @@ export default function DashboardScreen() {
                         ? s.orderIconWait
                         : item.status === 'washing'
                           ? s.orderIconWashing
-                          : item.statusRaw === 'deliverying'
+                          : isDelivering(item.statusRaw)
                             ? s.orderIconDelivering
                             : s.orderIconReady,
                 ]}
@@ -438,7 +545,7 @@ export default function DashboardScreen() {
                           ? 'bicycle-outline'
                           : item.status === 'washing'
                             ? 'shirt-outline'
-                            : item.statusRaw === 'deliverying'
+                            : isDelivering(item.statusRaw)
                               ? 'car-outline'
                               : 'bag-handles-outline'
                   }
@@ -446,23 +553,11 @@ export default function DashboardScreen() {
                   color={Colors.white}
                 />
               </View>
-              <View>
+              <View style={s.orderLeftContent}>
                 <Text style={s.customerName}>{item.customerName}</Text>
                 <Text style={s.orderMeta}>
-                  #{item.orderId.split('-')[1]} • {item.serviceType}
+                  {item.serviceType}
                 </Text>
-                {item.pickupText && (
-                  <View style={s.pickupRow}>
-                    <Ionicons name="checkmark-circle" size={14} color={Colors.successGreen} />
-                    <Text style={s.pickupLabel}>{item.pickupText}</Text>
-                  </View>
-                )}
-                {item.dueText && (
-                  <View style={s.dueRow}>
-                    <Ionicons name="time-outline" size={14} color={Colors.textSecondary} />
-                    <Text style={s.dueText}>{item.dueText}</Text>
-                  </View>
-                )}
               </View>
             </View>
             <View style={s.orderRight}>
@@ -477,7 +572,7 @@ export default function DashboardScreen() {
                         ? s.statusWait
                         : item.status === 'washing'
                           ? s.statusWashing
-                          : item.statusRaw === 'deliverying'
+                          : isDelivering(item.statusRaw)
                             ? s.statusDelivering
                             : s.statusReady,
                 ]}
@@ -493,7 +588,7 @@ export default function DashboardScreen() {
                           ? s.statusTextWait
                           : item.status === 'washing'
                             ? s.statusTextWashing
-                            : item.statusRaw === 'deliverying'
+                            : isDelivering(item.statusRaw)
                               ? s.statusTextDelivering
                               : s.statusTextReady,
                   ]}
@@ -503,10 +598,10 @@ export default function DashboardScreen() {
                     : item.status === 'completed'
                       ? 'Completed'
                       : item.status === 'wait_for_rider'
-                        ? 'Waiting for rider'
+                        ? (item.pickupText || 'Waiting for rider')
                         : item.status === 'washing'
                           ? 'In progress'
-                          : item.statusRaw === 'deliverying'
+                          : isDelivering(item.statusRaw)
                             ? 'Delivering'
                             : 'Ready for pickup'}
                 </Text>
@@ -531,8 +626,10 @@ export default function DashboardScreen() {
       <OrderDetailSheet
         visible={orderDetailVisible}
         order={getOrderDetailData()}
-        onClose={() => setOrderDetailVisible(false)}
+        onClose={closeOrderDetail}
         onAction={handleOrderAction}
+        onDecline={selectedPendingOrder ? handleNewOrderDecline : undefined}
+        actionLoading={isAccepting}
       />
     </SafeAreaView>
   );
@@ -580,6 +677,7 @@ const s = StyleSheet.create({
   },
   newOrderCard: { backgroundColor: '#B3E5FC' },
   waitCard: { backgroundColor: '#FFE0B2' },
+  waitingCard: { backgroundColor: '#FFCC80' },
   washingCard: { backgroundColor: '#BBDEFB' },
   readyCard: { backgroundColor: '#C8E6C9' },
   deliveringCard: { backgroundColor: '#E1BEE7' },
@@ -592,6 +690,7 @@ const s = StyleSheet.create({
   summaryValue: { fontSize: 26, fontWeight: '800', marginTop: 4 },
   newOrderValue: { color: '#0277BD' },
   waitValue: { color: '#EF6C00' },
+  waitingValue: { color: '#E65100' },
   washingValue: { color: '#1565C0' },
   readyValue: { color: '#2E7D32' },
   deliveringValue: { color: '#6A1B9A' },
@@ -610,17 +709,21 @@ const s = StyleSheet.create({
     borderColor: Colors.cardBorder,
   },
   searchInput: { flex: 1, fontSize: 15, color: Colors.textPrimary },
+  filterScroll: { marginBottom: 16, minHeight: 48, overflow: 'visible' },
   filterRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    marginBottom: 16,
+    paddingRight: 32,
     gap: 8,
+    alignItems: 'center',
   },
   filterBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
     borderRadius: 20,
     backgroundColor: Colors.cardBg,
+    flexShrink: 0,
+    minHeight: 40,
   },
   filterBtnActive: { backgroundColor: Colors.primaryBlue },
   filterText: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
@@ -643,7 +746,8 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.cardBorder,
   },
-  orderLeft: { flexDirection: 'row', gap: 12, flex: 1 },
+  orderLeft: { flexDirection: 'row', gap: 12, flex: 1, minWidth: 0 },
+  orderLeftContent: { flex: 1, minWidth: 0 },
   orderIcon: {
     width: 48,
     height: 48,
@@ -663,7 +767,7 @@ const s = StyleSheet.create({
   pickupLabel: { fontSize: 13, color: Colors.successGreen, fontWeight: '500' },
   dueRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   dueText: { fontSize: 13, color: Colors.textSecondary },
-  orderRight: { alignItems: 'flex-end', gap: 8 },
+  orderRight: { alignItems: 'flex-end', gap: 8, flexShrink: 0 },
   statusBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,

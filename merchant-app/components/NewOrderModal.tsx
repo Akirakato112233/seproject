@@ -1,7 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
+  Dimensions,
   Modal,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -67,6 +70,7 @@ export function NewOrderModal({
               />
             </TouchableOpacity>
             <TouchableWithoutFeedback onPress={() => {}}>
+              <View style={s.modalTouchWrap}>
               <View style={s.modal}>
               <View style={s.modalHeader}>
                 <View style={s.headerLeft}>
@@ -74,67 +78,83 @@ export function NewOrderModal({
                     <Ionicons name="shirt-outline" size={24} color={Colors.primaryBlue} />
                   </View>
                   <View>
-                    <Text style={s.brandText}>WIT CONCEPT</Text>
+                    <Text style={s.brandText} numberOfLines={1}>{order.customerName}</Text>
                     <Text style={s.newOrderText}>NEW ORDER</Text>
                   </View>
                 </View>
                 <Text style={s.justNow}>Just now</Text>
               </View>
 
-              <View style={s.customerRow}>
-                <Text style={s.customerName}>{order.customerName}</Text>
-                <View style={s.locationRow}>
-                  <Ionicons name="paper-plane-outline" size={14} color={Colors.textSecondary} />
-                  <Text style={s.distance}>{order.distance} away</Text>
+              <ScrollView
+                style={s.modalScroll}
+                contentContainerStyle={s.modalScrollContent}
+                showsVerticalScrollIndicator={true}
+                bounces={true}
+              >
+                <View style={s.customerRow}>
+                  <Text style={s.customerName}>{order.customerName}</Text>
+                  <View style={s.locationRow}>
+                    <Ionicons name="paper-plane-outline" size={14} color={Colors.textSecondary} />
+                    <Text style={s.distance}>{order.distance} away</Text>
+                  </View>
                 </View>
-                <Text style={s.orderId}>#{order.id}</Text>
-              </View>
 
-              <View style={s.paymentRow}>
-                <Text style={s.amount}>{order.total.toFixed(2)}฿</Text>
-                <Text style={s.paymentMethod}>{order.paymentMethod}</Text>
-              </View>
+                <View style={s.paymentRow}>
+                  <Text style={s.amount}>{order.total.toFixed(2)}฿</Text>
+                  <Text style={s.paymentMethod}>{order.paymentMethod}</Text>
+                </View>
 
-              <View style={s.detailCard}>
-                <View style={s.detailRow}>
-                  <View style={s.detailIcon}>
-                    <Ionicons name="shirt-outline" size={18} color={Colors.textPrimary} />
-                  </View>
-                  <View style={s.detailContent}>
-                    <Text style={s.detailLabel}>{order.serviceType}</Text>
-                    <Text style={s.detailValue}>{order.serviceDetail}</Text>
-                  </View>
-                </View>
-                <View style={s.detailRow}>
-                  <View style={s.detailIcon}>
-                    <Ionicons name="time-outline" size={18} color={Colors.textPrimary} />
-                  </View>
-                  <View style={s.detailContent}>
-                    <Text style={s.detailLabel}>{order.pickupTime}</Text>
-                    <Text style={s.detailValue}>Pickup</Text>
-                  </View>
-                </View>
-                {order.note && (
+                <View style={s.detailCard}>
                   <View style={s.detailRow}>
                     <View style={s.detailIcon}>
-                      <Ionicons name="document-text-outline" size={18} color={Colors.textPrimary} />
+                      <Ionicons name="shirt-outline" size={18} color={Colors.textPrimary} />
                     </View>
                     <View style={s.detailContent}>
-                      <Text style={s.detailLabel}>Note</Text>
-                      <Text style={s.detailValue}>{order.note}</Text>
+                      <Text style={s.detailLabel}>{order.serviceType}</Text>
+                      <Text style={s.detailValue}>{order.serviceDetail}</Text>
                     </View>
                   </View>
-                )}
-              </View>
+                  <View style={s.detailRow}>
+                    <View style={s.detailIcon}>
+                      <Ionicons name="time-outline" size={18} color={Colors.textPrimary} />
+                    </View>
+                    <View style={s.detailContent}>
+                      <Text style={s.detailLabel}>{order.pickupTime}</Text>
+                      <Text style={s.detailValue}>Pickup</Text>
+                    </View>
+                  </View>
+                  {order.note && (
+                    <View style={s.detailRow}>
+                      <View style={s.detailIcon}>
+                        <Ionicons name="document-text-outline" size={18} color={Colors.textPrimary} />
+                      </View>
+                      <View style={s.detailContent}>
+                        <Text style={s.detailLabel}>Note</Text>
+                        <Text style={s.detailValue}>{order.note}</Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              </ScrollView>
 
               <View style={s.buttons}>
-                <TouchableOpacity style={s.declineBtn} onPress={onDecline}>
+                <TouchableOpacity
+                  style={s.declineBtn}
+                  onPress={onDecline}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close" size={20} color={Colors.textSecondary} />
                   <Text style={s.declineText}>Decline</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={s.acceptBtn} onPress={onAccept}>
-                  <Ionicons name="checkmark" size={20} color={Colors.white} />
+                <TouchableOpacity
+                  style={s.acceptBtn}
+                  onPress={onAccept}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="checkmark" size={22} color={Colors.white} />
                   <Text style={s.acceptText}>Accept</Text>
                 </TouchableOpacity>
+              </View>
               </View>
               </View>
             </TouchableWithoutFeedback>
@@ -162,32 +182,38 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
   },
   modalRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    maxWidth: 440,
-    gap: 8,
+    gap: 4,
   },
   navBtn: {
-    padding: 8,
-    minWidth: 44,
+    padding: 4,
+    minWidth: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
   navBtnDisabled: {
     opacity: 0.4,
   },
+  modalTouchWrap: { flex: 1, width: '100%', minWidth: 0 },
   modal: {
-    flex: 1,
-    maxWidth: 400,
+    width: '100%',
+    maxHeight: Math.min(Dimensions.get('window').height * 0.82, 560),
+    minHeight: 360,
     backgroundColor: Colors.white,
     borderRadius: 16,
     padding: 20,
   },
+  modalScroll: {
+    maxHeight: Math.min(360, Dimensions.get('window').height * 0.45),
+  },
+  modalScrollContent: { paddingBottom: 16 },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -210,7 +236,6 @@ const s = StyleSheet.create({
   customerName: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   distance: { fontSize: 13, color: Colors.textSecondary },
-  orderId: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
   paymentRow: { marginBottom: 16 },
   amount: { fontSize: 24, fontWeight: '800', color: Colors.successGreen },
   paymentMethod: { fontSize: 14, color: Colors.successGreen, marginTop: 2 },
@@ -233,25 +258,38 @@ const s = StyleSheet.create({
   detailContent: { flex: 1 },
   detailLabel: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   detailValue: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
-  buttons: { flexDirection: 'row', gap: 12 },
+  buttons: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingTop: 8,
+  },
   declineBtn: {
     flex: 1,
-    paddingVertical: 14,
+    flexDirection: 'row',
+    paddingVertical: 16,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: Colors.primaryBlue,
+    backgroundColor: Colors.cardBg,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
-  declineText: { fontSize: 16, fontWeight: '700', color: Colors.primaryBlue },
+  declineText: { fontSize: 16, fontWeight: '700', color: Colors.textSecondary },
   acceptBtn: {
     flex: 1,
     flexDirection: 'row',
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 12,
     backgroundColor: Colors.primaryBlue,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    shadowColor: Colors.primaryBlue,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
   },
   acceptText: { fontSize: 16, fontWeight: '700', color: Colors.white },
 });

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
+  Dimensions,
   Modal,
   ScrollView,
   StyleSheet,
@@ -11,11 +12,12 @@ import {
 } from 'react-native';
 import { Colors } from '../constants/colors';
 
-export type OrderDetailStatus = 'wait_for_rider' | 'washing' | 'in_progress' | 'ready_for_delivery' | 'completed';
+export type OrderDetailStatus = 'new_order' | 'wait_for_rider' | 'washing' | 'in_progress' | 'ready_for_delivery' | 'completed';
 
 export interface OrderDetailData {
   id: string;
   status: OrderDetailStatus;
+  statusLabel?: string;  // override สำหรับแสดง "Looking for rider" vs "Waiting for rider"
   total: number;
   isPaid: boolean;
   paymentMethod: string;
@@ -28,6 +30,8 @@ export interface OrderDetailData {
   note?: string;
   showAction?: boolean;
   actionLabel?: string;
+  /** สำหรับ new_order: แสดงปุ่ม Accept + Decline */
+  isNewOrder?: boolean;
 }
 
 interface OrderDetailSheetProps {
@@ -35,6 +39,8 @@ interface OrderDetailSheetProps {
   order: OrderDetailData | null;
   onClose: () => void;
   onAction: () => void;
+  onDecline?: () => void;
+  actionLoading?: boolean;
 }
 
 export function OrderDetailSheet({
@@ -42,34 +48,41 @@ export function OrderDetailSheet({
   order,
   onClose,
   onAction,
+  onDecline,
+  actionLoading,
 }: OrderDetailSheetProps) {
   if (!order) return null;
 
+  const isNewOrder = order.status === 'new_order' || order.isNewOrder;
   const isWaitForRider = order.status === 'wait_for_rider';
   const isWashing = order.status === 'washing';
   const isInProgress = order.status === 'in_progress';
   const isCompleted = order.status === 'completed';
   const statusLabel =
-    isCompleted
-      ? 'Completed'
-      : isWaitForRider
-        ? 'Waiting for rider'
-        : isWashing
-          ? 'In progress'
-          : isInProgress
+    order.statusLabel ??
+    (isNewOrder
+      ? 'New order'
+      : isCompleted
+        ? 'Completed'
+        : isWaitForRider
+          ? 'Waiting for rider'
+          : isWashing
+            ? 'In progress'
+            : isInProgress
             ? 'Ready for pickup'
-            : 'Delivering';
+            : 'Delivering');
   const actionLabel =
     order.actionLabel ??
-    (isWaitForRider ? 'Rider arrived' : isWashing ? 'Ready for pickup' : isInProgress ? 'Rider picked up' : '');
+    (isNewOrder ? 'Accept' : isWaitForRider ? 'Rider arrived' : isWashing ? 'Ready for pickup' : isInProgress ? 'Rider picked up' : '');
   const showAction = !isCompleted && order.showAction !== false && !!actionLabel;
 
   return (
     <Modal visible={visible} transparent animationType="slide">
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={s.overlay}>
-          <TouchableWithoutFeedback>
-            <View style={s.sheet}>
+      <View style={s.overlay}>
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={s.overlayTouch} />
+        </TouchableWithoutFeedback>
+        <View style={s.sheet} pointerEvents="box-none">
               <View style={s.dragHandle} />
               <View style={s.header}>
                 <View>
@@ -77,15 +90,17 @@ export function OrderDetailSheet({
                   <View
                     style={[
                       s.statusBadge,
-                      isCompleted
-                        ? s.statusCompleted
-                        : isWaitForRider
-                          ? s.statusWait
-                          : isWashing
-                            ? s.statusWashing
-                            : isInProgress
-                              ? s.statusInProgress
-                              : s.statusReady,
+                      isNewOrder
+                        ? s.statusNew
+                        : isCompleted
+                          ? s.statusCompleted
+                          : isWaitForRider
+                            ? s.statusWait
+                            : isWashing
+                              ? s.statusWashing
+                              : isInProgress
+                                ? s.statusInProgress
+                                : s.statusReady,
                     ]}
                   >
                     <Text style={s.statusText}>
@@ -103,7 +118,14 @@ export function OrderDetailSheet({
                 </View>
               </View>
 
-              <ScrollView style={s.content} showsVerticalScrollIndicator={false}>
+              <ScrollView
+                style={s.content}
+                contentContainerStyle={s.contentContainer}
+                showsVerticalScrollIndicator={true}
+                bounces={true}
+                nestedScrollEnabled={true}
+                scrollEventThrottle={16}
+              >
                 <View style={s.totalCard}>
                   <Text style={s.totalLabel}>Total Amount</Text>
                   <Text style={s.totalAmount}>{order.total.toFixed(2)}฿</Text>
@@ -140,24 +162,30 @@ export function OrderDetailSheet({
                   </View>
                 </View>
 
-                {order.riderName && (
+                {(order.riderName || isNewOrder) && (
                   <View style={s.card}>
                     <View style={s.cardHeader}>
                       <Ionicons name="bicycle-outline" size={18} color={Colors.textPrimary} />
                       <Text style={s.cardTitle}>Rider Details</Text>
                     </View>
-                    <View style={s.detailRow}>
-                      <Text style={s.detailLabel}>Name</Text>
-                      <Text style={s.detailValue}>{order.riderName}</Text>
-                    </View>
-                    <View style={s.detailRow}>
-                      <Text style={s.detailLabel}>Phone</Text>
-                      <Text style={s.detailValue}>{order.riderPhone}</Text>
-                    </View>
+                    {order.riderName ? (
+                      <>
+                        <View style={s.detailRow}>
+                          <Text style={s.detailLabel}>Name</Text>
+                          <Text style={s.detailValue}>{order.riderName}</Text>
+                        </View>
+                        <View style={s.detailRow}>
+                          <Text style={s.detailLabel}>Phone</Text>
+                          <Text style={s.detailValue}>{order.riderPhone}</Text>
+                        </View>
+                      </>
+                    ) : (
+                      <Text style={s.emptyRiderText}>Waiting for rider to accept</Text>
+                    )}
                   </View>
                 )}
 
-                {(isWashing || isWaitForRider) && order.services && order.services.length > 0 && (
+                {order.services && order.services.length > 0 && (
                   <View style={s.card}>
                     <View style={s.cardHeader}>
                       <Ionicons name="list-outline" size={18} color={Colors.textPrimary} />
@@ -180,7 +208,7 @@ export function OrderDetailSheet({
                   </View>
                 )}
 
-                {(isWashing || isWaitForRider) && order.note && (
+                {(order.note !== undefined && order.note !== '') && (
                   <View style={s.card}>
                     <View style={s.cardHeader}>
                       <Ionicons
@@ -196,15 +224,18 @@ export function OrderDetailSheet({
               </ScrollView>
 
               {showAction && (
-                <TouchableOpacity style={s.actionBtn} onPress={onAction} activeOpacity={0.8}>
-                  <Text style={s.actionBtnText}>{actionLabel}</Text>
-                  <Ionicons name="arrow-forward" size={20} color={Colors.white} />
+                <TouchableOpacity
+                  style={[s.actionBtn, actionLoading && s.actionBtnDisabled]}
+                  onPress={onAction}
+                  activeOpacity={0.8}
+                  disabled={actionLoading}
+                >
+                  <Text style={s.actionBtnText}>{actionLoading ? 'กำลังดำเนินการ...' : actionLabel}</Text>
+                  {!actionLoading && <Ionicons name="arrow-forward" size={20} color={Colors.white} />}
                 </TouchableOpacity>
               )}
-            </View>
-          </TouchableWithoutFeedback>
         </View>
-      </TouchableWithoutFeedback>
+      </View>
     </Modal>
   );
 }
@@ -212,14 +243,19 @@ export function OrderDetailSheet({
 const s = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'transparent',
     justifyContent: 'flex-end',
+  },
+  overlayTouch: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   sheet: {
     backgroundColor: Colors.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '90%',
+    maxHeight: Dimensions.get('window').height * 0.9,
+    height: '90%',
   },
   dragHandle: {
     width: 40,
@@ -247,6 +283,7 @@ const s = StyleSheet.create({
     alignSelf: 'flex-start',
     marginTop: 6,
   },
+  statusNew: { backgroundColor: Colors.primaryBlue },
   statusWait: { backgroundColor: '#f59e0b' },
   statusWashing: { backgroundColor: Colors.primaryBlue },
   statusInProgress: { backgroundColor: '#f59e0b' },
@@ -261,7 +298,11 @@ const s = StyleSheet.create({
     backgroundColor: Colors.successGreen,
   },
   paymentBadgeText: { fontSize: 12, fontWeight: '600', color: Colors.white },
-  content: { padding: 20, maxHeight: 400 },
+  content: { flex: 1, minHeight: 0 },
+  contentContainer: {
+    padding: 20,
+    paddingBottom: 80,
+  },
   totalCard: {
     borderRadius: 16,
     padding: 20,
@@ -328,4 +369,23 @@ const s = StyleSheet.create({
     gap: 8,
   },
   actionBtnText: { fontSize: 16, fontWeight: '700', color: Colors.white },
+  actionBtnDisabled: { opacity: 0.7 },
+  newOrderButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    paddingTop: 8,
+  },
+  declineBtn: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: Colors.primaryBlue,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  declineBtnText: { fontSize: 16, fontWeight: '700', color: Colors.primaryBlue },
+  emptyRiderText: { fontSize: 14, color: Colors.textMuted, paddingVertical: 8 },
 });

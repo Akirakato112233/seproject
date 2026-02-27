@@ -3,18 +3,16 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
-  Modal,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { MerchantHeader } from '../../components/MerchantHeader';
+import { OrderDetailSheet, type OrderDetailData } from '../../components/OrderDetailSheet';
 import { useOrders } from '../../context/OrdersContext';
 import { useShop } from '../../context/ShopContext';
 import type { MerchantOrder } from '../../context/OrdersContext';
@@ -90,6 +88,35 @@ export default function HistoryScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<MerchantOrder | null>(null);
+
+  const getOrderDetailData = (): OrderDetailData | null => {
+    if (!selectedOrder) return null;
+    const items = selectedOrder.items || [];
+    const services = items.length > 0
+      ? items.map((it) => ({ name: it.name, qty: it.details || '-', price: it.price }))
+      : [{ name: selectedOrder.serviceType || 'Wash & Fold', qty: '-', price: 0 }];
+    return {
+      id: (selectedOrder.orderId || '').replace('ORD-', '') || selectedOrder.id.slice(-4),
+      status: 'completed',
+      total: selectedOrder.total,
+      isPaid: true,
+      paymentMethod: selectedOrder.paymentMethod || 'Cash',
+      customerName: selectedOrder.customerName,
+      customerPhone: '086-555-4444',
+      orderDate: selectedOrder.completedAt
+        ? new Date(selectedOrder.completedAt).toLocaleDateString('en-US', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : 'Completed',
+      showAction: false,
+      services,
+      note: items[0]?.details || undefined,
+    };
+  };
 
   useEffect(() => {
     refreshShop();
@@ -180,61 +207,12 @@ export default function HistoryScreen() {
           }
         />
 
-        {/* Modal รายละเอียดออเดอร์ */}
-        <Modal visible={!!selectedOrder} transparent animationType="fade">
-          <TouchableWithoutFeedback onPress={() => setSelectedOrder(null)}>
-            <View style={s.modalOverlay}>
-              <TouchableWithoutFeedback>
-                <View style={s.detailCard}>
-                  <View style={s.detailHeader}>
-                    <Text style={s.detailTitle}>Order Details</Text>
-                    <TouchableOpacity onPress={() => setSelectedOrder(null)} hitSlop={12}>
-                      <Ionicons name="close" size={24} color={Colors.textMuted} />
-                    </TouchableOpacity>
-                  </View>
-                  {selectedOrder && (
-                    <ScrollView style={s.detailScroll} showsVerticalScrollIndicator={false}>
-                      <View style={s.detailRow}>
-                        <Text style={s.detailLabel}>Order ID</Text>
-                        <Text style={s.detailValue}>{selectedOrder.orderId}</Text>
-                      </View>
-                      <View style={s.detailRow}>
-                        <Text style={s.detailLabel}>Customer</Text>
-                        <Text style={s.detailValue}>{selectedOrder.customerName}</Text>
-                      </View>
-                      <View style={s.detailRow}>
-                        <Text style={s.detailLabel}>Service</Text>
-                        <Text style={s.detailValue}>{selectedOrder.serviceType}</Text>
-                      </View>
-                      <View style={s.detailRow}>
-                        <Text style={s.detailLabel}>Total</Text>
-                        <Text style={s.detailValueAmount}>{selectedOrder.total.toFixed(2)} ฿</Text>
-                      </View>
-                      <View style={s.detailRow}>
-                        <Text style={s.detailLabel}>Payment</Text>
-                        <Text style={s.detailValue}>{selectedOrder.paymentMethod ?? '-'}</Text>
-                      </View>
-                      {selectedOrder.completedAt && (
-                        <View style={s.detailRow}>
-                          <Text style={s.detailLabel}>Completed at</Text>
-                          <Text style={s.detailValue}>
-                            {getOrderDate(selectedOrder).toLocaleDateString('en-US', {
-                              day: 'numeric',
-                              month: 'short',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </Text>
-                        </View>
-                      )}
-                    </ScrollView>
-                  )}
-                </View>
-              </TouchableWithoutFeedback>
-            </View>
-          </TouchableWithoutFeedback>
-        </Modal>
+        <OrderDetailSheet
+          visible={!!selectedOrder}
+          order={getOrderDetailData()}
+          onClose={() => setSelectedOrder(null)}
+          onAction={() => {}}
+        />
       </View>
     </SafeAreaView>
   );
@@ -318,42 +296,4 @@ const s = StyleSheet.create({
   },
   emptyWrap: { paddingVertical: 32, alignItems: 'center' },
   emptyText: { fontSize: 15, color: Colors.textMuted },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  detailCard: {
-    width: '100%',
-    maxWidth: 400,
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-  },
-  detailHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.cardBorder,
-  },
-  detailTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
-  detailScroll: { maxHeight: 320 },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.cardBg,
-  },
-  detailLabel: { fontSize: 14, color: Colors.textMuted },
-  detailValue: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
-  detailValueAmount: { fontSize: 16, fontWeight: '700', color: Colors.primaryBlue },
 });

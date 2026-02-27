@@ -2,6 +2,12 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { API } from '../config';
 import { useShop } from './ShopContext';
 
+export interface MerchantOrderItem {
+  name: string;
+  details?: string;
+  price: number;
+}
+
 export interface MerchantOrder {
   id: string;
   customerName: string;
@@ -12,8 +18,9 @@ export interface MerchantOrder {
   total: number;
   paymentMethod?: string;
   dueText?: string;
-  pickupText?: string;
+  pickupText?: string;  // "Looking for rider" | "Waiting for rider" | etc.
   completedAt?: Date;
+  items?: MerchantOrderItem[];
 }
 
 interface OrdersContextType {
@@ -50,7 +57,10 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) return;
       const data = await res.json();
       if (data.success && Array.isArray(data.orders)) {
-        setCurrentOrders(data.orders);
+        setCurrentOrders(data.orders.map((o: { items?: MerchantOrderItem[]; [k: string]: unknown }) => ({
+          ...o,
+          items: o.items || [],
+        })));
       }
     } catch (err) {
       console.error('Error fetching current orders:', err);
@@ -64,7 +74,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) return;
       const data = await res.json();
       if (data.success && Array.isArray(data.orders)) {
-        const mapped: MerchantOrder[] = data.orders.map((o: { id: string; customerName: string; orderId: string; serviceType: string; total: number; paymentMethod?: string; completedAt?: string }) => ({
+        const mapped: MerchantOrder[] = data.orders.map((o: { id: string; customerName: string; orderId: string; serviceType: string; total: number; paymentMethod?: string; completedAt?: string; items?: MerchantOrderItem[] }) => ({
           id: o.id,
           customerName: o.customerName,
           orderId: o.orderId,
@@ -73,6 +83,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
           total: o.total,
           paymentMethod: o.paymentMethod,
           completedAt: o.completedAt ? new Date(o.completedAt) : undefined,
+          items: o.items || [],
         }));
         setCompletedOrders(mapped);
       }
