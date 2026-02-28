@@ -1,4 +1,5 @@
 const { withAndroidManifest } = require('@expo/config-plugins');
+require('dotenv').config();
 
 module.exports = ({ config }) => {
   return {

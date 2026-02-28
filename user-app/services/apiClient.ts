@@ -14,6 +14,7 @@ export const authFetch = async (url: string, options: RequestInit = {}): Promise
 
     const headers: HeadersInit = {
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': '1',
         ...options.headers,
     };
 

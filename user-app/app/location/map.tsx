@@ -14,8 +14,9 @@ import { useRouter } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import { useLocation } from '../../context/LocationContext';
 import * as Location from 'expo-location';
+import Constants from 'expo-constants';
 
-const LONGDO_API_KEY = process.env.EXPO_PUBLIC_LONGDO_MAP_API_KEY;
+const LONGDO_API_KEY = process.env.EXPO_PUBLIC_LONGDO_MAP_API_KEY || Constants.expoConfig?.extra?.longdoMapApiKey;
 
 export default function MapSelectionScreen() {
   const router = useRouter();
@@ -32,7 +33,7 @@ export default function MapSelectionScreen() {
   } | null>(null);
 
   const [initialCoords, setInitialCoords] = useState({
-    lat: currentLocation?.lat ?? 103.7563,
+    lat: currentLocation?.lat ?? 13.7563,
     lon: currentLocation?.lon ?? 100.5018
   });
 
@@ -223,7 +224,14 @@ export default function MapSelectionScreen() {
 
       {/* Map */}
       <View style={styles.mapContainer}>
-        {gettingLocation ? (
+        {!LONGDO_API_KEY ? (
+          <View style={styles.loadingOverlay}>
+            <Ionicons name="warning-outline" size={48} color="#E53935" />
+            <Text style={styles.loadingText}>Longdo Map API key ไม่พบ</Text>
+            <Text style={styles.loadingText}>ตรวจสอบ EXPO_PUBLIC_LONGDO_MAP_API_KEY ใน .env</Text>
+            <Text style={[styles.loadingText, { marginTop: 8, fontSize: 12 }]}>จากนั้น restart: npx expo start -c</Text>
+          </View>
+        ) : gettingLocation ? (
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#0E3A78" />
             <Text style={styles.loadingText}>Finding your location...</Text>

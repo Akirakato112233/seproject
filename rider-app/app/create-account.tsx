@@ -54,7 +54,10 @@ export default function CreateAccountScreen() {
           const { API } = await import('../config');
           const backendRes = await fetch(API.GOOGLE_LOGIN, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'ngrok-skip-browser-warning': '1',
+            },
             body: JSON.stringify({ accessToken: authentication.accessToken, role: ROLE }),
           });
 

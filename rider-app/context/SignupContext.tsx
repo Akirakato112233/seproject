@@ -115,7 +115,10 @@ export function SignupProvider({ children }: { children: ReactNode }) {
 
             const res = await fetch(`${API.RIDERS}/register`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': '1',
+                },
                 body: JSON.stringify(body),
             });
 

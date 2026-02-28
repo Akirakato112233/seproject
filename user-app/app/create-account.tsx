@@ -19,7 +19,7 @@ import { useAuth } from '../context/AuthContext';
 WebBrowser.maybeCompleteAuthSession();
 
 const GOOGLE_WEB_CLIENT_ID = '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
-const BACKEND_URL = 'https://putative-renea-whisperingly.ngrok-free.dev';
+const BACKEND_URL = 'https://unsure-smectic-alondra.ngrok-free.dev';
 
 /**
  * Create Account Screen - Google Sign-In
@@ -56,7 +56,10 @@ export default function CreateAccountScreen() {
       const { API } = await import('../config');
       const backendRes = await fetch(API.GOOGLE_LOGIN, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': '1',
+        },
         body: JSON.stringify({ accessToken }),
       });
 
@@ -128,7 +131,9 @@ export default function CreateAccountScreen() {
   const devSkipLogin = async () => {
     try {
       // ดึงข้อมูล dev user จาก backend
-      const response = await fetch('http://192.168.1.46:3000/api/auth/dev-user');
+      const response = await fetch(`${BACKEND_URL}/api/auth/dev-user`, {
+        headers: { 'ngrok-skip-browser-warning': '1' },
+      });
       const data = await response.json();
       
       if (data.success && data.user) {

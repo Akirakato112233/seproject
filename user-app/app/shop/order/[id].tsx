@@ -114,7 +114,9 @@ export default function OrderScreen() {
 
     const fetchShopDetail = async () => {
         try {
-            const response = await fetch(`${BASE_URL}/api/shops/${id}`);
+            const response = await fetch(`${BASE_URL}/api/shops/${id}`, {
+              headers: { 'ngrok-skip-browser-warning': '1' },
+            });
             const data = await response.json();
             if (data && data._id) {
                 setShop(data);

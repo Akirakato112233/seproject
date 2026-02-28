@@ -2,7 +2,7 @@ import React, { createContext, useState, useContext, ReactNode, useCallback, use
 import { useAuth } from './AuthContext';
 import Constants from 'expo-constants';
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://192.168.1.46:3000/api';
+const API_URL = Constants.expoConfig?.extra?.apiUrl || 'https://unsure-smectic-alondra.ngrok-free.dev/api';
 
 export interface LocationData {
   address: string;
@@ -32,7 +32,9 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
       if (user?.id) {
         console.log('📍 Loading location from database for user:', user.id);
         try {
-          const response = await fetch(`${API_URL}/auth/user/${user.id}`);
+          const response = await fetch(`${API_URL}/auth/user/${user.id}`, {
+            headers: { 'ngrok-skip-browser-warning': '1' },
+          });
           const data = await response.json();
           
           if (data.success && data.user) {
@@ -80,6 +82,7 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': '1',
           },
           body: JSON.stringify({
             lat: location.lat,
