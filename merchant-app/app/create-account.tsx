@@ -21,7 +21,6 @@ import { API, BASE_URL, NGROK_HEADERS } from '../config';
 WebBrowser.maybeCompleteAuthSession();
 
 const GOOGLE_CLIENT_ID = '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
-const ROLE = 'merchant';
 
 // สำหรับ OAuth redirect (mobile) - ใช้ ngrok หรือ BASE_URL
 const BACKEND_URL = process.env.EXPO_PUBLIC_BASE_URL || BASE_URL;
@@ -49,10 +48,10 @@ export default function CreateAccountScreen() {
   const handleAccessToken = async (accessToken: string) => {
     setIsLoading(true);
     try {
-      const backendRes = await fetch(API.GOOGLE_LOGIN, {
+      const backendRes = await fetch(API.MERCHANTS_GOOGLE_LOGIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
-        body: JSON.stringify({ accessToken, role: ROLE }),
+        body: JSON.stringify({ accessToken }),
       });
 
       const data = await backendRes.json();
@@ -64,7 +63,6 @@ export default function CreateAccountScreen() {
             tempToken: data.tempToken,
             email: data.profile?.email || '',
             displayName: data.profile?.name || '',
-            demo: '1',
           },
         });
       } else if (data.next === 'APP') {

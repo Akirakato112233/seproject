@@ -6,6 +6,7 @@ import { connectDB } from './config/database';
 import authRoutes from './routes/auth';
 import chatRoutes from './routes/chat';
 import googleAuthRoutes from './routes/googleAuth';
+import merchantAuthRoutes from './routes/merchantAuth';
 import redeemRoutes from './routes/redeem';
 import ridersRoutes from './routes/riders';
 import shopsRoutes from './routes/shops';
@@ -40,6 +41,7 @@ const authLimiter = rateLimit({
 });
 app.use('/api/auth/', authLimiter);
 app.use('/api/google/', authLimiter);
+app.use('/api/merchants/', authLimiter);
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -78,6 +80,7 @@ app.post('/api/orders/pending/dev-create', async (req, res) => {
 
 app.use('/api/orders', orderRoutes);
 app.use('/api/google', googleAuthRoutes);
+app.use('/api/merchants', merchantAuthRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
