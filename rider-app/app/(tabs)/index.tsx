@@ -13,7 +13,7 @@ import { useRouter } from "expo-router";
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
 import { WebView } from "react-native-webview";
 import * as Location from "expo-location";
-import { useDelivery, Order, LatLng, ReadyForPickupOrder } from "../../context/DeliveryContext";
+import { useDelivery, Order, LatLng } from "../../context/DeliveryContext";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 
 // Longdo Map API Key
@@ -51,15 +51,11 @@ export default function HomeScreen() {
     active,
     declineOrder,
     startOrder,
-    readyForPickup,
-    startPickupFromShop,
     isOnline,
     toggleOnline,
     autoAccept,
     toggleAutoAccept,
   } = useDelivery();
-
-  const [selectedReadyOrder, setSelectedReadyOrder] = useState<ReadyForPickupOrder | null>(null);
 
   // --- Demo order (typed) ---
   // const [simulatedOrder, setSimulatedOrder] = useState<OrderWithDetails | null>(null);
@@ -239,13 +235,6 @@ export default function HomeScreen() {
     declineOrder(id);
   };
 
-  const handleHeadToPickup = () => {
-    if (!selectedReadyOrder) return;
-    startPickupFromShop(selectedReadyOrder);
-    setSelectedReadyOrder(null);
-    router.push("/job");
-  };
-
   const hideOverlays = showOffer || showSuccessModal;
 
   return (
@@ -293,28 +282,6 @@ export default function HomeScreen() {
                   </TouchableOpacity>
                 )}
               </View>
-
-              {isOnline && readyForPickup.length > 0 && !active && (
-                <View style={s.readySection}>
-                  <Text style={s.readySectionTitle}>Ready for Pickup</Text>
-                  <Text style={s.readySectionSub}>ผ้าซักเสร็จแล้ว รอไปรับที่ร้าน</Text>
-                  {readyForPickup.slice(0, 5).map((o) => (
-                    <TouchableOpacity
-                      key={o.id}
-                      style={s.readyCard}
-                      onPress={() => setSelectedReadyOrder(o)}
-                      activeOpacity={0.8}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={s.readyCardShop}>{o.shopName}</Text>
-                        <Text style={s.readyCardCustomer}>{o.customerName}</Text>
-                      </View>
-                      <Text style={s.readyCardFee}>{Number(o.fee ?? o.total ?? 0).toFixed(2)}฿</Text>
-                      <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
 
               <TouchableOpacity
                 style={s.cardAutoAccept}
@@ -479,79 +446,6 @@ export default function HomeScreen() {
               <Text style={s.btnCancelText}>Cancel</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
-
-      {/* Ready for Pickup - Order Detail Popup (Head to Pickup) */}
-      <Modal
-        transparent
-        visible={!!selectedReadyOrder}
-        animationType="slide"
-        onRequestClose={() => setSelectedReadyOrder(null)}
-      >
-        <View style={s.modalOverlay}>
-          {selectedReadyOrder && (
-            <View style={s.popupCard}>
-              <ScrollView style={{ maxHeight: '85%' }} showsVerticalScrollIndicator={false}>
-              <View style={s.popupHeader}>
-                <Text style={s.popupOrderId}>{selectedReadyOrder.orderId || `ORD-${selectedReadyOrder.id.slice(-4)}`}</Text>
-                <View style={s.popupBadgeWashing}>
-                  <Text style={s.popupBadgeText}>WASHING</Text>
-                </View>
-                <View style={s.popupPaymentBadge}>
-                  <Text style={s.popupPaymentBadgeText}>{selectedReadyOrder.paymentLabel || (selectedReadyOrder.paymentMethod === 'wallet' ? 'Wallet' : 'เงินสด')}</Text>
-                </View>
-                <TouchableOpacity onPress={() => setSelectedReadyOrder(null)} hitSlop={12}>
-                  <Ionicons name="close" size={24} color="#333" />
-                </TouchableOpacity>
-              </View>
-
-              <View style={s.popupTotalCard}>
-                <Text style={s.popupTotalLabel}>Total Amount</Text>
-                <Text style={s.popupTotalValue}>{Number(selectedReadyOrder.total ?? selectedReadyOrder.fee ?? 0).toFixed(2)}฿</Text>
-                <Text style={s.popupUnpaid}>Unpaid</Text>
-              </View>
-
-              <View style={s.popupSection}>
-                <Text style={s.popupSectionTitle}>Customer Details</Text>
-                <Text style={s.popupRow}>Name: {selectedReadyOrder.customerName}</Text>
-                {!!selectedReadyOrder.customerPhone && <Text style={s.popupRow}>Phone: {selectedReadyOrder.customerPhone}</Text>}
-                <Text style={s.popupRow}>Order: Today</Text>
-              </View>
-
-              <View style={s.popupSection}>
-                <Text style={s.popupSectionTitle}>Merchant Details</Text>
-                <Text style={s.popupRow}>Name: {selectedReadyOrder.shopName}</Text>
-                {!!selectedReadyOrder.shopPhone && <Text style={s.popupRow}>Phone: {selectedReadyOrder.shopPhone}</Text>}
-              </View>
-
-              <View style={s.popupSection}>
-                <Text style={s.popupSectionTitle}>Service List</Text>
-                {(selectedReadyOrder.itemsList && selectedReadyOrder.itemsList.length > 0)
-                  ? selectedReadyOrder.itemsList.map((item, i) => (
-                      <View key={i} style={s.popupServiceRow}>
-                        <Text style={s.popupServiceName}>{item.name}</Text>
-                        {item.details ? <Text style={s.popupServiceDetail}>{item.details}</Text> : null}
-                        <Text style={s.popupServicePrice}>{item.price}฿</Text>
-                      </View>
-                    ))
-                  : <Text style={s.popupRow}>Washing & Folding — {selectedReadyOrder.items ?? 0} kg</Text>}
-              </View>
-
-              {!!selectedReadyOrder.note && (
-                <View style={s.popupSection}>
-                  <Text style={s.popupSectionTitle}>Note</Text>
-                  <Text style={s.popupRow}>{selectedReadyOrder.note}</Text>
-                </View>
-              )}
-
-              </ScrollView>
-              <TouchableOpacity style={s.btnHeadToPickup} onPress={handleHeadToPickup}>
-                <Text style={s.btnHeadToPickupText}>Head to Pickup</Text>
-                <Ionicons name="arrow-forward" size={20} color="#fff" style={{ marginLeft: 8 }} />
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
       </Modal>
     </View>
@@ -749,49 +643,4 @@ const s = StyleSheet.create({
 
   btnCancel: { marginTop: 10, width: "100%", height: 46, borderRadius: 14, backgroundColor: "#EEF2F7", alignItems: "center", justifyContent: "center" },
   btnCancelText: { color: "#334155", fontWeight: "900" },
-
-  readySection: { marginBottom: 12 },
-  readySectionTitle: { fontSize: 16, fontWeight: "900", color: "#0F172A", marginBottom: 4 },
-  readySectionSub: { fontSize: 12, color: "#64748B", marginBottom: 8, fontWeight: "700" },
-  readyCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 8,
-    elevation: 2,
-  },
-  readyCardShop: { fontSize: 14, fontWeight: "900", color: "#0F172A" },
-  readyCardCustomer: { fontSize: 12, color: "#64748B", marginTop: 2, fontWeight: "700" },
-  readyCardFee: { fontSize: 14, fontWeight: "900", color: "#0F172A", marginRight: 8 },
-
-  popupCard: { width: "92%", maxHeight: "88%", backgroundColor: "#fff", borderRadius: 20, padding: 20, elevation: 10 },
-  popupHeader: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 14 },
-  popupOrderId: { fontSize: 18, fontWeight: "900", color: "#0F172A" },
-  popupBadgeWashing: { backgroundColor: "#3B82F6", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
-  popupBadgeText: { color: "#fff", fontSize: 12, fontWeight: "800" },
-  popupPaymentBadge: { backgroundColor: "#22C55E", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
-  popupPaymentBadgeText: { color: "#fff", fontSize: 12, fontWeight: "800" },
-  popupTotalCard: { backgroundColor: "#3B82F6", borderRadius: 12, padding: 16, marginBottom: 14 },
-  popupTotalLabel: { color: "rgba(255,255,255,0.9)", fontSize: 12, fontWeight: "800" },
-  popupTotalValue: { color: "#fff", fontSize: 22, fontWeight: "900", marginTop: 4 },
-  popupUnpaid: { color: "rgba(255,255,255,0.8)", fontSize: 11, marginTop: 4, fontWeight: "700" },
-  popupSection: { marginBottom: 12 },
-  popupSectionTitle: { fontSize: 14, fontWeight: "900", color: "#334155", marginBottom: 6 },
-  popupRow: { fontSize: 13, color: "#64748B", marginTop: 2, fontWeight: "700" },
-  popupServiceRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 6 },
-  popupServiceName: { fontSize: 13, fontWeight: "800", color: "#0F172A", flex: 1 },
-  popupServiceDetail: { fontSize: 12, color: "#64748B", marginLeft: 8, flex: 1 },
-  popupServicePrice: { fontSize: 13, fontWeight: "900", color: "#0F172A" },
-  btnHeadToPickup: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#3B82F6",
-    paddingVertical: 16,
-    borderRadius: 14,
-    marginTop: 10,
-  },
-  btnHeadToPickupText: { color: "#fff", fontWeight: "900", fontSize: 16 },
 });

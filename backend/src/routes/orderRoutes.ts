@@ -7,6 +7,7 @@ import {
     getOrderHistory,
     getPendingOrders,
     getRiderReadyForPickup,
+    getRiderAtShopOrders,
     getMerchantPendingOrders,
     getMerchantCurrentOrders,
     getMerchantOrderHistory,
@@ -22,6 +23,8 @@ router.get('/pending', getPendingOrders);
 
 // GET /api/orders/rider/ready-for-pickup?riderId=xxx - ออเดอร์ที่ร้านซักเสร็จแล้ว รอไรเดอร์มารับ
 router.get('/rider/ready-for-pickup', getRiderReadyForPickup);
+// GET /api/orders/rider/at-shop?riderId=xxx - ออเดอร์ที่อยู่ที่ร้านกำลังซัก (In progress ฝั่งร้าน)
+router.get('/rider/at-shop', getRiderAtShopOrders);
 
 // GET /api/orders/merchant/:shopId/pending - ดึง order ที่รอ Merchant รับ (สำหรับร้าน)
 router.get('/merchant/:shopId/pending', getMerchantPendingOrders);

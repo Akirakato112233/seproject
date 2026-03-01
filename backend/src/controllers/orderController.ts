@@ -682,3 +682,57 @@ export const getRiderReadyForPickup = async (req: AuthRequest, res: Response) =>
         res.status(500).json({ success: false, message: 'Failed to get ready-for-pickup orders' });
     }
 };
+
+/** ดึง Order ที่อยู่ที่ร้านกำลังซัก (at_shop) ของ rider นี้ — ตรงกับ "In progress" ในร้าน */
+export const getRiderAtShopOrders = async (req: AuthRequest, res: Response) => {
+    try {
+        const riderId = (req.query.riderId as string) || (req as any).user?.userId;
+        if (!riderId) {
+            return res.status(400).json({ success: false, message: 'riderId is required (query or auth)' });
+        }
+
+        const orders = await Order.find({
+            riderId,
+            status: 'at_shop'
+        }).sort({ updatedAt: -1 });
+
+        const enriched = await Promise.all(orders.map(async (order) => {
+            let shop: any = null;
+            if (order.shopId && /^[0-9a-fA-F]{24}$/.test(String(order.shopId))) {
+                shop = await Shop.findById(order.shopId);
+            }
+            const shopCoords = shop?.location
+                ? { latitude: shop.location.lat, longitude: shop.location.lng }
+                : { latitude: 13.117629, longitude: 100.916613 };
+            const customerCoords = { latitude: 13.113625, longitude: 100.919286 };
+
+            return {
+                id: String(order._id),
+                orderId: `ORD-${String(order._id).slice(-4)}`,
+                status: order.status,
+                statusLabel: 'In progress',
+                total: order.total || 0,
+                paymentMethod: order.paymentMethod || 'cash',
+                paymentLabel: order.paymentMethod === 'wallet' ? 'Wallet' : 'เงินสด',
+                customerName: order.userDisplayName || 'Customer',
+                customerAddress: order.userAddress || '',
+                shopName: order.shopName || shop?.name || 'Unknown Shop',
+                shopAddress: shop?.address || 'ไม่ระบุที่อยู่ร้าน',
+                shopPhone: shop?.phone || '',
+                items: order.items || [],
+                note: (order as any).note || '',
+                createdAt: order.createdAt,
+                updatedAt: order.updatedAt,
+                pickup: customerCoords,
+                dropoff: customerCoords,
+                shop: shopCoords,
+                fee: order.deliveryFee ?? order.total ?? 0,
+            };
+        }));
+
+        res.json({ success: true, orders: enriched });
+    } catch (error) {
+        console.error('Get Rider At-Shop Orders Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to get at-shop orders' });
+    }
+};

@@ -54,6 +54,8 @@ type DeliveryContextType = {
   active: ActiveOrder | null;
   history: CompletedOrder[];
   readyForPickup: ReadyForPickupOrder[];
+  /** ออเดอร์ที่ส่งผ้าให้ร้านแล้ว กำลังซัก (at_shop) — ตรงกับ In progress ฝั่งร้าน */
+  atShopOrders: ReadyForPickupOrder[];
 
   // ✅ ใช้ตัวนี้เวลาเรา "เริ่มงาน" (รับจากรายการหรือ demo ก็ได้)
   startOrder: (order: Order) => Promise<boolean>;
@@ -72,6 +74,7 @@ type DeliveryContextType = {
   markDelivered: () => void;
 
   refreshReadyForPickup: () => Promise<void>;
+  refreshAtShopOrders: () => Promise<void>;
 
   clearHistory: () => void;
   totals: { totalOrders: number; totalEarnings: number };
@@ -114,6 +117,7 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
   const { token, user, isDevMode } = useAuth();
   const effectiveRiderId = user?._id ?? (isDevMode ? DEV_RIDER_ID : undefined);
   const [readyForPickup, setReadyForPickup] = useState<ReadyForPickupOrder[]>([]);
+  const [atShopOrders, setAtShopOrders] = useState<ReadyForPickupOrder[]>([]);
 
   const toggleOnline = () => {
     setIsOnline((v) => {
@@ -302,11 +306,63 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
 
   const refreshReadyForPickup = () => fetchReadyForPickup();
 
-  // ดึง Ready for Pickup เมื่อ login หรือโหมด dev (ใช้ effectiveRiderId)
+  const fetchAtShopOrders = async () => {
+    const riderId = effectiveRiderId;
+    if (!riderId) {
+      setAtShopOrders([]);
+      return;
+    }
+    try {
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${API.ORDERS}/rider/at-shop?riderId=${encodeURIComponent(riderId)}`, { headers });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.orders)) {
+        const mapped: ReadyForPickupOrder[] = data.orders.map((o: any) => ({
+          id: o.id,
+          orderId: o.orderId,
+          shopName: o.shopName,
+          shopAddress: o.shopAddress,
+          customerName: o.customerName,
+          customerAddress: o.customerAddress,
+          distance: '1.5 km',
+          fee: o.fee ?? o.total ?? 0,
+          items: Array.isArray(o.items) ? o.items.length : 0,
+          pickup: o.pickup ?? o.shop,
+          dropoff: o.dropoff,
+          shop: o.shop ?? o.pickup,
+          paymentMethod: o.paymentMethod === 'wallet' ? 'card' : 'cash',
+          paymentLabel: o.paymentLabel,
+          status: o.status,
+          total: o.total,
+          note: o.note,
+          shopPhone: o.shopPhone,
+          customerPhone: o.customerPhone,
+          updatedAt: o.updatedAt,
+          createdAt: o.createdAt,
+          ...(Array.isArray(o.items) && { itemsList: o.items }),
+        }));
+        setAtShopOrders(mapped);
+      } else {
+        setAtShopOrders([]);
+      }
+    } catch (e) {
+      console.log('Fetch at-shop orders error:', e);
+      setAtShopOrders([]);
+    }
+  };
+
+  const refreshAtShopOrders = () => fetchAtShopOrders();
+
+  // ดึง Ready for Pickup + At Shop (In progress) เมื่อ login หรือโหมด dev
   useEffect(() => {
     if (!effectiveRiderId) return;
     fetchReadyForPickup();
-    const t = setInterval(fetchReadyForPickup, 8000);
+    fetchAtShopOrders();
+    const t = setInterval(() => {
+      fetchReadyForPickup();
+      fetchAtShopOrders();
+    }, 8000);
     return () => clearInterval(t);
   }, [effectiveRiderId]);
 
@@ -356,6 +412,7 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
         active,
         history,
         readyForPickup,
+        atShopOrders,
         startOrder,
         acceptOrder,
         declineOrder,
@@ -365,6 +422,7 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
         markPickedUpFromShop,
         markDelivered,
         refreshReadyForPickup,
+        refreshAtShopOrders,
         clearHistory,
         totals,
         isOnline,
