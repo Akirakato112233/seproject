@@ -19,7 +19,7 @@ import { useAuth } from '../context/AuthContext';
 WebBrowser.maybeCompleteAuthSession();
 
 const GOOGLE_WEB_CLIENT_ID = '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
-const BACKEND_URL = 'https://unsure-smectic-alondra.ngrok-free.dev';
+const BACKEND_URL = 'https://putative-renea-whisperingly.ngrok-free.dev';
 
 /**
  * Create Account Screen - Google Sign-In

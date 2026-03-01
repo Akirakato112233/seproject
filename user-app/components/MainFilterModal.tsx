@@ -6,12 +6,10 @@ import { FilterRow } from './FilterRow';
 import { CheckboxRow } from './CheckboxRow';
 
 interface FilterState {
-  open: boolean;
   type: string;
   nearMe: boolean;
   rating: number;
   price: number;
-  promo: boolean;
   delivery: string;
 }
 
@@ -30,12 +28,10 @@ export const MainFilterModal: React.FC<MainFilterModalProps> = ({
 }) => {
   const handleReset = () => {
     setFilters({
-      open: true,
-      type: 'coin',
+      type: 'all',
       nearMe: false,
       rating: 0,
       price: 0,
-      promo: false,
       delivery: 'Any',
     });
   };
@@ -74,12 +70,6 @@ export const MainFilterModal: React.FC<MainFilterModalProps> = ({
             selected={filters.rating > 0}
             onPress={() => setFilters({ ...filters, rating: filters.rating > 0 ? 0 : 4 })}
             icon="star-outline"
-          />
-          <CheckboxRow
-            label="Promo"
-            selected={filters.promo}
-            onPress={() => setFilters({ ...filters, promo: !filters.promo })}
-            icon="pricetag-outline"
           />
           <CheckboxRow
             label="Near me"

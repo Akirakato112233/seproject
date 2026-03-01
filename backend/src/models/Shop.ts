@@ -183,3 +183,45 @@ const ShopSchema = new Schema<IShop>({
 // ใช้ collection name "ร้านซักผ้า" ที่มีอยู่ใน MongoDB Atlas
 // ถ้าต้องการใช้ชื่ออื่น แก้ไข parameter ที่ 3
 export const Shop = mongoose.model<IShop>('Shop', ShopSchema, 'ร้านซักผ้า');
+
+/**
+ * คำนวณ priceLevel (1-4) จากราคาบริการของร้านอัตโนมัติ
+ * ใช้ราคาต่ำสุดของ washServices (9kg Cold wash) เป็นตัวแทน
+ *
+ * Logic:
+ *   ราคาเฉลี่ย < 40฿   → 1 ($)    ถูกมาก
+ *   ราคาเฉลี่ย < 70฿   → 2 ($$)   ปานกลาง
+ *   ราคาเฉลี่ย < 120฿  → 3 ($$$)  แพง
+ *   ราคาเฉลี่ย >= 120฿ → 4 ($$$$) แพงมาก
+ */
+export function calculatePriceLevel(shop: Partial<IShop>): number {
+  const allPrices: number[] = [];
+
+  // รวบรวมราคาจาก washServices
+  if (shop.washServices?.length) {
+    for (const service of shop.washServices) {
+      for (const opt of service.options) {
+        allPrices.push(opt.price);
+      }
+    }
+  }
+
+  // รวบรวมราคาจาก dryServices
+  if (shop.dryServices?.length) {
+    for (const service of shop.dryServices) {
+      for (const opt of service.options) {
+        allPrices.push(opt.price);
+      }
+    }
+  }
+
+  // ถ้าไม่มีราคาเลย คืนค่า 1
+  if (allPrices.length === 0) return 1;
+
+  const avgPrice = allPrices.reduce((a, b) => a + b, 0) / allPrices.length;
+
+  if (avgPrice < 40) return 1;
+  if (avgPrice < 70) return 2;
+  if (avgPrice < 120) return 3;
+  return 4;
+}

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Shop } from '../models/Shop';
+import { Shop, calculatePriceLevel } from '../models/Shop';
 
 export const getShops = async (req: Request, res: Response) => {
   try {
@@ -69,6 +69,20 @@ export const updateShopById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const updates = req.body;
+
+    // ถ้ามีการแก้ไข washServices หรือ dryServices → คำนวณ priceLevel ใหม่อัตโนมัติ
+    const affectsPrice = updates.washServices !== undefined || updates.dryServices !== undefined;
+    if (affectsPrice) {
+      const existing = await Shop.findById(id).lean();
+      if (existing) {
+        const merged = {
+          washServices: updates.washServices ?? existing.washServices,
+          dryServices: updates.dryServices ?? existing.dryServices,
+        };
+        updates.priceLevel = calculatePriceLevel(merged);
+      }
+    }
+
     const shop = await Shop.findByIdAndUpdate(
       id,
       { $set: updates },

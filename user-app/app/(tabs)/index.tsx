@@ -125,11 +125,11 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ✅ แก้ไข: เปลี่ยน Search Box ให้เป็นปุ่มกดไปหน้า Discover */}
+        {/* Search Box - ค้นหาร้านซักรีด */}
         <TouchableOpacity
           style={s.searchBox}
           activeOpacity={0.9}
-          onPress={() => router.push('/discover')}
+          onPress={() => router.push('/search')}
         >
           <Ionicons name="search" size={18} color="rgba(255,255,255,0.9)" />
           <Text style={s.searchInputPlaceholder}>
@@ -200,12 +200,7 @@ export default function HomeScreen() {
               }
             }}
           />
-          <ActionButton
-            icon={<Ionicons name="grid-outline" size={22} color="#2E6BE8" />}
-            label="MORE"
-            onPress={() => router.push('/discover')} // หรือกด More เพื่อไปหน้า Discover ก็ได้
-          />
-          {/* ช่องว่างให้เหมือนเลย์เอาต์ 3 อันแถวล่างในรูป */}
+          <View style={[s.action, { opacity: 0 }]} />
           <View style={[s.action, { opacity: 0 }]} />
         </View>
       </View>

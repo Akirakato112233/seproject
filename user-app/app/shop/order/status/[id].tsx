@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
-import { API } from '../../../../config';
+import { API, BASE_URL } from '../../../../config';
 import { authGet, authPatch } from '../../../../services/apiClient';
 
 
@@ -27,6 +27,7 @@ interface OrderData {
     status: string;
     items: { name: string; details: string; price: number }[];
     createdAt?: string;
+    riderId?: string;
 }
 
 const STEP_CONFIG: Record<OrderStep, { title: string; description: string; icon: string }> = {
@@ -56,6 +57,7 @@ export default function OrderStatusScreen() {
     const { id, step: stepParam } = useLocalSearchParams<{ id: string; step?: string }>();
     const [order, setOrder] = useState<OrderData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [riderName, setRiderName] = useState<string | null>(null);
 
     // Parse step จาก params (default = 1)
     const currentStep: OrderStep = (parseInt(stepParam ?? '0') as OrderStep);
@@ -113,6 +115,24 @@ export default function OrderStatusScreen() {
         return () => clearInterval(interval);
     }, [id]);
 
+    // ดึงชื่อ rider เมื่อ riderId ถูก set
+    useEffect(() => {
+        if (!order?.riderId) return;
+        const fetchRider = async () => {
+            try {
+                const res = await fetch(`${BASE_URL}/api/riders/${order.riderId}`, {
+                    headers: { 'ngrok-skip-browser-warning': '1' },
+                });
+                const data = await res.json();
+                const name = data.displayName || data.fullName || 'Rider';
+                setRiderName(name);
+            } catch {
+                setRiderName('Rider');
+            }
+        };
+        fetchRider();
+    }, [order?.riderId]);
+
     const fetchOrder = async () => {
         try {
             const response = await authGet(`${API.ORDERS}/${id}`);
@@ -157,7 +177,7 @@ export default function OrderStatusScreen() {
     const handleChat = () => {
         router.push({
             pathname: '/shop/chat' as any,
-            params: { id },
+            params: { id, riderId: order?.riderId },
         });
     };
 
@@ -279,7 +299,9 @@ export default function OrderStatusScreen() {
                         <View style={styles.infoContent}>
                             <Text style={styles.infoLabel}>Rider</Text>
                             <Text style={styles.infoName}>
-                                {currentStep === 0 ? 'Waiting for rider...' : 'Natthapong Sawang'}
+                                {currentStep === 0
+                                    ? 'Waiting for rider...'
+                                    : riderName || 'Rider'}
                             </Text>
                         </View>
                         {currentStep !== 0 && (

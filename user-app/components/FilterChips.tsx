@@ -4,12 +4,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { styles } from '../style/myStyle';
 
 interface FilterState {
-  open: boolean;
   type: string;
   nearMe: boolean;
   rating: number;
   price: number;
-  promo: boolean;
   delivery: string;
 }
 
@@ -36,17 +34,10 @@ export const FilterChips: React.FC<FilterChipsProps> = ({
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.chip, filters.open && styles.activeChip]}
-          onPress={() => setFilters({ ...filters, open: !filters.open })}
-        >
-          <Text style={[styles.chipText, filters.open && styles.activeChipText]}>Open</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.chip, isFilterActive('type', 'any') && styles.activeChip]}
+          style={[styles.chip, isFilterActive('type', 'all') && styles.activeChip]}
           onPress={() => setActiveModal('type')}
         >
-          <Text style={[styles.chipText, isFilterActive('type', 'any') && styles.activeChipText]}>
+          <Text style={[styles.chipText, isFilterActive('type', 'all') && styles.activeChipText]}>
             Laundry Type
           </Text>
         </TouchableOpacity>
@@ -70,13 +61,6 @@ export const FilterChips: React.FC<FilterChipsProps> = ({
           onPress={() => setActiveModal('price')}
         >
           <Text style={[styles.chipText, isFilterActive('price', 0) && styles.activeChipText]}>Price</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.chip, filters.promo && styles.activeChip]}
-          onPress={() => setFilters({ ...filters, promo: !filters.promo })}
-        >
-          <Text style={[styles.chipText, filters.promo && styles.activeChipText]}>Promo</Text>
         </TouchableOpacity>
 
         <TouchableOpacity

@@ -18,23 +18,21 @@ import {
 import { useShops } from '../hooks/useShops';
 
 export default function SearchScreen() {
-  const params = useLocalSearchParams(); // ✅ ดึงค่า params ที่ส่งมาจากหน้า Discover
+  const params = useLocalSearchParams(); // ดึงค่า params ที่ส่งมาจากหน้า Discover
 
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isMainModalVisible, setMainModalVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
 
   const [filters, setFilters] = useState({
-    open: true,
-    type: 'coin',
+    type: 'all', // default = แสดงทุกประเภท (coin + full)
     nearMe: false,
     rating: 0,
     price: 0,
-    promo: false,
     delivery: 'Any',
   });
 
-  // ✅ เพิ่ม useEffect เพื่อรับค่าจากหน้า Discover
+  // เพิ่ม useEffect เพื่อรับค่าจากหน้า Discover
   useEffect(() => {
     if (Object.keys(params).length > 0) {
       console.log("ได้รับคำสั่งกรอง:", params);
@@ -66,20 +64,19 @@ export default function SearchScreen() {
   // เรียกข้อมูลจาก API
   const { shops, loading, error } = useShops({
     filters: {
-      type: filters.type !== 'coin' ? filters.type : undefined,
+      type: filters.type !== 'all' ? filters.type : undefined, // ไม่ส่ง type ถ้าเป็น 'all'
       rating: filters.rating > 0 ? filters.rating : undefined,
       price: filters.price > 0 ? filters.price : undefined,
       delivery: filters.delivery !== 'Any' ? filters.delivery : undefined,
       nearMe: filters.nearMe,
-      promo: filters.promo,
-      open: filters.open,
     },
     useMockData: false, // เปลี่ยนเป็น false เมื่อ backend พร้อม
   });
 
   // กรองร้านตาม filters (Client-side filtering backup)
+  // และเรียงลำดับ: ร้านเปิดอยู่ขึ้นก่อน, ร้านปิดอยู่ล่างสุด
   const filteredShops = useMemo(() => {
-    return shops.filter((shop) => {
+    const filtered = shops.filter((shop) => {
       // Filter by search text (ชื่อร้าน)
       if (searchText.trim()) {
         const searchLower = searchText.toLowerCase();
@@ -88,8 +85,8 @@ export default function SearchScreen() {
         }
       }
 
-      // Filter by type
-      if (shop.type !== filters.type) {
+      // Filter by type (ถ้าไม่ใช่ 'all' ถึงจะกรอง)
+      if (filters.type !== 'all' && shop.type !== filters.type) {
         return false;
       }
 
@@ -112,6 +109,14 @@ export default function SearchScreen() {
       }
 
       return true;
+    });
+
+    // เรียงลำดับ: ร้านเปิด (status=true) ขึ้นก่อน, ร้านปิด (status=false) ล่างสุด
+    return filtered.sort((a, b) => {
+      const aOpen = a.status ?? true; // default true ถ้าไม่มีค่า
+      const bOpen = b.status ?? true;
+      if (aOpen === bOpen) return 0;
+      return aOpen ? -1 : 1; // true (เปิด) มาก่อน
     });
   }, [shops, filters, searchText]);
 
@@ -160,7 +165,7 @@ export default function SearchScreen() {
         visible={activeModal === 'type'}
         title="Laundry Type"
         onClose={() => setActiveModal(null)}
-        onReset={() => setFilters({ ...filters, type: 'coin' })}
+        onReset={() => setFilters({ ...filters, type: 'all' })}
         onApply={() => setActiveModal(null)}
       >
         <FilterRow
@@ -174,6 +179,12 @@ export default function SearchScreen() {
           label="Full-service Laundry"
           selected={filters.type === 'full'}
           onPress={() => setFilters({ ...filters, type: 'full' })}
+        />
+        <FilterRow
+          icon={<Ionicons name="grid-outline" size={24} />}
+          label="All Types"
+          selected={filters.type === 'all'}
+          onPress={() => setFilters({ ...filters, type: 'all' })}
         />
       </BottomSheet>
 

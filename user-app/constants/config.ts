@@ -2,11 +2,11 @@
 
 const ENV = {
   dev: {
-    apiUrl: 'https://unsure-smectic-alondra.ngrok-free.dev/api',
+    apiUrl: 'https://putative-renea-whisperingly.ngrok-free.dev/api',
   },
   prod: {
     // อันนี้สำหรับตอนเอาขึ้น Server จริง (ค่อยมาแก้ทีหลังได้)
-    apiUrl: 'https://your-api-domain.com/api',
+    apiUrl: 'https://putative-renea-whisperingly.ngrok-free.dev/api',
   },
 };
 
