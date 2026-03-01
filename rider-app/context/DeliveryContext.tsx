@@ -58,7 +58,7 @@ type DeliveryContextType = {
   atShopOrders: ReadyForPickupOrder[];
 
   // ✅ ใช้ตัวนี้เวลาเรา "เริ่มงาน" (รับจากรายการหรือ demo ก็ได้)
-  startOrder: (order: Order) => Promise<boolean>;
+  startOrder: (order: Order) => Promise<{ success: boolean; message?: string }>;
 
   acceptOrder: (id: string) => void;
   declineOrder: (id: string) => void;
@@ -75,12 +75,16 @@ type DeliveryContextType = {
 
   refreshReadyForPickup: () => Promise<void>;
   refreshAtShopOrders: () => Promise<void>;
+  /** ดึงรายการ order รอรับใหม่ (เรียกเมื่อไรเดอร์ต้องการดูออเดอร์ล่าสุด) */
+  refreshAvailableOrders: () => Promise<void>;
 
   clearHistory: () => void;
   totals: { totalOrders: number; totalEarnings: number };
 
   isOnline: boolean;
   toggleOnline: () => void;
+  /** เมื่อเคยปิด offline แล้ว เปิด online ใหม่ จะไม่แสดง Completed บนหน้า Earning (ไปดูใน View detail history แทน) */
+  hideCompletedOnEarningPage: boolean;
 
   autoAccept: boolean;
   toggleAutoAccept: () => void;
@@ -111,6 +115,7 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
   const [history, setHistory] = useState<CompletedOrder[]>([]);
 
   const [isOnline, setIsOnline] = useState(false);
+  const [hideCompletedOnEarningPage, setHideCompletedOnEarningPage] = useState(false);
   const [autoAccept, setAutoAccept] = useState(false);
 
   // Auth; โหมด dev ไม่ login ใช้ DEV_RIDER_ID แทน user._id
@@ -122,7 +127,10 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
   const toggleOnline = () => {
     setIsOnline((v) => {
       const next = !v;
-      if (!next) setAutoAccept(false);
+      if (!next) {
+        setAutoAccept(false);
+        setHideCompletedOnEarningPage(true);
+      }
       return next;
     });
   };
@@ -151,16 +159,14 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Poll for orders when online
+  // โพล์รายการ order ทุก 5 วินาที เมื่อออนไลน์
   useEffect(() => {
     if (!isOnline) {
       setAvailable([]);
       return;
     }
-
-    fetchAvailableOrders(); // Initial fetch
-    const interval = setInterval(fetchAvailableOrders, 5000); // Poll every 5s
-
+    fetchAvailableOrders();
+    const interval = setInterval(fetchAvailableOrders, 5000);
     return () => clearInterval(interval);
   }, [isOnline, active]);
 
@@ -189,7 +195,11 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
     ).catch(() => { });
   }, [available, active, history, isOnline, autoAccept]);
 
-  const updateBackendStatus = async (orderId: string, status: string, riderId?: string) => {
+  const updateBackendStatus = async (
+    orderId: string,
+    status: string,
+    riderId?: string
+  ): Promise<{ success: boolean; message?: string }> => {
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -201,35 +211,36 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify(body),
       });
       const data = await response.json();
-      
-      // ถ้า order ถูกรับไปแล้ว ให้ return false
+
       if (response.status === 409 || !data.success) {
-        console.log('Order already taken:', data.message);
-        return false;
+        const msg = data.message || 'ออเดอร์นี้ถูกรับไปแล้ว';
+        console.log('Backend status update failed:', msg);
+        return { success: false, message: msg };
       }
-      return true;
+      return { success: true };
     } catch (error) {
       console.log('Error updating backend status:', error);
-      return false;
+      return { success: false, message: 'เกิดข้อผิดพลาดของเครือข่าย กรุณาลองใหม่' };
     }
   };
 
-  const startOrder = async (order: Order): Promise<boolean> => {
-    if (active) return false;
-    // ใช้ user._id เป็น riderId; โหมด dev ไม่ login ใช้ DEV_RIDER_ID
+  const startOrder = async (order: Order): Promise<{ success: boolean; message?: string }> => {
+    if (active) return { success: false, message: 'คุณมีงานที่กำลังดำเนินการอยู่แล้ว' };
     const riderId = effectiveRiderId;
-    if (!riderId) return false;
+    if (!riderId) {
+      return { success: false, message: 'กรุณาเข้าสู่ระบบหรือเปิดโหมด Dev เพื่อรับงาน' };
+    }
 
-    const success = await updateBackendStatus(order.id, 'rider_coming', riderId);
-    if (!success) {
+    const result = await updateBackendStatus(order.id, 'rider_coming', riderId);
+    if (!result.success) {
       setAvailable((prev) => prev.filter((o) => o.id !== order.id));
-      return false;
+      return result;
     }
 
     const shop = (order as any).shop ?? order.pickup;
     setActive({ ...order, shop, status: "going_to_customer" });
     setAvailable((prev) => prev.filter((o) => o.id !== order.id));
-    return true;
+    return { success: true };
   };
 
   // สำหรับโค้ดเก่า
@@ -395,6 +406,7 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
     updateBackendStatus(active.id, 'completed');
     setHistory((prev) => [done, ...prev]);
     setActive(null);
+    setHideCompletedOnEarningPage(false);
   };
 
   const clearHistory = () => setHistory([]);
@@ -423,10 +435,12 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
         markDelivered,
         refreshReadyForPickup,
         refreshAtShopOrders,
+        refreshAvailableOrders: fetchAvailableOrders,
         clearHistory,
         totals,
         isOnline,
         toggleOnline,
+        hideCompletedOnEarningPage,
         autoAccept,
         toggleAutoAccept,
       }}

@@ -386,12 +386,16 @@ export default function DashboardScreen() {
             ? 'in_progress'
             : 'ready_for_delivery';
     const displayId = selectedOrder.orderId?.replace('ORD-', '') || selectedOrder.id.slice(-4);
+    // "Rider arrived" แสดงเฉพาะเมื่อไรเดอร์รับงานแล้ว (Waiting for rider) ไม่แสดงตอน Looking for rider
+    const isWaitingForRiderArrived =
+      selectedOrder.status === 'wait_for_rider' &&
+      (selectedOrder.statusRaw === 'Waiting for rider' || selectedOrder.statusRaw === 'rider_coming');
     const showAction =
-      selectedOrder.status === 'wait_for_rider' ||
+      isWaitingForRiderArrived ||
       selectedOrder.status === 'washing' ||
       (selectedOrder.status === 'ready' && selectedOrder.statusRaw === 'in_progress');
     const actionLabel =
-      selectedOrder.status === 'wait_for_rider'
+      isWaitingForRiderArrived
         ? 'Rider arrived'
         : selectedOrder.status === 'washing'
           ? 'Ready for pickup'

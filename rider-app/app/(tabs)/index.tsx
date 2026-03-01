@@ -55,6 +55,7 @@ export default function HomeScreen() {
     toggleOnline,
     autoAccept,
     toggleAutoAccept,
+    refreshAvailableOrders,
   } = useDelivery();
 
   // --- Demo order (typed) ---
@@ -217,12 +218,15 @@ export default function HomeScreen() {
     setShowSuccessModal(true);
   };
 
-  const handleConfirmJob = () => {
+  const handleConfirmJob = async () => {
     if (!pendingOrder) return;
 
-    // ✅ ให้ demo/ของจริง กลายเป็น active เหมือนกัน
-    startOrder(pendingOrder);
-
+    const result = await startOrder(pendingOrder);
+    if (!result.success) {
+      const { Alert } = await import("react-native");
+      Alert.alert("ไม่สามารถรับงานได้", result.message ?? "กรุณาลองใหม่");
+      return;
+    }
     setPendingOrder(null);
     setShowSuccessModal(false);
     router.push("/job");
@@ -261,9 +265,14 @@ export default function HomeScreen() {
                   <Text style={s.btnGoOnlineText}>Go Online</Text>
                 </TouchableOpacity>
               ) : (
-                <TouchableOpacity style={s.btnPowerGreen} onPress={toggleOnline} activeOpacity={0.9}>
-                  <Ionicons name="power" size={26} color="#fff" />
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity style={s.btnPowerGreen} onPress={toggleOnline} activeOpacity={0.9}>
+                    <Ionicons name="power" size={26} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.btnCompass} onPress={() => refreshAvailableOrders()} activeOpacity={0.9}>
+                    <Ionicons name="refresh" size={20} color="#000" />
+                  </TouchableOpacity>
+                </>
               )}
 
               <TouchableOpacity style={s.btnCompass} onPress={centerToMe} activeOpacity={0.9}>

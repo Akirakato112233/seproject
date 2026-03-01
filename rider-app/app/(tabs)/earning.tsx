@@ -1,12 +1,112 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal } from "react-native";
+import React, { useState, useMemo } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Platform, useWindowDimensions } from "react-native";
 import { useRouter } from "expo-router";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { useDelivery } from "../../context/DeliveryContext";
 import type { Order, ReadyForPickupOrder } from "../../context/DeliveryContext";
 
 function formatMoney(n: number) {
   return `${n.toFixed(2)}฿`;
+}
+
+/** ได้วันที่จาก order (completedAt หรือ updatedAt/createdAt) */
+function getOrderDate(o: Order & { completedAt?: string }): Date | null {
+  const raw = o.completedAt ?? (o as any).updatedAt ?? (o as any).createdAt;
+  if (!raw) return null;
+  const d = typeof raw === "string" ? new Date(raw) : new Date(raw);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/** เริ่มต้นสัปดาห์ (จันทร์) */
+function getWeekStart(d: Date): Date {
+  const x = new Date(d);
+  const day = x.getDay();
+  const diff = day === 0 ? -6 : 1 - day; // จันทร์ = 1
+  x.setDate(x.getDate() + diff);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+/** เริ่มต้นเดือน */
+function getMonthStart(d: Date): Date {
+  const x = new Date(d.getFullYear(), d.getMonth(), 1);
+  return x;
+}
+
+/** อยู่ในวันเดียวกัน (local) */
+function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+/** อยู่ในสัปดาห์เดียวกัน (จันทร์-อาทิตย์) */
+function isSameWeek(orderDate: Date, weekStart: Date): boolean {
+  const ws = getWeekStart(weekStart);
+  const orderWeekStart = getWeekStart(orderDate);
+  return ws.getTime() === orderWeekStart.getTime();
+}
+
+/** อยู่ในเดือนเดียวกัน */
+function isSameMonth(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+}
+
+/** วันก่อนหน้า (เมื่อวาน) */
+function isYesterday(a: Date, relativeTo: Date): boolean {
+  const y = new Date(relativeTo);
+  y.setDate(y.getDate() - 1);
+  return isSameDay(a, y);
+}
+
+/** ข้อความช่วงวัน เช่น "Today (Mar 5)" / "Yesterday (Mar 4)" / "Mar 3" */
+function formatDayLabel(d: Date, isToday: boolean, isYesterdayVal: boolean): string {
+  const mon = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getMonth()];
+  const day = d.getDate();
+  const suffix = `(${mon} ${day})`;
+  if (isToday) return `Today ${suffix}`;
+  if (isYesterdayVal) return `Yesterday ${suffix}`;
+  return `${mon} ${day}`;
+}
+
+/** สัปดาห์นี้ หรือ สัปดาห์ก่อน */
+function isCurrentWeek(weekStart: Date, now: Date): boolean {
+  return getWeekStart(weekStart).getTime() === getWeekStart(now).getTime();
+}
+function isLastWeek(weekStart: Date, now: Date): boolean {
+  const thisWeekStart = getWeekStart(now);
+  const prevWeekStart = new Date(thisWeekStart);
+  prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+  return getWeekStart(weekStart).getTime() === prevWeekStart.getTime();
+}
+
+/** ข้อความช่วงสัปดาห์ เช่น "This Week (Mar 3 – Mar 9)" / "Last Week (Mar 3 – Mar 9)" */
+function formatWeekLabel(weekStart: Date, now: Date): string {
+  const mon = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const end = new Date(weekStart);
+  end.setDate(end.getDate() + 6);
+  const range = `${mon[weekStart.getMonth()]} ${weekStart.getDate()} – ${mon[end.getMonth()]} ${end.getDate()}`;
+  if (isCurrentWeek(weekStart, now)) return `This Week (${range})`;
+  if (isLastWeek(weekStart, now)) return `Last Week (${range})`;
+  return range;
+}
+
+/** เดือนนี้ หรือ เดือนก่อน */
+function isCurrentMonth(d: Date, now: Date): boolean {
+  return isSameMonth(d, now);
+}
+function isLastMonth(d: Date, now: Date): boolean {
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return isSameMonth(d, prev);
+}
+
+/** ข้อความช่วงเดือน เช่น "This Month (Mar 1 – Mar 31)" / "Last Month (Feb 1 – Feb 28)" */
+function formatMonthLabel(d: Date, now: Date): string {
+  const mon = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getMonth()];
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  const range = `${mon} 1 – ${mon} ${last.getDate()}`;
+  if (isCurrentMonth(d, now)) return `This Month (${range})`;
+  if (isLastMonth(d, now)) return `Last Month (${range})`;
+  return range;
 }
 
 /** วันที่แบบ พ.ศ. เช่น 27/02/2569 BE, 17:13:51 */
@@ -46,14 +146,61 @@ function OrderRow({ o, showDate = true }: { o: Order & { completedAt?: string };
   );
 }
 
+const todayStart = () => {
+  const t = new Date();
+  t.setHours(0, 0, 0, 0);
+  return t;
+};
+
 export default function EarningScreen() {
   const router = useRouter();
-  const { totals, history, clearHistory, readyForPickup, startPickupFromShop, active, atShopOrders } = useDelivery();
+  const { width: screenWidth } = useWindowDimensions();
+  const tabBarHeight = useBottomTabBarHeight();
+  const summaryBlockWidth = screenWidth - 32;
+
+  const { history, readyForPickup, startPickupFromShop, active, atShopOrders, isOnline, hideCompletedOnEarningPage } = useDelivery();
   const [selectedReadyOrder, setSelectedReadyOrder] = useState<ReadyForPickupOrder | null>(null);
+
+  const [dayCursor, setDayCursor] = useState<Date>(todayStart);
+  const [weekCursor, setWeekCursor] = useState<Date>(() => getWeekStart(new Date()));
+  const [monthCursor, setMonthCursor] = useState<Date>(() => getMonthStart(new Date()));
+
+  const { dailyStats, weeklyStats, monthlyStats } = useMemo(() => {
+    const dayOrders = history.filter((o) => {
+      const od = getOrderDate(o);
+      return od && isSameDay(od, dayCursor);
+    });
+    const weekOrders = history.filter((o) => {
+      const od = getOrderDate(o);
+      return od && isSameWeek(od, weekCursor);
+    });
+    const monthOrders = history.filter((o) => {
+      const od = getOrderDate(o);
+      return od && isSameMonth(od, monthCursor);
+    });
+    return {
+      dailyStats: { orders: dayOrders.length, earnings: dayOrders.reduce((s, o) => s + o.fee, 0) },
+      weeklyStats: { orders: weekOrders.length, earnings: weekOrders.reduce((s, o) => s + o.fee, 0) },
+      monthlyStats: { orders: monthOrders.length, earnings: monthOrders.reduce((s, o) => s + o.fee, 0) },
+    };
+  }, [history, dayCursor, weekCursor, monthCursor]);
 
   const hasReadyForPickup = readyForPickup.length > 0;  // ผ้าซักเสร็จที่ร้าน รอไปรับ
   const hasInProgress = active !== null || atShopOrders.length > 0;  // งานที่กำลังทำ หรือ ออเดอร์ที่ร้านกำลังซัก
   const hasHistory = history.length > 0;
+  const showCompletedOnPage = isOnline && hasHistory && !hideCompletedOnEarningPage;
+
+  const addDays = (d: Date, n: number) => {
+    const x = new Date(d);
+    x.setDate(x.getDate() + n);
+    return x;
+  };
+  const addWeeks = (d: Date, n: number) => addDays(d, n * 7);
+  const addMonths = (d: Date, n: number) => {
+    const x = new Date(d);
+    x.setMonth(x.getMonth() + n);
+    return x;
+  };
 
   const handleHeadToPickup = () => {
     if (!selectedReadyOrder) return;
@@ -63,19 +210,209 @@ export default function EarningScreen() {
   };
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={{ padding: 16, paddingBottom: 28 }}>
-      <Text style={s.title}>Earning</Text>
-
-      <View style={s.summaryRow}>
-        <View style={s.card}>
-          <Text style={s.cardLabel}>Total Orders</Text>
-          <Text style={s.cardValue}>{totals.totalOrders}</Text>
-        </View>
-        <View style={s.card}>
-          <Text style={s.cardLabel}>Total Earnings</Text>
-          <Text style={s.cardValue}>{formatMoney(totals.totalEarnings)}</Text>
-        </View>
+    <ScrollView style={s.container} contentContainerStyle={{ padding: 16, paddingBottom: tabBarHeight + 28 }} showsVerticalScrollIndicator={false}>
+      <View style={s.header}>
+        <Text style={s.title}>Earning</Text>
       </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={s.summaryScrollContent}
+        style={s.summaryScroll}
+      >
+        {/* บล็อกรายวัน */}
+        <View style={[s.summaryBlock, s.summaryBlockDay, { width: summaryBlockWidth }]}>
+          <View style={s.summaryBlockTop}>
+            <View style={[s.summaryBlockBadge, s.summaryBlockBadgeDay]}>
+              <Ionicons name="today-outline" size={14} color="#0EA5E9" />
+              <Text style={[s.summaryBlockBadgeText, s.summaryBlockBadgeTextDay]}>Daily</Text>
+            </View>
+            <View style={s.summaryBlockArrows}>
+              <TouchableOpacity onPress={() => setDayCursor((d) => addDays(d, -1))} style={s.arrowBtn} activeOpacity={0.7}>
+                <Ionicons name="chevron-back" size={18} color="#0EA5E9" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setDayCursor((d) => addDays(d, 1))} style={s.arrowBtn} activeOpacity={0.7}>
+                <Ionicons name="chevron-forward" size={18} color="#0EA5E9" />
+              </TouchableOpacity>
+            </View>
+          </View>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() =>
+              router.push({
+                pathname: "/earning-history",
+                params: {
+                  period: "day",
+                  date: dayCursor.toISOString(),
+                  periodLabel: formatDayLabel(dayCursor, isSameDay(dayCursor, new Date()), isYesterday(dayCursor, new Date())),
+                },
+              })
+            }
+          >
+            <Text style={s.summaryBlockPeriod} numberOfLines={1}>
+              {formatDayLabel(dayCursor, isSameDay(dayCursor, new Date()), isYesterday(dayCursor, new Date()))}
+            </Text>
+            <View style={s.summaryBlockStats}>
+              <View style={[s.summaryBlockStatRow, s.summaryBlockStatRowFirst]}>
+                <Ionicons name="receipt-outline" size={16} color="#94A3B8" />
+                <Text style={s.summaryBlockStatLabel}>Orders</Text>
+                <Text style={s.summaryBlockStatValue}>{dailyStats.orders}</Text>
+              </View>
+              <View style={s.summaryBlockStatRow}>
+                <Ionicons name="cash-outline" size={16} color="#94A3B8" />
+                <Text style={s.summaryBlockStatLabel}>Earnings</Text>
+                <Text style={[s.summaryBlockStatValue, s.summaryBlockEarnings]}>{formatMoney(dailyStats.earnings)}</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={s.viewDetailRow}
+            activeOpacity={0.7}
+            onPress={() =>
+              router.push({
+                pathname: "/earning-history",
+                params: {
+                  period: "day",
+                  date: dayCursor.toISOString(),
+                  periodLabel: formatDayLabel(dayCursor, isSameDay(dayCursor, new Date()), isYesterday(dayCursor, new Date())),
+                },
+              })
+            }
+          >
+            <Text style={[s.viewDetailText, s.viewDetailTextDay]}>View detail history</Text>
+            <Ionicons name="chevron-forward" size={16} color="#0EA5E9" />
+          </TouchableOpacity>
+        </View>
+
+        {/* บล็อกรายสัปดาห์ */}
+        <View style={[s.summaryBlock, s.summaryBlockWeek, { width: summaryBlockWidth }]}>
+          <View style={s.summaryBlockTop}>
+            <View style={[s.summaryBlockBadge, s.summaryBlockBadgeWeek]}>
+              <Ionicons name="calendar-outline" size={14} color="#8B5CF6" />
+              <Text style={[s.summaryBlockBadgeText, s.summaryBlockBadgeTextWeek]}>Week</Text>
+            </View>
+            <View style={s.summaryBlockArrows}>
+              <TouchableOpacity onPress={() => setWeekCursor((d) => addWeeks(d, -1))} style={s.arrowBtn} activeOpacity={0.7}>
+                <Ionicons name="chevron-back" size={18} color="#8B5CF6" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setWeekCursor((d) => addWeeks(d, 1))} style={s.arrowBtn} activeOpacity={0.7}>
+                <Ionicons name="chevron-forward" size={18} color="#8B5CF6" />
+              </TouchableOpacity>
+            </View>
+          </View>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() =>
+              router.push({
+                pathname: "/earning-history",
+                params: {
+                  period: "week",
+                  date: weekCursor.toISOString(),
+                  periodLabel: formatWeekLabel(weekCursor, new Date()),
+                },
+              })
+            }
+          >
+            <Text style={s.summaryBlockPeriod} numberOfLines={1}>
+              {formatWeekLabel(weekCursor, new Date())}
+            </Text>
+            <View style={s.summaryBlockStats}>
+              <View style={[s.summaryBlockStatRow, s.summaryBlockStatRowFirst]}>
+                <Ionicons name="receipt-outline" size={16} color="#94A3B8" />
+                <Text style={s.summaryBlockStatLabel}>Orders</Text>
+                <Text style={s.summaryBlockStatValue}>{weeklyStats.orders}</Text>
+              </View>
+              <View style={s.summaryBlockStatRow}>
+                <Ionicons name="cash-outline" size={16} color="#94A3B8" />
+                <Text style={s.summaryBlockStatLabel}>Earnings</Text>
+                <Text style={[s.summaryBlockStatValue, s.summaryBlockEarnings]}>{formatMoney(weeklyStats.earnings)}</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={s.viewDetailRow}
+            activeOpacity={0.7}
+            onPress={() =>
+              router.push({
+                pathname: "/earning-history",
+                params: {
+                  period: "week",
+                  date: weekCursor.toISOString(),
+                  periodLabel: formatWeekLabel(weekCursor, new Date()),
+                },
+              })
+            }
+          >
+            <Text style={[s.viewDetailText, s.viewDetailTextWeek]}>View detail history</Text>
+            <Ionicons name="chevron-forward" size={16} color="#8B5CF6" />
+          </TouchableOpacity>
+        </View>
+
+        {/* บล็อกรายเดือน */}
+        <View style={[s.summaryBlock, s.summaryBlockMonth, { width: summaryBlockWidth }]}>
+          <View style={s.summaryBlockTop}>
+            <View style={[s.summaryBlockBadge, s.summaryBlockBadgeMonth]}>
+              <Ionicons name="calendar" size={14} color="#10B981" />
+              <Text style={[s.summaryBlockBadgeText, s.summaryBlockBadgeTextMonth]}>Month</Text>
+            </View>
+            <View style={s.summaryBlockArrows}>
+              <TouchableOpacity onPress={() => setMonthCursor((d) => addMonths(d, -1))} style={s.arrowBtn} activeOpacity={0.7}>
+                <Ionicons name="chevron-back" size={18} color="#10B981" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setMonthCursor((d) => addMonths(d, 1))} style={s.arrowBtn} activeOpacity={0.7}>
+                <Ionicons name="chevron-forward" size={18} color="#10B981" />
+              </TouchableOpacity>
+            </View>
+          </View>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() =>
+              router.push({
+                pathname: "/earning-history",
+                params: {
+                  period: "month",
+                  date: monthCursor.toISOString(),
+                  periodLabel: formatMonthLabel(monthCursor, new Date()),
+                },
+              })
+            }
+          >
+            <Text style={s.summaryBlockPeriod} numberOfLines={1}>
+              {formatMonthLabel(monthCursor, new Date())}
+            </Text>
+            <View style={s.summaryBlockStats}>
+              <View style={[s.summaryBlockStatRow, s.summaryBlockStatRowFirst]}>
+                <Ionicons name="receipt-outline" size={16} color="#94A3B8" />
+                <Text style={s.summaryBlockStatLabel}>Orders</Text>
+                <Text style={s.summaryBlockStatValue}>{monthlyStats.orders}</Text>
+              </View>
+              <View style={s.summaryBlockStatRow}>
+                <Ionicons name="cash-outline" size={16} color="#94A3B8" />
+                <Text style={s.summaryBlockStatLabel}>Earnings</Text>
+                <Text style={[s.summaryBlockStatValue, s.summaryBlockEarnings]}>{formatMoney(monthlyStats.earnings)}</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={s.viewDetailRow}
+            activeOpacity={0.7}
+            onPress={() =>
+              router.push({
+                pathname: "/earning-history",
+                params: {
+                  period: "month",
+                  date: monthCursor.toISOString(),
+                  periodLabel: formatMonthLabel(monthCursor, new Date()),
+                },
+              })
+            }
+          >
+            <Text style={[s.viewDetailText, s.viewDetailTextMonth]}>View detail history</Text>
+            <Ionicons name="chevron-forward" size={16} color="#10B981" />
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
 
       {hasReadyForPickup && (
         <>
@@ -110,7 +447,7 @@ export default function EarningScreen() {
         </>
       )}
 
-      {hasHistory && (
+      {showCompletedOnPage && (
         <>
           <View style={s.statusPillWrap}>
             <View style={[s.statusPill, s.statusCompleted]}>
@@ -123,20 +460,12 @@ export default function EarningScreen() {
         </>
       )}
 
-      {!hasReadyForPickup && !hasInProgress && !hasHistory && (
+      {!hasReadyForPickup && !hasInProgress && !showCompletedOnPage && (
         <View style={s.empty}>
-          <Text style={s.emptyTitle}>No history yet</Text>
-          <Text style={s.emptySub}>Complete a job to see earnings here.</Text>
+          <Text style={s.emptyTitle}>No active orders</Text>
+          <Text style={s.emptySub}>Tap a block above to view detail history.</Text>
         </View>
       )}
-
-      {hasHistory ? (
-        <View style={s.sectionHeader}>
-          <TouchableOpacity onPress={clearHistory} style={s.clearBtn}>
-            <Text style={s.clearText}>Clear</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
 
       {/* Bottom Sheet รายละเอียดออเดอร์ Ready for Pickup */}
       <Modal
@@ -279,8 +608,93 @@ export default function EarningScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8FAFC" },
-  title: { fontSize: 22, fontWeight: "900", color: "#0F172A", marginBottom: 12 },
+  container: { flex: 1, backgroundColor: "#F1F5F9" },
+  header: { marginBottom: 16 },
+  title: { fontSize: 26, fontWeight: "900", color: "#0F172A", letterSpacing: -0.5 },
+
+  summaryScroll: { marginHorizontal: -16, marginBottom: 20 },
+  summaryScrollContent: { paddingHorizontal: 16, flexDirection: "row", paddingVertical: 6 },
+  summaryBlock: {
+    marginRight: 14,
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.06)",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+      },
+      android: { elevation: 4 },
+    }),
+  },
+  summaryBlockDay: { borderLeftWidth: 4, borderLeftColor: "#0EA5E9" },
+  summaryBlockWeek: { borderLeftWidth: 4, borderLeftColor: "#8B5CF6" },
+  summaryBlockMonth: { borderLeftWidth: 4, borderLeftColor: "#10B981" },
+  summaryBlockTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
+  summaryBlockBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    gap: 6,
+  },
+  summaryBlockBadgeDay: { backgroundColor: "rgba(14, 165, 233, 0.12)" },
+  summaryBlockBadgeWeek: { backgroundColor: "rgba(139, 92, 246, 0.12)" },
+  summaryBlockBadgeMonth: { backgroundColor: "rgba(16, 185, 129, 0.12)" },
+  summaryBlockBadgeText: { fontSize: 12, fontWeight: "800" },
+  summaryBlockBadgeTextDay: { color: "#0EA5E9" },
+  summaryBlockBadgeTextWeek: { color: "#8B5CF6" },
+  summaryBlockBadgeTextMonth: { color: "#10B981" },
+  summaryBlockArrows: { flexDirection: "row", alignItems: "center" },
+  arrowBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(0,0,0,0.05)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 4,
+  },
+  summaryBlockPeriod: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginBottom: 14,
+    letterSpacing: 0.2,
+  },
+  summaryBlockStats: {},
+  summaryBlockStatRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  summaryBlockStatRowFirst: { marginTop: 0 },
+  summaryBlockStatLabel: { fontSize: 13, fontWeight: "600", color: "#64748B", flex: 1, marginLeft: 8 },
+  summaryBlockStatValue: { fontSize: 15, fontWeight: "800", color: "#0F172A" },
+  summaryBlockEarnings: { color: "#10B981", fontWeight: "900" },
+
+  viewDetailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.06)",
+  },
+  viewDetailText: { fontSize: 13, fontWeight: "700" },
+  viewDetailTextDay: { color: "#0EA5E9" },
+  viewDetailTextWeek: { color: "#8B5CF6" },
+  viewDetailTextMonth: { color: "#10B981" },
+
+  summaryBlockHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  summaryBlockLabel: { fontSize: 14, fontWeight: "800", color: "#0F172A", flex: 1 },
+  summaryBlockMeta: { fontSize: 13, fontWeight: "700", color: "#64748B", marginTop: 4 },
 
   summaryRow: { flexDirection: "row", gap: 12, marginBottom: 14 },
   card: { flex: 1, backgroundColor: "#fff", borderRadius: 16, padding: 14, elevation: 2 },
@@ -289,8 +703,6 @@ const s = StyleSheet.create({
 
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 6, marginBottom: 10 },
   sectionTitle: { fontSize: 16, fontWeight: "900", color: "#0F172A" },
-  clearBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: "#EEF2F7" },
-  clearText: { fontWeight: "900", color: "#334155" },
 
   statusPillWrap: { marginTop: 14, marginBottom: 8 },
   statusPill: { alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },

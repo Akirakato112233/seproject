@@ -223,17 +223,36 @@ export function OrderDetailSheet({
                 )}
               </ScrollView>
 
-              {showAction && (
+              {showAction && (isNewOrder && onDecline ? (
+                <View style={s.newOrderButtons}>
+                  <TouchableOpacity
+                    style={s.declineBtn}
+                    onPress={onDecline}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={s.declineBtnText}>Decline</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[s.actionBtn, s.actionBtnFlex, actionLoading && s.actionBtnDisabled]}
+                    onPress={onAction}
+                    activeOpacity={0.8}
+                    disabled={actionLoading}
+                  >
+                    <Text style={s.actionBtnText}>{actionLoading ? 'Processing...' : 'Accept'}</Text>
+                    {!actionLoading && <Ionicons name="arrow-forward" size={20} color={Colors.white} />}
+                  </TouchableOpacity>
+                </View>
+              ) : (
                 <TouchableOpacity
                   style={[s.actionBtn, actionLoading && s.actionBtnDisabled]}
                   onPress={onAction}
                   activeOpacity={0.8}
                   disabled={actionLoading}
                 >
-                  <Text style={s.actionBtnText}>{actionLoading ? 'กำลังดำเนินการ...' : actionLabel}</Text>
+                  <Text style={s.actionBtnText}>{actionLoading ? 'Processing...' : actionLabel}</Text>
                   {!actionLoading && <Ionicons name="arrow-forward" size={20} color={Colors.white} />}
                 </TouchableOpacity>
-              )}
+              ))}
         </View>
       </View>
     </Modal>
@@ -368,6 +387,7 @@ const s = StyleSheet.create({
     backgroundColor: Colors.primaryBlue,
     gap: 8,
   },
+  actionBtnFlex: { flex: 1, margin: 0 },
   actionBtnText: { fontSize: 16, fontWeight: '700', color: Colors.white },
   actionBtnDisabled: { opacity: 0.7 },
   newOrderButtons: {

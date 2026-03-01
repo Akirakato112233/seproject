@@ -94,6 +94,17 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
     refreshCompletedOrders();
   }, [refreshCompletedOrders]);
 
+  // รีเฟรชข้อมูลทุก 5 วินาที (ออเดอร์กำลังทำ + ประวัติ + balance)
+  useEffect(() => {
+    if (!shop?._id) return;
+    const interval = setInterval(() => {
+      refreshCurrentOrders();
+      refreshCompletedOrders();
+      refreshShop();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [shop?._id, refreshCurrentOrders, refreshCompletedOrders, refreshShop]);
+
   // balance มาจาก shop.balance ในฐานข้อมูล
   const walletBalance = shop?.balance ?? 0;
 

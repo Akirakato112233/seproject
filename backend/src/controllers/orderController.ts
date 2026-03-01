@@ -347,10 +347,10 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
 
-        // Atomic update: rider รับงานได้เฉพาะ order ที่รอ rider ตัดสินใจ (waiting_rider, pending, decision)
+        // Atomic update: rider รับงานได้เฉพาะ order ที่รอ rider ตัดสินใจ (pending, decision, waiting_rider, accepted)
         const actualOrderId = String((existingOrder as any)._id);
         const updateQuery = status === 'rider_coming'
-            ? { _id: actualOrderId, status: { $in: ['pending', 'decision', 'waiting_rider'] } }
+            ? { _id: actualOrderId, status: { $in: ['pending', 'decision', 'waiting_rider', 'accepted'] } }
             : { _id: actualOrderId };
         const updatePayload: any = { status };
         if (status === 'rider_coming' && riderId) updatePayload.riderId = riderId;
@@ -371,12 +371,19 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
             });
         }
 
-        // Sync status ไปที่ ordersformerchant (ใช้ label ตรงกับ merchant app)
+        // Sync status ไปที่ ordersformerchant (ใช้ label ตรงกับ merchant app) — เมื่อไรเดอร์กด "ส่งแล้ว" ฝั่งร้านต้องเป็น Completed ด้วย
+        const merchantStatus = orderStatusToMerchantStatus(status);
         if ((order as any).merchantOrderId) {
-            const merchantStatus = orderStatusToMerchantStatus(status);
             await OrderForMerchant.findByIdAndUpdate((order as any).merchantOrderId, {
                 status: merchantStatus,
             });
+        }
+        // กรณี status เป็น completed: อัปเดต OrderForMerchant ที่ลิงก์กับ order นี้ (เผื่อ path ที่ไม่มี merchantOrderId)
+        if (status === 'completed') {
+            await OrderForMerchant.findOneAndUpdate(
+                { ordersId: (order as any)._id },
+                { status: 'Completed' }
+            );
         }
 
         // เมื่อสถานะเป็น completed และชำระ wallet และยังไม่เคยโอน — โอนเข้า balance ร้าน
@@ -580,7 +587,8 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
     try {
         console.log('📦 Fetching pending orders...');
         const pendingQuery = {
-            status: { $in: ['pending', 'decision', 'waiting_rider', 'rider_coming'] }  // waiting_rider = merchant accept แล้ว ส่งให้ rider ตัดสินใจ
+            status: { $in: ['pending', 'decision', 'waiting_rider', 'rider_coming'] },  // waiting_rider = merchant accept แล้ว ส่งให้ rider ตัดสินใจ
+            userId: { $ne: 'dev-test-user' },  // แสดงเฉพาะ order จริง ไม่เอา order ทดสอบ
         };
 
         const allOrders = await Order.find(pendingQuery).sort({ createdAt: -1 });

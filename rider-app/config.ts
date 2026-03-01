@@ -1,7 +1,7 @@
 // config.ts
 
-// แก้ IP ตรงนี้แค่จุดเดียว จบเลย!
-export const BASE_URL = 'https://putative-renea-whisperingly.ngrok-free.dev';
+// ใช้ ngrok (ต้องรัน ngrok http 3000 ก่อน)
+export const BASE_URL = 'https://unsure-smectic-alondra.ngrok-free.dev';
 
 // ลิ้งค์ย่อยต่างๆ (Optional: จะได้ไม่ต้องพิมพ์ยาวๆ ในหน้าอื่น)
 export const API = {

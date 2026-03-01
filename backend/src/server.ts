@@ -25,9 +25,11 @@ app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json());
 
+// โหมด dev หรือใช้ผ่าน ngrok: ผ่อน limit (ทุกเครื่องใช้ IP เดียว)
+const isDev = process.env.NODE_ENV !== 'production';
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: isDev ? 2000 : 200,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many requests, please try again later.' },
@@ -36,7 +38,7 @@ app.use('/api/', apiLimiter);
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: isDev ? 500 : 200,
   message: { success: false, message: 'Too many auth attempts, please try again later.' },
 });
 app.use('/api/auth/', authLimiter);
