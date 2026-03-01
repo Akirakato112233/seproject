@@ -19,7 +19,7 @@ import { useAuth } from '../context/AuthContext';
 WebBrowser.maybeCompleteAuthSession();
 
 const GOOGLE_WEB_CLIENT_ID = '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
-const BACKEND_URL = 'http://192.168.1.11:3000';
+const BACKEND_URL = 'https://putative-renea-whisperingly.ngrok-free.dev';
 
 /**
  * Create Account Screen - Google Sign-In
@@ -91,7 +91,7 @@ export default function CreateAccountScreen() {
   const handleMobileGoogleSignIn = async () => {
     try {
       setIsLoading(true);
-      const scheme = 'exp://192.168.1.11:8081';
+      const scheme = 'exp://192.168.0.247:8081';
       const authUrl = `${BACKEND_URL}/api/google/start?redirect_scheme=${encodeURIComponent(scheme)}`;
     
       const result = await WebBrowser.openAuthSessionAsync(

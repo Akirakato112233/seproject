@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import * as AuthSession from 'expo-auth-session';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 
@@ -20,6 +20,7 @@ import { useAuth } from '../context/AuthContext';
 WebBrowser.maybeCompleteAuthSession();
 
 const GOOGLE_CLIENT_ID = '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
+const BACKEND_URL = 'https://putative-renea-whisperingly.ngrok-free.dev';
 
 // Role for this app
 const ROLE = 'rider';
@@ -27,77 +28,98 @@ const ROLE = 'rider';
 export default function CreateAccountScreen() {
   const router = useRouter();
   const { login, setDevMode } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
 
-  // @ts-ignore
-  const redirectUri = AuthSession.makeRedirectUri({
-    useProxy: Platform.OS !== 'web',
-  });
-
-  // ใช้ค่านี้ไปเพิ่มใน Google Cloud Console → Credentials → Web client → Authorized redirect URIs
-  useEffect(() => {
-    if (__DEV__ && redirectUri) console.log('[Google OAuth] redirectUri:', redirectUri);
-  }, [redirectUri]);
+  const redirectUri = AuthSession.makeRedirectUri();
 
   const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: GOOGLE_CLIENT_ID,
+    webClientId: GOOGLE_CLIENT_ID,
     iosClientId: GOOGLE_CLIENT_ID,
     androidClientId: GOOGLE_CLIENT_ID,
-    webClientId: GOOGLE_CLIENT_ID,
     scopes: ['profile', 'email'],
-    redirectUri,
   });
 
   useEffect(() => {
-    handleResponse();
-  }, [response]);
-
-  const handleResponse = async () => {
-    if (response?.type === 'success') {
+    if (Platform.OS === 'web' && response?.type === 'success') {
       const { authentication } = response;
       if (authentication?.accessToken) {
-        try {
-          const { API } = await import('../config');
-          const backendRes = await fetch(API.GOOGLE_LOGIN, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'ngrok-skip-browser-warning': '1',
-            },
-            body: JSON.stringify({ accessToken: authentication.accessToken, role: ROLE }),
-          });
+        handleAccessToken(authentication.accessToken);
+      }
+    }
+  }, [response]);
 
-          const data = await backendRes.json();
+  const handleAccessToken = async (accessToken: string) => {
+    setIsLoading(true);
+    try {
+      const { API } = await import('../config');
+      const backendRes = await fetch(API.GOOGLE_LOGIN, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': '1',
+        },
+        body: JSON.stringify({ accessToken, role: ROLE }),
+      });
 
-          if (data.next === 'REGISTER') {
-            router.replace({
-              pathname: '/signup/register',
-              params: {
-                tempToken: data.tempToken,
-                email: data.profile?.email || '',
-                displayName: data.profile?.name || '',
-                role: ROLE,
-              },
-            });
-          } else if (data.next === 'APP') {
-            await login(data.token, data.user);
-            router.replace('/(tabs)');
-          } else {
-            Alert.alert('Error', data.message || 'Login failed');
-          }
-        } catch (error) {
-          console.error('Error during login:', error);
-          Alert.alert('Error', 'Failed to login');
+      const data = await backendRes.json();
+
+      if (data.next === 'REGISTER') {
+        router.replace({
+          pathname: '/signup/register',
+          params: {
+            tempToken: data.tempToken,
+            email: data.profile?.email || '',
+            displayName: data.profile?.name || '',
+            role: ROLE,
+          },
+        });
+      } else if (data.next === 'APP') {
+        await login(data.token, data.user);
+        router.replace('/(tabs)');
+      } else {
+        Alert.alert('Error', data.message || 'Login failed');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to login');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMobileGoogleSignIn = async () => {
+    try {
+      setIsLoading(true);
+      const scheme = 'exp://192.168.0.247:8081';
+      const authUrl = `${BACKEND_URL}/api/google/start?redirect_scheme=${encodeURIComponent(scheme)}`;
+
+      const result = await WebBrowser.openAuthSessionAsync(
+        authUrl + '&ngrok-skip-browser-warning=1',
+        scheme
+      );
+
+      if (result.type === 'success' && result.url) {
+        const url = new URL(result.url);
+        const accessToken = url.searchParams.get('access_token');
+        if (accessToken) {
+          await handleAccessToken(accessToken);
+        } else {
+          Alert.alert('Error', 'No access token received');
         }
       }
-    } else if (response?.type === 'error') {
+    } catch (error) {
       Alert.alert('Error', 'Google Sign-In failed');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleGoogleSignIn = () => {
-    if (!request) return;
-    // @ts-ignore
-    promptAsync({ useProxy: Platform.OS !== 'web', showInRecents: false });
+    if (Platform.OS === 'web') {
+      if (!request) return;
+      promptAsync();
+    } else {
+      handleMobileGoogleSignIn();
+    }
   };
 
   const handleDevModeMain = () => {
