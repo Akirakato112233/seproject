@@ -339,7 +339,7 @@ export const merchantAcceptOrder = async (req: AuthRequest, res: Response) => {
 export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
     try {
         const { orderId } = req.params;
-        const { status } = req.body;
+        const { status, riderId } = req.body;
 
         const foundOrder = await findOrderWithModel(orderId);
         const existingOrder = foundOrder?.order;
@@ -352,9 +352,11 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
         const updateQuery = status === 'rider_coming'
             ? { _id: actualOrderId, status: { $in: ['pending', 'decision', 'waiting_rider'] } }
             : { _id: actualOrderId };
+        const updatePayload: any = { status };
+        if (status === 'rider_coming' && riderId) updatePayload.riderId = riderId;
         const order = await Order.findOneAndUpdate(
             updateQuery,
-            { status },
+            updatePayload,
             { new: true }
         );
 
@@ -622,5 +624,61 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
     } catch (error) {
         console.error('❌ Get Pending Orders Error:', error);
         res.status(500).json({ success: false, message: 'Failed to get pending orders' });
+    }
+};
+
+/** ดึง Order ที่ Ready for Pickup ของ rider นี้ (ผ้าอยู่ที่ร้าน รอไรเดอร์มารับไปส่งลูกค้า) */
+export const getRiderReadyForPickup = async (req: AuthRequest, res: Response) => {
+    try {
+        const riderId = (req.query.riderId as string) || (req as any).user?.userId;
+        if (!riderId) {
+            return res.status(400).json({ success: false, message: 'riderId is required (query or auth)' });
+        }
+
+        const orders = await Order.find({
+            riderId,
+            status: { $in: ['in_progress', 'out_for_delivery'] }
+        }).sort({ updatedAt: -1 });
+
+        const enriched = await Promise.all(orders.map(async (order) => {
+            let shop: any = null;
+            if (order.shopId && /^[0-9a-fA-F]{24}$/.test(String(order.shopId))) {
+                shop = await Shop.findById(order.shopId);
+            }
+            const shopCoords = shop?.location
+                ? { latitude: shop.location.lat, longitude: shop.location.lng }
+                : { latitude: 13.117629, longitude: 100.916613 };
+            const customerCoords = { latitude: 13.113625, longitude: 100.919286 };
+
+            return {
+                id: String(order._id),
+                orderId: `ORD-${String(order._id).slice(-4)}`,
+                status: order.status,
+                statusLabel: 'Ready for Pickup',
+                total: order.total || 0,
+                paymentMethod: order.paymentMethod || 'cash',
+                paymentLabel: order.paymentMethod === 'wallet' ? 'Wallet' : 'เงินสด',
+                customerName: order.userDisplayName || 'Customer',
+                customerAddress: order.userAddress || '',
+                customerPhone: (order as any).customerPhone || '',
+                shopName: order.shopName || shop?.name || 'Unknown Shop',
+                shopAddress: shop?.address || 'ไม่ระบุที่อยู่ร้าน',
+                shopPhone: shop?.phone || '',
+                items: order.items || [],
+                note: (order as any).note || '',
+                createdAt: order.createdAt,
+                updatedAt: order.updatedAt,
+                // สำหรับแผนที่/เส้นทาง
+                pickup: shopCoords,
+                dropoff: customerCoords,
+                shop: shopCoords,
+                fee: order.deliveryFee || 0,
+            };
+        }));
+
+        res.json({ success: true, orders: enriched });
+    } catch (error) {
+        console.error('Get Rider Ready For Pickup Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to get ready-for-pickup orders' });
     }
 };

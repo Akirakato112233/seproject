@@ -33,6 +33,11 @@ export default function CreateAccountScreen() {
     useProxy: Platform.OS !== 'web',
   });
 
+  // ใช้ค่านี้ไปเพิ่มใน Google Cloud Console → Credentials → Web client → Authorized redirect URIs
+  useEffect(() => {
+    if (__DEV__ && redirectUri) console.log('[Google OAuth] redirectUri:', redirectUri);
+  }, [redirectUri]);
+
   const [request, response, promptAsync] = Google.useAuthRequest({
     clientId: GOOGLE_CLIENT_ID,
     iosClientId: GOOGLE_CLIENT_ID,

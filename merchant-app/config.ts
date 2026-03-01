@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 // Web ใช้ localhost ได้เลย, มือถือต้องใช้ IP จริงของเครื่อง
 export const BASE_URL = Platform.OS === 'web'
   ? 'http://localhost:3000'
-  : 'https://unsure-smectic-alondra.ngrok-free.dev';
+  : 'http://192.168.1.11:3000';
 
 // ระบุร้านที่ต้องการโหลด (จาก _id ใน MongoDB Atlas)
 // ถ้ากำหนดไว้ แอปจะโหลดร้านนี้โดยตรง ให้ตรงกับดาต้าเบสที่เปิดอยู่

@@ -6,6 +6,7 @@ import {
     updateOrderStatus,
     getOrderHistory,
     getPendingOrders,
+    getRiderReadyForPickup,
     getMerchantPendingOrders,
     getMerchantCurrentOrders,
     getMerchantOrderHistory,
@@ -18,6 +19,9 @@ const router = Router();
 
 // GET /api/orders/pending - ดึง order ที่รอ Rider (ไม่ต้อง auth เพื่อให้ dev mode ใช้ได้)
 router.get('/pending', getPendingOrders);
+
+// GET /api/orders/rider/ready-for-pickup?riderId=xxx - ออเดอร์ที่ร้านซักเสร็จแล้ว รอไรเดอร์มารับ
+router.get('/rider/ready-for-pickup', getRiderReadyForPickup);
 
 // GET /api/orders/merchant/:shopId/pending - ดึง order ที่รอ Merchant รับ (สำหรับร้าน)
 router.get('/merchant/:shopId/pending', getMerchantPendingOrders);

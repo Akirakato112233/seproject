@@ -1,18 +1,54 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
 import { useDelivery } from "../../context/DeliveryContext";
+import type { Order } from "../../context/DeliveryContext";
 
 function formatMoney(n: number) {
   return `${n.toFixed(2)}฿`;
 }
 
-function formatTime(iso: string) {
+/** วันที่แบบ พ.ศ. เช่น 27/02/2569 BE, 17:13:51 */
+function formatTimeBE(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleString();
+  const day = d.getDate().toString().padStart(2, "0");
+  const month = (d.getMonth() + 1).toString().padStart(2, "0");
+  const year = d.getFullYear() + 543;
+  const [h, m, s] = d.toTimeString().slice(0, 8).split(":");
+  return `${day}/${month}/${year} BE, ${h}:${m}:${s}`;
+}
+
+function paymentLabel(paymentMethod?: string): string {
+  if (paymentMethod === "wallet") return "Coin";
+  if (paymentMethod === "cash") return "Full";
+  if (paymentMethod === "card") return "Full";
+  return "Full";
+}
+
+function OrderRow({ o, showDate = true }: { o: Order & { completedAt?: string }; showDate?: boolean }) {
+  const dateStr = o.completedAt ? formatTimeBE(o.completedAt) : (o as any).createdAt ? formatTimeBE((o as any).createdAt) : "";
+  return (
+    <View style={s.item}>
+      <View style={{ flex: 1 }}>
+        <Text style={s.itemTitle}>{o.shopName}</Text>
+        <Text style={s.itemSub}>{o.customerName}</Text>
+        {showDate && dateStr ? <Text style={s.itemTime}>{dateStr}</Text> : null}
+      </View>
+      <View style={s.itemRight}>
+        <View style={s.paymentPill}>
+          <Text style={s.paymentPillText}>{paymentLabel((o as any).paymentMethod)}</Text>
+        </View>
+        <Text style={s.itemFee}>{formatMoney(o.fee)}</Text>
+      </View>
+    </View>
+  );
 }
 
 export default function EarningScreen() {
-  const { totals, history, clearHistory } = useDelivery();
+  const { totals, history, clearHistory, available, active } = useDelivery();
+
+  const hasReady = available.length > 0;
+  const hasInProgress = active !== null;
+  const hasHistory = history.length > 0;
 
   return (
     <ScrollView style={s.container} contentContainerStyle={{ padding: 16, paddingBottom: 28 }}>
@@ -29,30 +65,57 @@ export default function EarningScreen() {
         </View>
       </View>
 
-      <View style={s.sectionHeader}>
-        <Text style={s.sectionTitle}>History</Text>
-        <TouchableOpacity onPress={clearHistory} style={s.clearBtn}>
-          <Text style={s.clearText}>Clear</Text>
-        </TouchableOpacity>
-      </View>
+      {hasReady && (
+        <>
+          <View style={s.statusPillWrap}>
+            <View style={[s.statusPill, s.statusReady]}>
+              <Text style={s.statusPillText}>Ready for Pickup</Text>
+            </View>
+          </View>
+          {available.map((o) => (
+            <OrderRow key={o.id} o={o} showDate={!!(o as any).createdAt} />
+          ))}
+        </>
+      )}
 
-      {history.length === 0 ? (
+      {hasInProgress && active && (
+        <>
+          <View style={s.statusPillWrap}>
+            <View style={[s.statusPill, s.statusProgress]}>
+              <Text style={s.statusPillText}>In progress</Text>
+            </View>
+          </View>
+          <OrderRow o={active} showDate={false} />
+        </>
+      )}
+
+      {hasHistory && (
+        <>
+          <View style={s.statusPillWrap}>
+            <View style={[s.statusPill, s.statusCompleted]}>
+              <Text style={s.statusPillText}>Completed</Text>
+            </View>
+          </View>
+          {history.map((o) => (
+            <OrderRow key={`${o.id}-${o.completedAt}`} o={o} />
+          ))}
+        </>
+      )}
+
+      {!hasReady && !hasInProgress && !hasHistory && (
         <View style={s.empty}>
           <Text style={s.emptyTitle}>No history yet</Text>
           <Text style={s.emptySub}>Complete a job to see earnings here.</Text>
         </View>
-      ) : (
-        history.map((o) => (
-          <View key={`${o.id}-${o.completedAt}`} style={s.item}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.itemTitle}>{o.shopName}</Text>
-              <Text style={s.itemSub}>{o.customerName}</Text>
-              <Text style={s.itemTime}>{formatTime(o.completedAt)}</Text>
-            </View>
-            <Text style={s.itemFee}>{formatMoney(o.fee)}</Text>
-          </View>
-        ))
       )}
+
+      {hasHistory ? (
+        <View style={s.sectionHeader}>
+          <TouchableOpacity onPress={clearHistory} style={s.clearBtn}>
+            <Text style={s.clearText}>Clear</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -71,6 +134,13 @@ const s = StyleSheet.create({
   clearBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: "#EEF2F7" },
   clearText: { fontWeight: "900", color: "#334155" },
 
+  statusPillWrap: { marginTop: 14, marginBottom: 8 },
+  statusPill: { alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
+  statusPillText: { fontSize: 12, fontWeight: "800", color: "#fff" },
+  statusReady: { backgroundColor: "#22C55E" },
+  statusProgress: { backgroundColor: "#EAB308" },
+  statusCompleted: { backgroundColor: "#64748B" },
+
   item: {
     backgroundColor: "#fff",
     borderRadius: 16,
@@ -84,6 +154,9 @@ const s = StyleSheet.create({
   itemTitle: { fontSize: 14, fontWeight: "900", color: "#0F172A" },
   itemSub: { fontSize: 12, fontWeight: "700", color: "#64748B", marginTop: 2 },
   itemTime: { fontSize: 11, fontWeight: "700", color: "#94A3B8", marginTop: 6 },
+  itemRight: { alignItems: "flex-end", gap: 6 },
+  paymentPill: { backgroundColor: "#3B82F6", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  paymentPillText: { fontSize: 11, fontWeight: "800", color: "#fff" },
   itemFee: { fontSize: 14, fontWeight: "900", color: "#0F172A" },
 
   empty: { backgroundColor: "#fff", borderRadius: 16, padding: 16, elevation: 1 },

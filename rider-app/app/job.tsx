@@ -28,7 +28,7 @@ export default function JobScreen() {
   const webViewRef = useRef<WebView | null>(null);
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
 
-  const { active, markPickedUp, markAtShop, markDelivered } = useDelivery();
+  const { active, markPickedUp, markAtShop, markPickedUpFromShop, markDelivered } = useDelivery();
 
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [myCoord, setMyCoord] = useState<LatLng>(DEFAULT_COORDS);
@@ -38,7 +38,7 @@ export default function JobScreen() {
   const target = useMemo<LatLng | null>(() => {
     if (!active) return null;
     if (stage === "going_to_customer") return active.pickup;
-    if (stage === "going_to_shop") return active.shop ?? active.pickup;
+    if (stage === "going_to_shop" || stage === "going_to_shop_pickup") return active.shop ?? active.pickup;
     return active.dropoff;
   }, [active, stage]);
 
@@ -335,16 +335,15 @@ export default function JobScreen() {
   const stepTitles: Record<string, string> = {
     going_to_customer: "ไปรับผ้า",
     going_to_shop: "ไปร้าน",
+    going_to_shop_pickup: "ไปรับผ้าที่ร้าน",
     delivering: "ไปส่งผ้า",
   };
   const stepTitle = stepTitles[active.status] ?? "Job";
 
-  const placeName =
-    stage === "going_to_shop" ? active.shopName : active.customerName;
-  const placeAddress =
-    stage === "going_to_shop" ? active.shopAddress : active.customerAddress;
-  const phone =
-    stage === "going_to_shop" ? active.shopPhone : active.customerPhone;
+  const isShopStage = stage === "going_to_shop" || stage === "going_to_shop_pickup";
+  const placeName = isShopStage ? active.shopName : active.customerName;
+  const placeAddress = isShopStage ? active.shopAddress : active.customerAddress;
+  const phone = isShopStage ? active.shopPhone : active.customerPhone;
 
   const onPrimary = () => {
     if (stage === "going_to_customer") {
@@ -353,6 +352,10 @@ export default function JobScreen() {
     }
     if (stage === "going_to_shop") {
       markAtShop();
+      return;
+    }
+    if (stage === "going_to_shop_pickup") {
+      markPickedUpFromShop();
       return;
     }
     Alert.alert("ยืนยัน", "ส่งผ้าให้ลูกค้าเรียบร้อยแล้ว?", [
@@ -371,6 +374,7 @@ export default function JobScreen() {
   const primaryLabels: Record<string, string> = {
     going_to_customer: "รับผ้าแล้ว",
     going_to_shop: "ถึงร้านแล้ว",
+    going_to_shop_pickup: "รับผ้าแล้ว",
     delivering: "ส่งแล้ว",
   };
   const primaryLabel = primaryLabels[active.status] ?? "ดำเนินการ";

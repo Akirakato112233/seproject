@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// 3 ขั้น: ไปรับผ้าที่ลูกค้า → ไปร้าน → ไปส่งที่ลูกค้า
-export type DeliveryStatus = "going_to_customer" | "going_to_shop" | "delivering";
+// 4 ขั้น: ไปรับผ้าที่ลูกค้า → ไปร้าน(ส่งผ้า) → [ปล่อยไรเดอร์] → ไปร้าน(รับผ้าซักเสร็จ) → ไปส่งลูกค้า
+export type DeliveryStatus = "going_to_customer" | "going_to_shop" | "going_to_shop_pickup" | "delivering";
 
 export type LatLng = { latitude: number; longitude: number };
 export type PaymentMethod = "cash" | "card";
@@ -20,7 +20,7 @@ export type Order = {
   items: number;
 
   // map: ที่อยู่ลูกค้า (รับผ้า/ส่งผ้า), ร้าน
-  pickup: LatLng;   // ที่รับผ้า = ลูกค้า
+  pickup: LatLng;   // ที่รับผ้า = ลูกค้า (หรือร้านเมื่อ stage = going_to_shop_pickup)
   dropoff: LatLng;  // ที่ส่งผ้า = ลูกค้า (จุดเดียวกัน)
   shop: LatLng;     // พิกัดร้าน
 
@@ -38,10 +38,22 @@ export type Order = {
 export type ActiveOrder = Order & { status: DeliveryStatus };
 export type CompletedOrder = Order & { completedAt: string };
 
+/** ออเดอร์จาก API Ready for Pickup (ผ้าซักเสร็จ รอไรเดอร์มารับ) */
+export type ReadyForPickupOrder = Order & {
+  orderId?: string;
+  total?: number;
+  paymentLabel?: string;
+  itemsList?: { name: string; details?: string; price: number }[];
+  note?: string;
+  shopPhone?: string;
+  customerPhone?: string;
+};
+
 type DeliveryContextType = {
   available: Order[];
   active: ActiveOrder | null;
   history: CompletedOrder[];
+  readyForPickup: ReadyForPickupOrder[];
 
   // ✅ ใช้ตัวนี้เวลาเรา "เริ่มงาน" (รับจากรายการหรือ demo ก็ได้)
   startOrder: (order: Order) => Promise<boolean>;
@@ -51,9 +63,15 @@ type DeliveryContextType = {
 
   // รับผ้าจากลูกค้าแล้ว → ไปร้าน
   markPickedUp: () => void;
-  // ถึงร้านแล้ว (วางผ้า) → ไปส่งลูกค้า
+  // ถึงร้านแล้ว (วางผ้า) → ปล่อยไรเดอร์ รอร้านซักเสร็จ
   markAtShop: () => void;
+  // เริ่มไปรับผ้าที่ร้าน (จาก Ready for Pickup)
+  startPickupFromShop: (order: ReadyForPickupOrder) => void;
+  // รับผ้าที่ร้านแล้ว (ซักเสร็จ) → ไปส่งลูกค้า
+  markPickedUpFromShop: () => void;
   markDelivered: () => void;
+
+  refreshReadyForPickup: () => Promise<void>;
 
   clearHistory: () => void;
   totals: { totalOrders: number; totalEarnings: number };
@@ -81,6 +99,9 @@ const KU_SRIRACHA_COORDS = { latitude: 13.1219, longitude: 100.9209 };
 
 import { useAuth } from './AuthContext';
 
+// โหมด dev ไม่ login: ใช้ riderId นี้เพื่อรับงานและดึง Ready for Pickup (ต้องมี user นี้ใน DB เช่นจาก seed)
+const DEV_RIDER_ID = '698e27ff93d8fdbda13bb05c';
+
 export function DeliveryProvider({ children }: { children: React.ReactNode }) {
   const [available, setAvailable] = useState<Order[]>([]);
   const [active, setActive] = useState<ActiveOrder | null>(null);
@@ -89,8 +110,10 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
   const [isOnline, setIsOnline] = useState(false);
   const [autoAccept, setAutoAccept] = useState(false);
 
-  // Auth
-  const { token } = useAuth();
+  // Auth; โหมด dev ไม่ login ใช้ DEV_RIDER_ID แทน user._id
+  const { token, user, isDevMode } = useAuth();
+  const effectiveRiderId = user?._id ?? (isDevMode ? DEV_RIDER_ID : undefined);
+  const [readyForPickup, setReadyForPickup] = useState<ReadyForPickupOrder[]>([]);
 
   const toggleOnline = () => {
     setIsOnline((v) => {
@@ -162,14 +185,16 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
     ).catch(() => { });
   }, [available, active, history, isOnline, autoAccept]);
 
-  const updateBackendStatus = async (orderId: string, status: string) => {
+  const updateBackendStatus = async (orderId: string, status: string, riderId?: string) => {
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
+      const body: { status: string; riderId?: string } = { status };
+      if (riderId) body.riderId = riderId;
       const response = await fetch(`${API.ORDERS}/${orderId}/status`, {
         method: 'PATCH',
         headers,
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(body),
       });
       const data = await response.json();
       
@@ -187,15 +212,16 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
 
   const startOrder = async (order: Order): Promise<boolean> => {
     if (active) return false;
-    
-    // พยายามอัปเดต backend ก่อน
-    const success = await updateBackendStatus(order.id, 'rider_coming');
+    // ใช้ user._id เป็น riderId; โหมด dev ไม่ login ใช้ DEV_RIDER_ID
+    const riderId = effectiveRiderId;
+    if (!riderId) return false;
+
+    const success = await updateBackendStatus(order.id, 'rider_coming', riderId);
     if (!success) {
-      // Order ถูกรับไปแล้ว - ลบออกจาก available และ return
       setAvailable((prev) => prev.filter((o) => o.id !== order.id));
       return false;
     }
-    
+
     const shop = (order as any).shop ?? order.pickup;
     setActive({ ...order, shop, status: "going_to_customer" });
     setAvailable((prev) => prev.filter((o) => o.id !== order.id));
@@ -220,15 +246,85 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
   const markPickedUp = () => {
     if (!active) return;
     setActive({ ...active, status: "going_to_shop" });
-    // อัปเดต backend: rider รับผ้าจากลูกค้าแล้ว กำลังไปร้าน
-    updateBackendStatus(active.id, 'at_shop');
+    // ไม่อัปเดต backend ตอนนี้ — จะอัปเดตเป็น at_shop เมื่อกด "ถึงร้านแล้ว"
   };
 
   const markAtShop = () => {
     if (!active) return;
+    // อัปเดต backend: ถึงร้านแล้ว ส่งผ้าให้ร้านแล้ว (ร้านจะซัก) → ปล่อยไรเดอร์
+    updateBackendStatus(active.id, 'at_shop');
+    setActive(null);
+  };
+
+  const fetchReadyForPickup = async () => {
+    const riderId = effectiveRiderId;
+    if (!riderId) {
+      setReadyForPickup([]);
+      return;
+    }
+    try {
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${API.ORDERS}/rider/ready-for-pickup?riderId=${encodeURIComponent(riderId)}`, { headers });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.orders)) {
+        const mapped: ReadyForPickupOrder[] = data.orders.map((o: any) => ({
+          id: o.id,
+          orderId: o.orderId,
+          shopName: o.shopName,
+          shopAddress: o.shopAddress,
+          customerName: o.customerName,
+          customerAddress: o.customerAddress,
+          distance: '1.5 km',
+          fee: o.fee ?? o.total ?? 0,
+          items: Array.isArray(o.items) ? o.items.length : 0,
+          pickup: o.pickup ?? o.shop,
+          dropoff: o.dropoff,
+          shop: o.shop ?? o.pickup,
+          paymentMethod: o.paymentMethod === 'wallet' ? 'card' : 'cash',
+          paymentLabel: o.paymentLabel,
+          status: o.status,
+          total: o.total,
+          note: o.note,
+          shopPhone: o.shopPhone,
+          customerPhone: o.customerPhone,
+          ...(Array.isArray(o.items) && { itemsList: o.items }),
+        }));
+        setReadyForPickup(mapped);
+      } else {
+        setReadyForPickup([]);
+      }
+    } catch (e) {
+      console.log('Fetch ready-for-pickup error:', e);
+      setReadyForPickup([]);
+    }
+  };
+
+  const refreshReadyForPickup = () => fetchReadyForPickup();
+
+  // ดึง Ready for Pickup เมื่อ login หรือโหมด dev (ใช้ effectiveRiderId)
+  useEffect(() => {
+    if (!effectiveRiderId) return;
+    fetchReadyForPickup();
+    const t = setInterval(fetchReadyForPickup, 8000);
+    return () => clearInterval(t);
+  }, [effectiveRiderId]);
+
+  const startPickupFromShop = (order: ReadyForPickupOrder) => {
+    if (active) return;
+    const shop = (order as any).shop ?? order.pickup;
+    setActive({
+      ...order,
+      shop,
+      status: "going_to_shop_pickup",
+    });
+    setReadyForPickup((prev) => prev.filter((o) => o.id !== order.id));
+  };
+
+  const markPickedUpFromShop = () => {
+    if (!active || active.status !== "going_to_shop_pickup") return;
+    updateBackendStatus(active.id, 'deliverying');
     setActive({ ...active, status: "delivering" });
-    // อัปเดต backend: rider ถึงร้านแล้ว กำลังส่งผ้า
-    updateBackendStatus(active.id, 'delivering');
   };
 
   const markDelivered = () => {
@@ -259,12 +355,16 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
         available,
         active,
         history,
+        readyForPickup,
         startOrder,
         acceptOrder,
         declineOrder,
         markPickedUp,
         markAtShop,
+        startPickupFromShop,
+        markPickedUpFromShop,
         markDelivered,
+        refreshReadyForPickup,
         clearHistory,
         totals,
         isOnline,
