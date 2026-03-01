@@ -1,7 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -13,13 +12,10 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '../../context/AuthContext';
-import { API, NGROK_HEADERS } from '../../config';
 
 /**
  * Register Screen - สำหรับ Merchant หลัง Google Sign-In
- * รูปแบบเหมือน user app (displayName, phone)
- * demo=1: ไม่บันทึกลง DB แค่แสดง flow แล้ว login ด้วย demo user
+ * บันทึกลง collection merchant-user
  */
 export default function RegisterScreen() {
   const router = useRouter();
@@ -27,87 +23,41 @@ export default function RegisterScreen() {
     email?: string;
     displayName?: string;
     tempToken?: string;
-    demo?: string;
   }>();
 
   const [displayName, setDisplayName] = useState(params.displayName || '');
-  const [phone, setPhone] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [countryCode] = useState('+66');
+  const [mobileNumber, setMobileNumber] = useState('');
   const submittedRef = useRef(false);
-  const { login } = useAuth();
 
-  const isDemo = params.demo === '1';
   const isValid =
     displayName.trim().length >= 2 &&
-    phone.trim().length >= 9 &&
-    phone[0] === '0';
+    mobileNumber.replace(/\D/g, '').length >= 9;
 
-  const handleRegister = async () => {
+  const handleContinue = () => {
     if (displayName.trim().length < 2) {
       Alert.alert('Error', 'Please enter a valid display name');
       return;
     }
-    if (phone.length > 0 && phone[0] !== '0') {
-      Alert.alert('Error', 'Phone number must start with 0');
-      return;
-    }
-    if (phone.trim().length < 9) {
+    const digits = mobileNumber.replace(/\D/g, '');
+    if (digits.length < 9) {
       Alert.alert('Error', 'Please enter a valid phone number');
       return;
     }
     if (submittedRef.current) return;
     submittedRef.current = true;
 
-    setLoading(true);
-
-    try {
-      if (isDemo) {
-        // Demo mode: ไม่บันทึกลง DB แค่ login ด้วย demo user
-        await login('demo_merchant_token', {
-          _id: 'demo-merchant',
-          email: params.email || 'demo@merchant.local',
-          displayName: displayName.trim(),
-          phone: phone.trim(),
-        } as any);
-        router.replace('/(tabs)');
-        return;
-      }
-
-      const body = params.tempToken
-        ? {
-            tempToken: params.tempToken,
-            displayName: displayName.trim(),
-            phone: phone.trim(),
-            role: 'merchant',
-          }
-        : {
-            email: params.email,
-            displayName: displayName.trim(),
-            phone: phone.trim(),
-          };
-      const apiUrl = API.GOOGLE_REGISTER;
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
-        body: JSON.stringify(body),
-      });
-
-      const data = await response.json();
-
-      if ((data.success || data.next === 'APP') && data.user) {
-        if (data.token) {
-          await login(data.token, data.user);
-        }
-        router.replace('/(tabs)');
-      } else {
-        Alert.alert('Error', data.message || 'Registration failed');
-      }
-    } catch (error: any) {
-      console.error('Register error:', error);
-      Alert.alert('Error', error.message || 'Registration failed');
-    } finally {
-      setLoading(false);
-    }
+    const phone = `${countryCode}${digits.replace(/^0+/, '')}`;
+    router.push({
+      pathname: '/signup/service-preference',
+      params: {
+        tempToken: params.tempToken,
+        email: params.email,
+        displayName: displayName.trim(),
+        phone,
+      },
+    });
+    submittedRef.current = false;
   };
 
   return (
@@ -148,35 +98,33 @@ export default function RegisterScreen() {
 
             <View style={s.inputGroup}>
               <Text style={s.label}>Phone Number *</Text>
-              <TextInput
-                style={s.input}
-                placeholder="เบอร์โทรศัพท์สำหรับติดต่อ"
-                value={phone}
-                onChangeText={(text) => {
-                  const cleaned = text.replace(/\D/g, '');
-                  setPhone(cleaned);
-                }}
-                keyboardType="phone-pad"
-                maxLength={10}
-              />
+              <View style={s.phoneRow}>
+                <View style={s.countryCodeBox}>
+                  <Text style={s.flag}>🇹🇭</Text>
+                  <Text style={s.countryCodeText}>{countryCode}</Text>
+                </View>
+                <TextInput
+                  style={[s.input, s.phoneInput]}
+                  placeholder="Mobile number"
+                  value={mobileNumber}
+                  onChangeText={(text) => {
+                    const cleaned = text.replace(/\D/g, '');
+                    setMobileNumber(cleaned);
+                  }}
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                />
+              </View>
             </View>
           </View>
-
-          {isDemo && (
-            <Text style={s.demoHint}>Demo mode: ข้อมูลจะไม่ถูกบันทึกลงระบบ</Text>
-          )}
 
           <TouchableOpacity
             style={[s.cta, !isValid && s.ctaDisabled]}
             activeOpacity={0.85}
-            onPress={handleRegister}
-            disabled={!isValid || loading}
+            onPress={handleContinue}
+            disabled={!isValid}
           >
-            {loading ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <Text style={s.ctaText}>Create Account</Text>
-            )}
+            <Text style={s.ctaText}>Continue</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -232,12 +180,24 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   inputText: { fontSize: 15, color: '#666' },
-  demoHint: {
-    fontSize: 12,
-    color: '#94a3b8',
-    textAlign: 'center',
-    marginBottom: 16,
+  phoneRow: {
+    flexDirection: 'row',
+    gap: 12,
   },
+  countryCodeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 48,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    backgroundColor: '#FAFAFA',
+    gap: 6,
+  },
+  flag: { fontSize: 20 },
+  countryCodeText: { fontSize: 15, color: '#333', fontWeight: '500' },
+  phoneInput: { flex: 1 },
   cta: {
     height: 52,
     borderRadius: 26,

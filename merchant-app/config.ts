@@ -35,6 +35,9 @@ export const API = {
     // Google Auth APIs (new)
     GOOGLE_LOGIN: `${BASE_URL}/api/google/login`,
     GOOGLE_REGISTER: `${BASE_URL}/api/google/register`,
+    // Merchant Auth (เก็บใน merchant-user)
+    MERCHANTS_GOOGLE_LOGIN: `${BASE_URL}/api/merchants/google/login`,
+    MERCHANTS_GOOGLE_REGISTER: `${BASE_URL}/api/merchants/google/register`,
     // Order APIs
     ORDERS: `${BASE_URL}/api/orders`,
     ORDERS_ACTIVE: `${BASE_URL}/api/orders/active`,
