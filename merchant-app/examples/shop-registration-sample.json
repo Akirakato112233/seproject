@@ -1,0 +1,102 @@
+{
+  "merchantUserId": "674a1b2c3d4e5f6789012345",
+  "status": "pending",
+  "businessType": "full",
+
+  "shop_name": "ร้านซักผ้าสะอาด สาขาสยาม",
+  "phone": "0812345678",
+  "email": "shop@laundry-clean.com",
+  "owner_first_name": "สมชาย",
+  "owner_last_name": "ใจดี",
+  "owner_phone": "0898765432",
+
+  "id_card_front": "https://xxx.supabase.co/storage/v1/object/public/documents/merchant-registration/id-front-1730123456-abc123.jpg",
+  "id_card_back": "https://xxx.supabase.co/storage/v1/object/public/documents/merchant-registration/id-back-1730123457-def456.jpg",
+  "selfie_with_id": "https://xxx.supabase.co/storage/v1/object/public/documents/merchant-registration/selfie-1730123458-ghi789.jpg",
+  "id_number": "1234567890123",
+  "first_name": "สมชาย",
+  "last_name": "ใจดี",
+  "date_of_birth": "1990-05-15",
+  "address_on_card": "123 ถ.สุขุมวิท แขวงคลองเตย เขตคลองเตย กรุงเทพฯ 10110",
+
+  "business_type": "individual",
+  "tax_id": "1234567890123",
+  "registered_name": "สมชาย ใจดี",
+  "registered_address": "123 ถ.สุขุมวิท กรุงเทพฯ",
+  "business_document": "https://xxx.supabase.co/storage/v1/object/public/documents/merchant-registration/biz-doc-1730123459-jkl012.pdf",
+
+  "bank_name": "กสิกรไทย",
+  "account_number": "1234567890",
+  "account_name": "นายสมชาย ใจดี",
+  "account_type": "savings",
+  "bank_book_image": "https://xxx.supabase.co/storage/v1/object/public/documents/merchant-registration/bank-book-1730123460-mno345.jpg",
+
+  "logo": "https://xxx.supabase.co/storage/v1/object/public/documents/merchant-registration/logo-1730123461-pqr678.jpg",
+  "shop_photos": [
+    "https://xxx.supabase.co/storage/v1/object/public/documents/merchant-registration/shop-photo-1730123462-stu901.jpg",
+    "https://xxx.supabase.co/storage/v1/object/public/documents/merchant-registration/shop-photo-1730123463-vwx234.jpg"
+  ],
+  "address_line": "456 ถ.พระราม 4 แขวงคลองเตย",
+  "subdistrict": "คลองเตย",
+  "district": "คลองเตย",
+  "province": "กรุงเทพมหานคร",
+  "postal_code": "10110",
+  "latitude": 13.7563,
+  "longitude": 100.5018,
+  "service_radius_km": 5,
+  "capacity_per_day": 50,
+
+  "business_hours": [
+    { "day": "จันทร์", "is_open": true, "open_time": "08:00", "close_time": "20:00" },
+    { "day": "อังคาร", "is_open": true, "open_time": "08:00", "close_time": "20:00" },
+    { "day": "พุธ", "is_open": true, "open_time": "08:00", "close_time": "20:00" },
+    { "day": "พฤหัสบดี", "is_open": true, "open_time": "08:00", "close_time": "20:00" },
+    { "day": "ศุกร์", "is_open": true, "open_time": "08:00", "close_time": "20:00" },
+    { "day": "เสาร์", "is_open": true, "open_time": "09:00", "close_time": "18:00" },
+    { "day": "อาทิตย์", "is_open": false, "open_time": "08:00", "close_time": "20:00" }
+  ],
+  "cut_off_time": "18:00",
+
+  "wash_dry_fold": {
+    "enabled": true,
+    "standard_price_per_kg": 45,
+    "express_price_per_kg": 60,
+    "express_duration_hours": 6
+  },
+  "dry_cleaning": {
+    "enabled": true,
+    "items": [
+      { "name": "เสื้อเชิ้ต", "price": 80 },
+      { "name": "กางเกงขายาว", "price": 100 },
+      { "name": "สูท/แจ็คเก็ต", "price": 150 }
+    ]
+  },
+  "iron_only": {
+    "enabled": true,
+    "items": [
+      { "name": "เสื้อ", "price": 15 },
+      { "name": "กางเกง", "price": 20 }
+    ]
+  },
+  "service_categories": [
+    {
+      "id": "wash",
+      "name": "Washing",
+      "items": [
+        { "id": "w1", "name": "ซักปกติ", "price": 30 },
+        { "id": "w2", "name": "ซักพิเศษ", "price": 50 }
+      ]
+    },
+    {
+      "id": "iron-1",
+      "name": "Ironing - ชุดทำงาน",
+      "items": [
+        { "id": "i1", "name": "เสื้อเชิ้ต", "price": 25 },
+        { "id": "i2", "name": "กางเกงขาสั้น", "price": 20 }
+      ]
+    }
+  ],
+  "delivery_fee_type": "by_distance",
+  "delivery_fixed_price": null,
+  "standard_duration_hours": 24
+}

@@ -2,7 +2,7 @@
 
 const ENV = {
   dev: {
-    apiUrl: 'https://putative-renea-whisperingly.ngrok-free.dev/api',
+    apiUrl: 'http://192.168.1.46:3000/api',
   },
   prod: {
     // อันนี้สำหรับตอนเอาขึ้น Server จริง (ค่อยมาแก้ทีหลังได้)

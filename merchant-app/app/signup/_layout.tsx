@@ -5,6 +5,7 @@ export default function SignupLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="register" />
       <Stack.Screen name="service-preference" />
+      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
     </Stack>
   );
 }

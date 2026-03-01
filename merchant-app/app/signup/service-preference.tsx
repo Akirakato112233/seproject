@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
+import { useRegistrationStore } from '../../stores/registrationStore';
 import {
   ActivityIndicator,
   Alert,
@@ -38,6 +39,7 @@ export default function ServicePreferenceScreen() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { setPrefill, setBusinessType, setMerchantUser, setStep, resetForm } = useRegistrationStore();
 
   const handleContinue = async () => {
     if (!selected) {
@@ -69,7 +71,16 @@ export default function ServicePreferenceScreen() {
         if (data.token) {
           await login(data.token, data.user);
         }
-        router.replace('/(tabs)');
+        setPrefill({
+          email: params.email,
+          displayName: params.displayName,
+          phone: params.phone,
+        });
+        setBusinessType(selected);
+        setMerchantUser(String(data.user.id || data.user._id || ''));
+        resetForm();
+        setStep(1);
+        router.replace('/signup/onboarding/step-1');
       } else {
         Alert.alert('Error', data.message || 'Registration failed');
       }

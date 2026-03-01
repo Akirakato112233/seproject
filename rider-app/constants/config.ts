@@ -6,7 +6,7 @@ const ENV = {
     // วิธีดู IP:
     // Windows: เปิด cmd พิมพ์ ipconfig ดูตรง IPv4 Address
     // Mac: เปิด Terminal พิมพ์ ifconfig หรือดูใน Network Settings
-    apiUrl: 'https://unsure-smectic-alondra.ngrok-free.dev/api',
+    apiUrl: 'http://192.168.1.46:3000/api',
   },
   prod: {
     // อันนี้สำหรับตอนเอาขึ้น Server จริง (ค่อยมาแก้ทีหลังได้)

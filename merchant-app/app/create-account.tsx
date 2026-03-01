@@ -54,22 +54,31 @@ export default function CreateAccountScreen() {
         body: JSON.stringify({ accessToken }),
       });
 
-      const data = await backendRes.json();
+      const text = await backendRes.text();
+      let data: Record<string, unknown>;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        console.error('API returned non-JSON. Status:', backendRes.status, 'Body:', text.slice(0, 200));
+        Alert.alert('Error', 'Server returned invalid response. Check ngrok URL and backend.');
+        return;
+      }
 
       if (data.next === 'REGISTER') {
+        const profile = data.profile as { email?: string; name?: string } | undefined;
         router.replace({
           pathname: '/signup/register',
           params: {
-            tempToken: data.tempToken,
-            email: data.profile?.email || '',
-            displayName: data.profile?.name || '',
+            tempToken: String(data.tempToken ?? ''),
+            email: profile?.email || '',
+            displayName: profile?.name || '',
           },
         });
       } else if (data.next === 'APP') {
-        await login(data.token, data.user);
+        await login(String(data.token), data.user as any);
         router.replace('/(tabs)');
       } else {
-        Alert.alert('Error', data.message || 'Login failed');
+        Alert.alert('Error', (data.message as string) || 'Login failed');
       }
     } catch (error) {
       console.error('Error during login:', error);

@@ -2,7 +2,7 @@ import React, { createContext, useState, useContext, ReactNode, useCallback, use
 import { useAuth } from './AuthContext';
 import Constants from 'expo-constants';
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || 'https://putative-renea-whisperingly.ngrok-free.dev/api';
+const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://192.168.1.46:3000/api';
 
 export interface LocationData {
   address: string;
