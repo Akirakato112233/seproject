@@ -17,6 +17,9 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ต้อง trust proxy เมื่อใช้ ngrok (X-Forwarded-For)
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -32,7 +35,7 @@ app.use('/api/', apiLimiter);
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 200,
   message: { success: false, message: 'Too many auth attempts, please try again later.' },
 });
 app.use('/api/auth/', authLimiter);

@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { API, SHOP_ID } from '../config';
-import { setWalletShopId } from './OrdersContext';
+import { API, NGROK_HEADERS, SHOP_ID } from '../config';
+import { setWalletShopId } from './walletStore';
 
 // ========== Types matching backend Shop model ==========
 export interface WashServiceOption {
@@ -86,30 +86,46 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // โหลดข้อมูลร้าน
-  // ถ้ามี SHOP_ID ใน config จะโหลดร้านนั้นโดยตรง (ตรงกับดาต้าเบสที่เปิดใน Atlas)
-  // ถ้าไม่มี จะโหลดร้านแรกที่ type "full" เรียงตาม rating
+  // โหลดข้อมูลร้าน (มี retry เมื่อ 502/network error)
   const loadShop = useCallback(async () => {
+    const maxRetries = 3;
+    const retryDelay = 2000;
+
+    const doFetch = async (): Promise<ShopData | null> => {
+      if (SHOP_ID && SHOP_ID.trim()) {
+        const res = await fetch(`${API.SHOPS}/${SHOP_ID}`, { headers: NGROK_HEADERS });
+        if (!res.ok) throw new Error(res.status === 502 ? 'Backend ไม่พร้อม (ตรวจสอบ backend + ngrok)' : 'Failed to fetch shop');
+        return await res.json();
+      }
+      const res = await fetch(`${API.SHOPS}?type=full`, { headers: NGROK_HEADERS });
+      if (!res.ok) throw new Error(res.status === 502 ? 'Backend ไม่พร้อม (ตรวจสอบ backend + ngrok)' : 'Failed to fetch shops');
+      const shops: ShopData[] = await res.json();
+      return shops.length > 0 ? shops[0] : null;
+    };
+
     try {
       setLoading(true);
       setError(null);
       let shopData: ShopData | null = null;
+      let lastErr: Error | null = null;
 
-      if (SHOP_ID && SHOP_ID.trim()) {
-        const res = await fetch(`${API.SHOPS}/${SHOP_ID}`);
-        if (!res.ok) throw new Error('Failed to fetch shop');
-        shopData = await res.json();
-        console.log('✅ Shop loaded by ID:', shopData.name);
-      } else {
-        const res = await fetch(`${API.SHOPS}?type=full`);
-        if (!res.ok) throw new Error('Failed to fetch shops');
-        const shops: ShopData[] = await res.json();
-        if (shops.length > 0) shopData = shops[0];
+      for (let i = 0; i < maxRetries; i++) {
+        try {
+          shopData = await doFetch();
+          break;
+        } catch (err: any) {
+          lastErr = err;
+          if (i < maxRetries - 1) {
+            await new Promise((r) => setTimeout(r, retryDelay));
+          }
+        }
       }
 
       if (shopData) {
         setShop(shopData);
         setWalletShopId(shopData._id);
+      } else if (lastErr) {
+        setError(lastErr.message);
       } else {
         setError('ไม่พบร้านในระบบ');
       }
@@ -131,7 +147,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await fetch(`${API.SHOPS}/${shop._id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
         body: JSON.stringify(updates),
       });
       if (!res.ok) throw new Error('Failed to update shop');
