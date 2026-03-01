@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { API } from '../config';
+import { API, NGROK_HEADERS } from '../config';
 
 export interface WashServiceOption {
   setting: string;
@@ -62,7 +62,7 @@ export function CoinShopProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(API.SHOPS + '?type=coin');
+      const res = await fetch(API.SHOPS + '?type=coin', { headers: NGROK_HEADERS });
       if (!res.ok) throw new Error('Failed to fetch shops');
       const shops: CoinShopData[] = await res.json();
       if (shops.length > 0) {
@@ -88,7 +88,7 @@ export function CoinShopProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await fetch(API.SHOPS + '/' + shop._id, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
         body: JSON.stringify(updates),
       });
       if (!res.ok) throw new Error('Failed to update shop');

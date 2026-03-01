@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
-import { API } from '../../config';
+import { API, NGROK_HEADERS } from '../../config';
 import { useOrders } from '../../context/OrdersContext';
 import { useShop } from '../../context/ShopContext';
 import { MerchantHeader } from '../../components/MerchantHeader';
@@ -101,7 +101,7 @@ export default function DashboardScreen() {
   const fetchPendingOrders = useCallback(async () => {
     if (!shop?._id) return;
     try {
-      const res = await fetch(API.ORDERS_MERCHANT_PENDING(shop._id));
+      const res = await fetch(API.ORDERS_MERCHANT_PENDING(shop._id), { headers: NGROK_HEADERS });
       if (!res.ok) return;
       const data = await res.json();
       if (data.success && Array.isArray(data.orders)) {

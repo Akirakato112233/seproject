@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { API } from '../config';
+import { API, NGROK_HEADERS } from '../config';
 import { useShop } from './ShopContext';
 
 export interface MerchantOrderItem {
@@ -39,12 +39,6 @@ interface OrdersContextType {
 
 const OrdersContext = createContext<OrdersContextType | null>(null);
 
-// shopId will be set from ShopContext
-let _shopId: string | null = null;
-export function setWalletShopId(id: string) {
-  _shopId = id;
-}
-
 export function OrdersProvider({ children }: { children: React.ReactNode }) {
   const { shop, refreshShop } = useShop();
   const [currentOrders, setCurrentOrders] = useState<MerchantOrder[]>([]);
@@ -53,7 +47,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
   const refreshCurrentOrders = useCallback(async () => {
     if (!shop?._id) return;
     try {
-      const res = await fetch(API.ORDERS_MERCHANT_CURRENT(shop._id));
+      const res = await fetch(API.ORDERS_MERCHANT_CURRENT(shop._id), { headers: NGROK_HEADERS });
       if (!res.ok) return;
       const data = await res.json();
       if (data.success && Array.isArray(data.orders)) {
@@ -70,7 +64,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
   const refreshCompletedOrders = useCallback(async () => {
     if (!shop?._id) return;
     try {
-      const res = await fetch(API.ORDERS_MERCHANT_HISTORY(shop._id));
+      const res = await fetch(API.ORDERS_MERCHANT_HISTORY(shop._id), { headers: NGROK_HEADERS });
       if (!res.ok) return;
       const data = await res.json();
       if (data.success && Array.isArray(data.orders)) {
@@ -124,7 +118,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await fetch(API.ORDERS_MERCHANT_STATUS(orderId), {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
         body: JSON.stringify({ status: 'at_shop', shopId: shop._id }),
       });
       if (res.ok) {
@@ -140,7 +134,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await fetch(API.ORDERS_MERCHANT_STATUS(orderId), {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
         body: JSON.stringify({ status: 'in_progress', shopId: shop._id }),
       });
       if (res.ok) {
@@ -157,7 +151,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await fetch(API.ORDERS_MERCHANT_STATUS(orderId), {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
         body: JSON.stringify({ status: 'deliverying', shopId: shop._id }),
       });
       if (res.ok) {
@@ -176,7 +170,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await fetch(`${API.SHOPS}/${shop._id}/balance/withdraw`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
         body: JSON.stringify({ amount }),
       });
       if (res.ok) {

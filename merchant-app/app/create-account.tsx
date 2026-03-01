@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import {
+  ActivityIndicator,
   Alert,
   StyleSheet,
   Text,
@@ -11,105 +12,122 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import * as AuthSession from 'expo-auth-session';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { API, BASE_URL, NGROK_HEADERS } from '../config';
 
 // Complete auth session when returning from browser
 WebBrowser.maybeCompleteAuthSession();
 
 const GOOGLE_CLIENT_ID = '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
-
-// Role for this app
 const ROLE = 'merchant';
+
+// สำหรับ OAuth redirect (mobile) - ใช้ ngrok หรือ BASE_URL
+const BACKEND_URL = process.env.EXPO_PUBLIC_BASE_URL || BASE_URL;
 
 /**
  * Create Account Screen - Google Sign-In for Merchant
+ * Flow เหมือน user app: Web ใช้ expo-auth-session, Mobile ใช้ backend OAuth
  */
 export default function CreateAccountScreen() {
   const router = useRouter();
   const { login } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const processedResponseRef = useRef<string | null>(null);
 
-  // @ts-ignore - useProxy is deprecated but works for Expo Go
-  const redirectUri = AuthSession.makeRedirectUri({
-    useProxy: Platform.OS !== 'web',
-  });
-
-  console.log('Platform:', Platform.OS);
-  console.log('Generated redirectUri:', redirectUri);
+  const redirectUri = AuthSession.makeRedirectUri();
 
   const [request, response, promptAsync] = Google.useAuthRequest({
-    expoClientId: GOOGLE_CLIENT_ID,
+    webClientId: GOOGLE_CLIENT_ID,
     iosClientId: GOOGLE_CLIENT_ID,
     androidClientId: GOOGLE_CLIENT_ID,
-    webClientId: GOOGLE_CLIENT_ID, // Required for web platform
     scopes: ['profile', 'email'],
     redirectUri,
   });
 
-  useEffect(() => {
-    if (request) {
-      console.log('Redirect URI created:', request.redirectUri);
+  const handleAccessToken = async (accessToken: string) => {
+    setIsLoading(true);
+    try {
+      const backendRes = await fetch(API.GOOGLE_LOGIN, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
+        body: JSON.stringify({ accessToken, role: ROLE }),
+      });
+
+      const data = await backendRes.json();
+
+      if (data.next === 'REGISTER') {
+        router.replace({
+          pathname: '/signup/register',
+          params: {
+            tempToken: data.tempToken,
+            email: data.profile?.email || '',
+            displayName: data.profile?.name || '',
+            demo: '1',
+          },
+        });
+      } else if (data.next === 'APP') {
+        await login(data.token, data.user);
+        router.replace('/(tabs)');
+      } else {
+        Alert.alert('Error', data.message || 'Login failed');
+      }
+    } catch (error) {
+      console.error('Error during login:', error);
+      Alert.alert('Error', 'Failed to login');
+    } finally {
+      setIsLoading(false);
     }
-  }, [request]);
+  };
 
   useEffect(() => {
-    handleResponse();
+    if (Platform.OS !== 'web' || response?.type !== 'success') return;
+    const { authentication } = response;
+    const token = authentication?.accessToken;
+    if (!token) return;
+    // ป้องกัน process ซ้ำเมื่อ response ยังคงอยู่
+    const key = token.slice(0, 30);
+    if (processedResponseRef.current === key) return;
+    processedResponseRef.current = key;
+    handleAccessToken(token);
   }, [response]);
 
-  const handleResponse = async () => {
-    if (response?.type === 'success') {
-      const { authentication } = response;
-      if (authentication?.accessToken) {
-        try {
-          // Call backend to check if user exists
-          const { API } = await import('../config');
-          const backendRes = await fetch(API.GOOGLE_LOGIN, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ accessToken: authentication.accessToken, role: ROLE }),
-          });
+  const handleMobileGoogleSignIn = async () => {
+    try {
+      setIsLoading(true);
+      const fullUri = AuthSession.makeRedirectUri();
+      const scheme = fullUri.replace(/\/--\/auth.*$/, '') || fullUri;
+      const authUrl = `${BACKEND_URL}/api/google/start?redirect_scheme=${encodeURIComponent(scheme)}`;
 
-          const data = await backendRes.json();
-          console.log('Backend response:', data);
+      const result = await WebBrowser.openAuthSessionAsync(
+        authUrl + (BACKEND_URL.includes('ngrok') ? '&ngrok-skip-browser-warning=1' : ''),
+        scheme
+      );
 
-          if (data.next === 'REGISTER') {
-            // User doesn't exist or not onboarded → go to register
-            router.replace({
-              pathname: '/signup/register',
-              params: {
-                tempToken: data.tempToken,
-                email: data.profile?.email || '',
-                displayName: data.profile?.name || '',
-                role: ROLE,
-              },
-            });
-          } else if (data.next === 'APP') {
-            // User exists → save token and go to app
-            await login(data.token, data.user);
-            console.log('User logged in:', data.user);
-            router.replace('/(tabs)');
-          } else {
-            Alert.alert('Error', data.message || 'Login failed');
-          }
-        } catch (error) {
-          console.error('Error during login:', error);
-          Alert.alert('Error', 'Failed to login');
+      if (result.type === 'success' && result.url) {
+        const url = new URL(result.url);
+        const accessToken = url.searchParams.get('access_token');
+        if (accessToken) {
+          await handleAccessToken(accessToken);
+        } else {
+          Alert.alert('Error', 'No access token received');
         }
       }
-    } else if (response?.type === 'error') {
+    } catch {
       Alert.alert('Error', 'Google Sign-In failed');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleGoogleSignIn = () => {
-    if (!request) {
-      console.log('Auth Request not ready');
-      return;
+    if (Platform.OS === 'web') {
+      if (!request) return;
+      promptAsync();
+    } else {
+      handleMobileGoogleSignIn();
     }
-    console.log('Google button pressed');
-    // @ts-ignore - useProxy is deprecated but works for Expo Go
-    promptAsync({ useProxy: Platform.OS !== 'web', showInRecents: false });
   };
 
   return (
@@ -124,15 +142,21 @@ export default function CreateAccountScreen() {
 
         <View style={s.actions}>
           <TouchableOpacity
-            style={[s.btn, s.btnGoogle, !request && s.disabledBtn]}
+            style={[s.btn, s.btnGoogle, (Platform.OS === 'web' && !request) && s.disabledBtn]}
             activeOpacity={0.85}
             onPress={handleGoogleSignIn}
-            disabled={!request}
+            disabled={isLoading || (Platform.OS === 'web' && !request)}
           >
-            <View style={s.googleIconWrapper}>
-              <Ionicons name="logo-google" size={20} color="#EA4335" />
-            </View>
-            <Text style={s.btnText}>Continue with Google</Text>
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <View style={s.googleIconWrapper}>
+                  <Ionicons name="logo-google" size={20} color="#EA4335" />
+                </View>
+                <Text style={s.btnText}>Continue with Google</Text>
+              </>
+            )}
           </TouchableOpacity>
 
           <View style={s.entryRow}>
