@@ -15,6 +15,7 @@
 import { Request, Response } from 'express';
 import { Rider } from '../models/Rider';
 import { RiderRegistration } from '../models/RiderRegistration';
+import { User } from '../models/User';
 
 /**
  * POST /api/riders/register
@@ -712,11 +713,24 @@ export const getLatestRegistration = async (req: Request, res: Response) => {
 };
 
 // GET /api/riders/:id
+// order.riderId is User._id (from rider app auth), so fallback to User when Rider not found
 export const getRiderById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const rider = await Rider.findById(id).lean();
-    if (!rider) return res.status(404).json({ message: 'Rider not found' });
+    if (!id || typeof id !== 'string') {
+      return res.status(400).json({ message: 'Invalid rider id' });
+    }
+    let rider = await Rider.findById(id).lean();
+    if (!rider) {
+      const user = await User.findById(id).lean();
+      if (user) {
+        return res.json({
+          displayName: user.displayName || 'Rider',
+          fullName: user.displayName || 'Rider',
+        });
+      }
+      return res.json({ displayName: 'Rider', fullName: 'Rider' });
+    }
     return res.json(rider);
   } catch (error) {
     console.error('Error fetching rider:', error);

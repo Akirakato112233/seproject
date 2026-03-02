@@ -96,7 +96,11 @@ const DeliveryContext = createContext<DeliveryContextType>(null as any);
 // NOTE: ปลายทางล็อคที่มหาวิทยาลัยเกษตรศาสตร์ วิทยาเขตศรีราชา
 // 199 ตำบลทุ่งสุขลา อำเภอศรีราชา ชลบุรี 20230
 // ... imports
-import { API } from '../config';
+import { API, BASE_URL } from '../config';
+
+const NGROK_HEADERS: Record<string, string> = BASE_URL.includes('ngrok')
+  ? { 'ngrok-skip-browser-warning': '1' }
+  : {};
 
 // ... types ...
 
@@ -120,7 +124,7 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
 
   // Auth; โหมด dev ไม่ login ใช้ DEV_RIDER_ID แทน user._id
   const { token, user, isDevMode } = useAuth();
-  const effectiveRiderId = user?._id ?? (isDevMode ? DEV_RIDER_ID : undefined);
+  const effectiveRiderId = (user?._id ?? user?.id) ?? (isDevMode ? DEV_RIDER_ID : undefined);
   const [readyForPickup, setReadyForPickup] = useState<ReadyForPickupOrder[]>([]);
   const [atShopOrders, setAtShopOrders] = useState<ReadyForPickupOrder[]>([]);
 
@@ -143,7 +147,7 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
   // Fetch pending orders from API
   const fetchAvailableOrders = async () => {
     try {
-      const headers: Record<string, string> = {};
+      const headers: Record<string, string> = { ...NGROK_HEADERS };
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
@@ -201,7 +205,10 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
     riderId?: string
   ): Promise<{ success: boolean; message?: string }> => {
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...NGROK_HEADERS,
+      };
       if (token) headers['Authorization'] = `Bearer ${token}`;
       const body: { status: string; riderId?: string } = { status };
       if (riderId) body.riderId = riderId;
@@ -278,7 +285,7 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     try {
-      const headers: Record<string, string> = {};
+      const headers: Record<string, string> = { ...NGROK_HEADERS };
       if (token) headers['Authorization'] = `Bearer ${token}`;
       const res = await fetch(`${API.ORDERS}/rider/ready-for-pickup?riderId=${encodeURIComponent(riderId)}`, { headers });
       const data = await res.json();
@@ -324,7 +331,7 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     try {
-      const headers: Record<string, string> = {};
+      const headers: Record<string, string> = { ...NGROK_HEADERS };
       if (token) headers['Authorization'] = `Bearer ${token}`;
       const res = await fetch(`${API.ORDERS}/rider/at-shop?riderId=${encodeURIComponent(riderId)}`, { headers });
       const data = await res.json();

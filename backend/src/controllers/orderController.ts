@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/auth';
 import { Order, OrderForMerchant, orderStatusToMerchantStatus, merchantInputToMerchantStatus } from '../models/Order';
 import { User } from '../models/User';
 import { Shop } from '../models/Shop';
+import { Rider } from '../models/Rider';
 
 const findOrderWithModel = async (orderId: string) => {
     const order = await Order.findById(orderId);
@@ -119,7 +120,7 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// ดึง Order ตาม ID
+// ดึง Order ตาม ID (รวม riderDisplayName เมื่อมี riderId)
 export const getOrderById = async (req: AuthRequest, res: Response) => {
     try {
         const { orderId } = req.params;
@@ -131,7 +132,16 @@ export const getOrderById = async (req: AuthRequest, res: Response) => {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
 
-        res.json({ success: true, order });
+        const orderObj = order.toObject ? order.toObject() : { ...order };
+        const riderId = (order as any).riderId;
+        if (riderId) {
+            const riderUser = await User.findById(riderId).select('displayName').lean();
+            const riderDoc = await Rider.findById(riderId).select('displayName fullName').lean();
+            const name = riderUser?.displayName || riderDoc?.displayName || riderDoc?.fullName;
+            (orderObj as any).riderDisplayName = (name && String(name).trim()) || 'Rider';
+        }
+
+        res.json({ success: true, order: orderObj });
     } catch (error) {
         console.error('Get Order By ID Error:', error);
         res.status(500).json({ success: false, message: 'Failed to get order' });

@@ -14,6 +14,7 @@ import { WebView } from "react-native-webview";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import { LatLng, useDelivery } from "../context/DeliveryContext";
+import { useAuth } from "../context/AuthContext";
 
 // Longdo Map API Key
 const LONGDO_API_KEY = process.env.EXPO_PUBLIC_LONGDO_MAP_API_KEY || "d4ceb6847662fe82cb2411759980ffa4";
@@ -29,6 +30,8 @@ export default function JobScreen() {
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
 
   const { active, markPickedUp, markAtShop, markPickedUpFromShop, markDelivered } = useDelivery();
+  const { user, isDevMode } = useAuth();
+  const effectiveRiderId = (user?._id ?? user?.id) ?? (isDevMode ? "698e27ff93d8fdbda13bb05c" : undefined);
 
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [myCoord, setMyCoord] = useState<LatLng>(DEFAULT_COORDS);
@@ -438,9 +441,20 @@ export default function JobScreen() {
 
         <View style={s.actionsRow}>
           <TouchableOpacity
-            style={[s.actionChip, !phone && s.actionChipDisabled]}
-            onPress={() => messagePhone(phone)}
-            disabled={!phone}
+            style={[s.actionChip, !effectiveRiderId && s.actionChipDisabled]}
+            onPress={() => {
+              if (effectiveRiderId) {
+                router.push({
+                  pathname: "/chat",
+                  params: {
+                    orderId: active.id,
+                    riderId: effectiveRiderId,
+                    customerName: active.customerName || "ลูกค้า",
+                  },
+                });
+              }
+            }}
+            disabled={!effectiveRiderId}
           >
             <Ionicons name="chatbubble-ellipses-outline" size={18} color="#0F172A" />
           </TouchableOpacity>

@@ -28,6 +28,7 @@ interface OrderData {
     items: { name: string; details: string; price: number }[];
     createdAt?: string;
     riderId?: string;
+    riderDisplayName?: string;
 }
 
 const STEP_CONFIG: Record<OrderStep, { title: string; description: string; icon: string }> = {
@@ -115,9 +116,13 @@ export default function OrderStatusScreen() {
         return () => clearInterval(interval);
     }, [id]);
 
-    // ดึงชื่อ rider เมื่อ riderId ถูก set
+    // ดึงชื่อ rider จาก order.riderDisplayName (จาก API) หรือ fetch แยกถ้ายังไม่มี
     useEffect(() => {
         if (!order?.riderId) return;
+        if (order.riderDisplayName) {
+            setRiderName(order.riderDisplayName);
+            return;
+        }
         const fetchRider = async () => {
             try {
                 const res = await fetch(`${BASE_URL}/api/riders/${order.riderId}`, {
@@ -131,7 +136,7 @@ export default function OrderStatusScreen() {
             }
         };
         fetchRider();
-    }, [order?.riderId]);
+    }, [order?.riderId, order?.riderDisplayName]);
 
     const fetchOrder = async () => {
         try {
@@ -141,6 +146,9 @@ export default function OrderStatusScreen() {
             console.log('📦 Order createdAt:', data.order?.createdAt);
             if (data.success) {
                 setOrder(data.order);
+                if (data.order?.riderDisplayName) {
+                    setRiderName(data.order.riderDisplayName);
+                }
 
                 // Redirect ตาม status (เช็คก่อนว่า step ปัจจุบันตรงแล้วหรือยัง เพื่อไม่ให้ loop)
                 const status = data.order?.status;
@@ -175,9 +183,10 @@ export default function OrderStatusScreen() {
     };
 
     const handleChat = () => {
+        const nameToPass = riderName || order?.riderDisplayName || '';
         router.push({
             pathname: '/shop/chat' as any,
-            params: { id, riderId: order?.riderId },
+            params: { id, riderId: order?.riderId, riderName: nameToPass ? String(nameToPass) : undefined },
         });
     };
 
@@ -301,7 +310,7 @@ export default function OrderStatusScreen() {
                             <Text style={styles.infoName}>
                                 {currentStep === 0
                                     ? 'Waiting for rider...'
-                                    : riderName || 'Rider'}
+                                    : riderName || order?.riderDisplayName || 'Rider'}
                             </Text>
                         </View>
                         {currentStep !== 0 && (

@@ -1,7 +1,7 @@
 // config.ts
 
 // ใช้ ngrok (ต้องรัน ngrok http 3000 ก่อน)
-export const BASE_URL = 'https://uncomputably-energetic-carolyn.ngrok-free.dev';
+export const BASE_URL = 'https://unwainscotted-unshoved-deborah.ngrok-free.dev';
 
 // ลิ้งค์ย่อยต่างๆ (Optional: จะได้ไม่ต้องพิมพ์ยาวๆ ในหน้าอื่น)
 export const API = {

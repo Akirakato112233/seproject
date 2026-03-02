@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BASE_URL } from '../../config';
+import { BASE_URL } from '../config';
 
 type Sender = 'user' | 'rider';
 
@@ -23,29 +23,41 @@ interface ChatMessage {
   createdAt: string;
 }
 
-export default function ChatScreen() {
-  const { id, riderId, riderName: riderNameParam } = useLocalSearchParams<{ id?: string; riderId?: string; riderName?: string }>();
-  const riderNameFromParam = (typeof riderNameParam === 'string' && riderNameParam && riderNameParam !== 'undefined') ? riderNameParam : null;
+export default function RiderChatScreen() {
+  const { orderId, riderId, customerName } = useLocalSearchParams<{
+    orderId?: string;
+    riderId?: string;
+    customerName?: string;
+  }>();
 
   const [input, setInput] = useState('');
-  const [riderName, setRiderName] = useState<string>(riderNameFromParam || 'ไรเดอร์ของคุณ');
-  const [riderInitial, setRiderInitial] = useState<string>((riderNameFromParam || 'R').charAt(0).toUpperCase());
+  const [displayName, setDisplayName] = useState<string>(customerName || 'ลูกค้า');
+  const [customerInitial, setCustomerInitial] = useState<string>(
+    (customerName || 'C').charAt(0).toUpperCase()
+  );
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [riderError, setRiderError] = useState<string | null>(null);
+
   const NGROK_HEADERS: Record<string, string> = BASE_URL.includes('ngrok')
     ? { 'ngrok-skip-browser-warning': '1' }
     : {};
 
+  useEffect(() => {
+    if (customerName) {
+      setDisplayName(customerName);
+      setCustomerInitial(customerName.charAt(0).toUpperCase());
+    }
+  }, [customerName]);
+
   const handleSend = async () => {
     const trimmed = input.trim();
-    if (!trimmed) {
+    if (!trimmed || !riderId) {
       return;
     }
 
     const newMessage: ChatMessage = {
       id: `${Date.now()}`,
       text: trimmed,
-      sender: 'user',
+      sender: 'rider',
       createdAt: new Date().toLocaleTimeString('th-TH', {
         hour: '2-digit',
         minute: '2-digit',
@@ -55,7 +67,6 @@ export default function ChatScreen() {
     setMessages((prev) => [...prev, newMessage]);
     setInput('');
 
-    // ส่งข้อความไป backend เพื่อบันทึกลง MongoDB
     try {
       await fetch(`${BASE_URL}/api/chat/messages`, {
         method: 'POST',
@@ -65,8 +76,8 @@ export default function ChatScreen() {
         },
         body: JSON.stringify({
           riderId,
-          shopId: id,
-          sender: 'user',
+          shopId: orderId,
+          sender: 'rider',
           text: trimmed,
         }),
       });
@@ -76,58 +87,14 @@ export default function ChatScreen() {
   };
 
   useEffect(() => {
-    if (riderNameFromParam) {
-      setRiderName(riderNameFromParam);
-      setRiderInitial(riderNameFromParam.charAt(0).toUpperCase());
-    }
-  }, [riderNameFromParam]);
-
-  useEffect(() => {
-    const fetchRider = async () => {
-      setRiderError(null);
-      try {
-        if (!riderId) {
-          if (!riderNameFromParam) {
-            setRiderName('ไรเดอร์ของคุณ');
-            setRiderInitial('R');
-          }
-          return;
-        }
-
-        const response = await fetch(`${BASE_URL}/api/riders/${riderId}`, {
-          headers: NGROK_HEADERS,
-        });
-        if (!response.ok) {
-          throw new Error('Failed to fetch rider');
-        }
-
-        const data = await response.json();
-        const name: string = data.displayName || data.fullName || 'Rider';
-        setRiderName(name);
-        setRiderInitial(name.charAt(0).toUpperCase());
-      } catch (error) {
-        console.error('Error fetching rider:', error);
-        setRiderError(error instanceof Error ? error.message : 'Error fetching rider');
-        setRiderName('ไรเดอร์ของคุณ');
-        setRiderInitial('R');
-      }
-    };
-
-    fetchRider();
-  }, [riderId]);
-
-  // โหลดประวัติแชทจาก backend + โพล์ทุก 2 วินาที เพื่อเห็นข้อความจาก rider
-  useEffect(() => {
     const fetchMessages = async () => {
-      if (!riderId) {
-        return;
-      }
+      if (!riderId) return;
 
       try {
         const params = new URLSearchParams();
         params.append('riderId', String(riderId));
-        if (id) {
-          params.append('shopId', String(id));
+        if (orderId) {
+          params.append('shopId', String(orderId));
         }
 
         const response = await fetch(`${BASE_URL}/api/chat/messages?${params.toString()}`, {
@@ -158,21 +125,21 @@ export default function ChatScreen() {
     fetchMessages();
     const interval = setInterval(fetchMessages, 2000);
     return () => clearInterval(interval);
-  }, [id, riderId]);
+  }, [orderId, riderId]);
 
   const renderMessage = ({ item }: { item: ChatMessage }) => {
-    const isUser = item.sender === 'user';
+    const isRider = item.sender === 'rider';
 
     return (
-      <View style={[styles.messageRow, isUser ? styles.messageRowUser : styles.messageRowRider]}>
+      <View style={[styles.messageRow, isRider ? styles.messageRowRider : styles.messageRowCustomer]}>
         <View
           style={[
             styles.bubble,
-            isUser ? styles.bubbleUser : styles.bubbleRider,
+            isRider ? styles.bubbleRider : styles.bubbleCustomer,
           ]}
         >
-          <Text style={[styles.messageText, isUser && styles.messageTextUser]}>{item.text}</Text>
-          <Text style={[styles.timeText, isUser && styles.timeTextUser]}>{item.createdAt}</Text>
+          <Text style={[styles.messageText, isRider && styles.messageTextRider]}>{item.text}</Text>
+          <Text style={[styles.timeText, isRider && styles.timeTextRider]}>{item.createdAt}</Text>
         </View>
       </View>
     );
@@ -180,7 +147,6 @@ export default function ChatScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.headerIconButton}>
           <Ionicons name="arrow-back" size={22} color="#1d1d1f" />
@@ -188,27 +154,15 @@ export default function ChatScreen() {
 
         <View style={styles.headerCenter}>
           <View style={styles.headerAvatar}>
-            <Text style={styles.headerAvatarText}>{riderInitial}</Text>
+            <Text style={styles.headerAvatarText}>{customerInitial}</Text>
           </View>
           <View>
-            <Text style={styles.headerTitle}>{riderName}</Text>
-            <Text style={styles.headerSubtitle}>ไรเดอร์ของคุณ</Text>
+            <Text style={styles.headerTitle}>{displayName}</Text>
+            <Text style={styles.headerSubtitle}>ลูกค้า</Text>
           </View>
         </View>
       </View>
 
-      {/* Error banner */}
-      {riderError && (
-        <View style={styles.errorBanner}>
-          <Ionicons name="alert-circle" size={20} color="#dc2626" />
-          <Text style={styles.errorText}>Error fetching rider: {riderError}</Text>
-          <TouchableOpacity onPress={() => setRiderError(null)} style={styles.errorDismiss}>
-            <Ionicons name="close" size={20} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Chat area */}
       <KeyboardAvoidingView
         style={styles.chatWrapper}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -221,7 +175,6 @@ export default function ChatScreen() {
           contentContainerStyle={styles.messagesContainer}
         />
 
-        {/* Input */}
         <View style={styles.inputBar}>
           <TouchableOpacity style={styles.cameraButton}>
             <Ionicons name="camera-outline" size={22} color="#1d1d1f" />
@@ -302,22 +255,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#374151',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 8,
-  },
-  errorText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#fff',
-  },
-  errorDismiss: {
-    padding: 4,
-  },
   chatWrapper: {
     flex: 1,
   },
@@ -330,25 +267,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     alignItems: 'flex-end',
   },
-  messageRowUser: {
+  messageRowRider: {
     justifyContent: 'flex-end',
   },
-  messageRowRider: {
+  messageRowCustomer: {
     justifyContent: 'flex-start',
-  },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#e5e7eb',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 6,
-  },
-  avatarText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
   },
   bubble: {
     maxWidth: '75%',
@@ -356,11 +279,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  bubbleUser: {
+  bubbleRider: {
     backgroundColor: '#1d4685',
     borderBottomRightRadius: 4,
   },
-  bubbleRider: {
+  bubbleCustomer: {
     backgroundColor: '#f3f4f6',
     borderBottomLeftRadius: 4,
   },
@@ -368,7 +291,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#111827',
   },
-  messageTextUser: {
+  messageTextRider: {
     color: '#ffffff',
   },
   timeText: {
@@ -377,7 +300,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     alignSelf: 'flex-end',
   },
-  timeTextUser: {
+  timeTextRider: {
     color: '#e5e7eb',
   },
   inputBar: {
@@ -422,4 +345,3 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 });
-
