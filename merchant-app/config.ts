@@ -19,6 +19,9 @@ export const NGROK_HEADERS: Record<string, string> = BASE_URL.includes('ngrok')
 // ใส่ '' หรือลบบรรทัดนี้ถ้าต้องการโหลดร้านแรกจากรายการ
 export const SHOP_ID: string | undefined = '69941b8b695062aef87deb15';
 
+// ร้าน coin (หยอดเหรียญ) — ใช้ใน CoinShopContext เพื่อโหลดร้าน "oi oi oi (หยอดเหรียญจร้า) - บ้านพิม"
+export const COIN_SHOP_ID: string | undefined = '6977a4ac58bad65e9b3ed287';
+
 // ลิ้งค์ย่อยต่างๆ (Optional: จะได้ไม่ต้องพิมพ์ยาวๆ ในหน้าอื่น)
 export const API = {
     REDEEM: `${BASE_URL}/api/redeem`,

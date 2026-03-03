@@ -25,4 +25,6 @@ export const API = {
     ORDERS_PENDING: `${BASE_URL}/api/orders/pending`,
     ORDERS_ACTIVE: `${BASE_URL}/api/orders/active`,
     ORDERS_HISTORY: `${BASE_URL}/api/orders/history`,
+    ORDER_START_COIN_WASH: (orderId: string) => `${BASE_URL}/api/orders/${orderId}/start-coin-wash`,
+    ORDER_START_COIN_DRY: (orderId: string) => `${BASE_URL}/api/orders/${orderId}/start-coin-dry`,
 };

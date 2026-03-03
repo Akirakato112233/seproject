@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { useCoinShop, type WashService, type DryService } from './CoinShopContext';
 
 /** สถานะเครื่องซัก */
-export type MachineStatus = 'running' | 'available' | 'finished' | 'offline';
+export type MachineStatus = 'running' | 'available' | 'finished' | 'ready' | 'offline';
 
 export type WashMode = 'Quick' | 'Normal' | 'Heavy Duty' | 'Delicate';
 export type WaterTemp = 'Cold' | 'Warm' | 'Hot';
@@ -76,13 +76,15 @@ function buildMachinesFromShop(
       if (status === 'busy' && finishTime) {
         const remaining = Math.floor((new Date(finishTime).getTime() - Date.now()) / 1000);
         if (remaining <= 0) {
-          machineStatus = 'finished';
+          machineStatus = 'ready';
         } else {
           machineStatus = 'running';
           secondsLeft = remaining;
         }
       } else if (status === 'busy' && !finishTime) {
-        machineStatus = 'finished';
+        machineStatus = 'ready';
+      } else if (status === 'ready') {
+        machineStatus = 'ready';
       } else {
         machineStatus = 'available';
       }
@@ -115,13 +117,15 @@ function buildMachinesFromShop(
       if (status === 'busy' && finishTime) {
         const remaining = Math.floor((new Date(finishTime).getTime() - Date.now()) / 1000);
         if (remaining <= 0) {
-          machineStatus = 'finished';
+          machineStatus = 'ready';
         } else {
           machineStatus = 'running';
           secondsLeft = remaining;
         }
       } else if (status === 'busy' && !finishTime) {
-        machineStatus = 'finished';
+        machineStatus = 'ready';
+      } else if (status === 'ready') {
+        machineStatus = 'ready';
       } else {
         machineStatus = 'available';
       }
@@ -158,15 +162,12 @@ export function MachineProvider({ children }: { children: React.ReactNode }) {
   const { shop, updateShop } = useCoinShop();
   const [machines, setMachines] = useState<Machine[]>([]);
   const [todayRevenue, setTodayRevenue] = useState(0);
-  const initialized = useRef(false);
 
-  // โหลดเครื่องจาก backend shop data
+  // โหลด/ซิงค์เครื่องจาก backend shop data — rebuild ทุกครั้งที่ shop เปลี่ยน (รวมเมื่อ rider เริ่มเครื่องผ่าน start-coin-wash)
   useEffect(() => {
-    if (shop && !initialized.current) {
+    if (shop && (shop.washServices?.length || shop.dryServices?.length)) {
       const built = buildMachinesFromShop(shop.washServices, shop.dryServices);
       setMachines(built);
-      initialized.current = true;
-      console.log('Machines loaded from backend:', built.length);
     }
   }, [shop]);
 
@@ -178,7 +179,7 @@ export function MachineProvider({ children }: { children: React.ReactNode }) {
       .map((m) => ({
         machineId: m.id,
         weight: parseInt(m.capacity, 10) || 0,
-        status: m.status === 'running' ? 'busy' : m.status === 'finished' ? 'busy' : 'available',
+        status: m.status === 'running' ? 'busy' : m.status === 'ready' ? 'ready' : 'available',
         finishTime: m.status === 'running' && m.finishTime ? m.finishTime : null,
         options: m.options ?? [
           { setting: 'Cold', duration: parseInt(m.cycleTime, 10) || 45, price: parseInt(m.price, 10) || 0 },
@@ -191,7 +192,7 @@ export function MachineProvider({ children }: { children: React.ReactNode }) {
       .map((m) => ({
         machineId: m.id,
         weight: parseInt(m.capacity, 10) || 0,
-        status: m.status === 'running' ? 'busy' : m.status === 'finished' ? 'busy' : 'available',
+        status: m.status === 'running' ? 'busy' : m.status === 'ready' ? 'ready' : 'available',
         finishTime: m.status === 'running' && m.finishTime ? m.finishTime : null,
         options: m.options ?? [
           { setting: 'Low Heat', duration: parseInt(m.cycleTime, 10) || 45, price: parseInt(m.price, 10) || 0 },
@@ -217,7 +218,7 @@ export function MachineProvider({ children }: { children: React.ReactNode }) {
             : (m.secondsLeft ?? 0) - 1;
           if (remaining <= 0) {
             changed = true;
-            return { ...m, status: 'finished' as MachineStatus, secondsLeft: undefined, finishTime: null };
+            return { ...m, status: 'ready' as MachineStatus, secondsLeft: undefined, finishTime: null };
           }
           return { ...m, secondsLeft: remaining };
         });
@@ -295,7 +296,7 @@ export function MachineProvider({ children }: { children: React.ReactNode }) {
     setMachines((prev) => {
       const updated = prev.map((m) =>
         m.id === id
-          ? { ...m, status: 'finished' as MachineStatus, secondsLeft: undefined, finishTime: null, program: m.washMode ?? m.program }
+          ? { ...m, status: 'ready' as MachineStatus, secondsLeft: undefined, finishTime: null, program: m.washMode ?? m.program }
           : m
       );
       syncToBackend(updated);
@@ -307,7 +308,7 @@ export function MachineProvider({ children }: { children: React.ReactNode }) {
     let earned = 0;
     setMachines((prev) => {
       const updated = prev.map((m) => {
-        if (m.id === id && m.status === 'finished') {
+        if (m.id === id && (m.status === 'ready' || m.status === 'finished')) {
           earned = parseInt(m.price || '0', 10);
           return { ...m, status: 'available' as MachineStatus, program: 'Ready', washMode: undefined, waterTemp: undefined, finishTime: null };
         }

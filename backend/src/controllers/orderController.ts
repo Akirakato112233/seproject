@@ -36,6 +36,34 @@ const mergeAndSortByCreatedAt = <T extends { createdAt?: Date }>(...groups: T[][
         );
 };
 
+/** Parse order items for wash/dry - used for coin shop popups */
+function parseWashDryFromItems(items: { name: string; details?: string; price?: number }[]): {
+    hasWashItem: boolean;
+    hasDryItem: boolean;
+    washWeight?: number;
+    washDuration?: number;
+    dryWeight?: number;
+    dryDuration?: number;
+} {
+    const result = { hasWashItem: false, hasDryItem: false, washWeight: undefined as number | undefined, washDuration: undefined as number | undefined, dryWeight: undefined as number | undefined, dryDuration: undefined as number | undefined };
+    if (!Array.isArray(items)) return result;
+    for (const item of items) {
+        const name = (item.name || '').toLowerCase();
+        const weightMatch = name.match(/(\d+)\s*kg/);
+        const weight = weightMatch ? parseInt(weightMatch[1], 10) : undefined;
+        if (name.includes('wash') || name.startsWith('wash')) {
+            result.hasWashItem = true;
+            result.washWeight = weight ?? result.washWeight;
+            result.washDuration = result.washDuration ?? 45;
+        } else if (name.includes('dry') || name.startsWith('dry')) {
+            result.hasDryItem = true;
+            result.dryWeight = weight ?? result.dryWeight;
+            result.dryDuration = result.dryDuration ?? 45;
+        }
+    }
+    return result;
+}
+
 // สร้าง Order ใหม่
 export const createOrder = async (req: AuthRequest, res: Response) => {
     try {
@@ -396,6 +424,32 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
             );
         }
 
+        // Coin shop: เมื่อไรเดอร์มารับผ้า (status → deliverying) → เครื่อง ready → available
+        if (status === 'deliverying' || status === 'delivering') {
+            const ord = existingOrder; // ใช้ order ก่อนอัปเดต (มี washMachineIndex, dryMachineIndex)
+            const shopId = (ord as any).shopId;
+            const washIdx = (ord as any).washMachineIndex;
+            const dryIdx = (ord as any).dryMachineIndex;
+            if (shopId && (typeof washIdx === 'number' || typeof dryIdx === 'number')) {
+                try {
+                    const updates: Record<string, unknown> = {};
+                    if (typeof washIdx === 'number' && washIdx >= 0) {
+                        updates[`washServices.${washIdx}.status`] = 'available';
+                        updates[`washServices.${washIdx}.finishTime`] = null;
+                    }
+                    if (typeof dryIdx === 'number' && dryIdx >= 0) {
+                        updates[`dryServices.${dryIdx}.status`] = 'available';
+                        updates[`dryServices.${dryIdx}.finishTime`] = null;
+                    }
+                    if (Object.keys(updates).length > 0) {
+                        await Shop.findByIdAndUpdate(shopId, { $set: updates });
+                    }
+                } catch (err) {
+                    console.error('Release coin machines on pickup failed:', err);
+                }
+            }
+        }
+
         // เมื่อสถานะเป็น completed และชำระ wallet และยังไม่เคยโอน — โอนเข้า balance ร้าน
         const prevStatus = String(existingOrder.status);
         const isFirstCompleted =
@@ -620,6 +674,9 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
                 ? { latitude: shop.location.lat, longitude: shop.location.lng }
                 : { latitude: 13.117629, longitude: 100.916613 };
 
+            const items = order.items || [];
+            const washDry = parseWashDryFromItems(items);
+
             return {
                 id: String(order._id),
                 shopName: order.shopName || shop?.name || 'Unknown Shop',
@@ -628,12 +685,18 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
                 customerAddress: order.userAddress || 'ไม่ระบุที่อยู่',
                 distance: '1.5 km',
                 fee: order.total || 0,
-                items: Array.isArray(order.items) ? order.items.length : 0,
+                items: items.length,
+                itemsList: items,
                 pickup: customerCoords,   // ที่รับผ้า = ที่อยู่ลูกค้า
                 dropoff: customerCoords,  // ที่ส่งผ้า = ที่อยู่ลูกค้า
                 shop: shopCoords,         // พิกัดร้าน (ไปร้านหลังรับผ้า)
                 paymentMethod: order.paymentMethod || 'cash',
                 status: order.status || 'decision',
+                shopType: shop?.type ?? 'full',
+                hasWashItem: washDry.hasWashItem,
+                hasDryItem: washDry.hasDryItem,
+                coinWashDone: (order as any).coinWashDone ?? false,
+                coinDryDone: (order as any).coinDryDone ?? false,
             };
         }));
 
@@ -668,6 +731,9 @@ export const getRiderReadyForPickup = async (req: AuthRequest, res: Response) =>
                 : { latitude: 13.117629, longitude: 100.916613 };
             const customerCoords = { latitude: 13.113625, longitude: 100.919286 };
 
+            const items = order.items || [];
+            const washDry = parseWashDryFromItems(items);
+
             return {
                 id: String(order._id),
                 orderId: `ORD-${String(order._id).slice(-4)}`,
@@ -682,15 +748,19 @@ export const getRiderReadyForPickup = async (req: AuthRequest, res: Response) =>
                 shopName: order.shopName || shop?.name || 'Unknown Shop',
                 shopAddress: shop?.address || 'ไม่ระบุที่อยู่ร้าน',
                 shopPhone: shop?.phone || '',
-                items: order.items || [],
+                items: items,
                 note: (order as any).note || '',
                 createdAt: order.createdAt,
                 updatedAt: order.updatedAt,
-                // สำหรับแผนที่/เส้นทาง
                 pickup: shopCoords,
                 dropoff: customerCoords,
                 shop: shopCoords,
                 fee: order.deliveryFee || 0,
+                shopType: shop?.type ?? 'full',
+                hasWashItem: washDry.hasWashItem,
+                hasDryItem: washDry.hasDryItem,
+                coinWashDone: (order as any).coinWashDone ?? false,
+                coinDryDone: (order as any).coinDryDone ?? false,
             };
         }));
 
@@ -724,6 +794,9 @@ export const getRiderAtShopOrders = async (req: AuthRequest, res: Response) => {
                 : { latitude: 13.117629, longitude: 100.916613 };
             const customerCoords = { latitude: 13.113625, longitude: 100.919286 };
 
+            const items = order.items || [];
+            const washDry = parseWashDryFromItems(items);
+
             return {
                 id: String(order._id),
                 orderId: `ORD-${String(order._id).slice(-4)}`,
@@ -737,7 +810,7 @@ export const getRiderAtShopOrders = async (req: AuthRequest, res: Response) => {
                 shopName: order.shopName || shop?.name || 'Unknown Shop',
                 shopAddress: shop?.address || 'ไม่ระบุที่อยู่ร้าน',
                 shopPhone: shop?.phone || '',
-                items: order.items || [],
+                items: items,
                 note: (order as any).note || '',
                 createdAt: order.createdAt,
                 updatedAt: order.updatedAt,
@@ -745,6 +818,11 @@ export const getRiderAtShopOrders = async (req: AuthRequest, res: Response) => {
                 dropoff: customerCoords,
                 shop: shopCoords,
                 fee: order.deliveryFee ?? order.total ?? 0,
+                shopType: shop?.type ?? 'full',
+                hasWashItem: washDry.hasWashItem,
+                hasDryItem: washDry.hasDryItem,
+                coinWashDone: (order as any).coinWashDone ?? false,
+                coinDryDone: (order as any).coinDryDone ?? false,
             };
         }));
 
@@ -752,5 +830,179 @@ export const getRiderAtShopOrders = async (req: AuthRequest, res: Response) => {
     } catch (error) {
         console.error('Get Rider At-Shop Orders Error:', error);
         res.status(500).json({ success: false, message: 'Failed to get at-shop orders' });
+    }
+};
+
+/** POST /api/orders/:orderId/start-coin-wash - Rider เริ่มเครื่องซัก (ร้าน coin) */
+export const startCoinWash = async (req: AuthRequest, res: Response) => {
+    try {
+        const { orderId } = req.params;
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+        if (order.status !== 'at_shop') {
+            return res.status(400).json({ success: false, message: 'Order must be at_shop to start wash' });
+        }
+
+        const shop = await Shop.findById(order.shopId);
+        if (!shop) {
+            return res.status(404).json({ success: false, message: 'Shop not found' });
+        }
+        if (shop.type !== 'coin') {
+            return res.status(400).json({ success: false, message: 'Shop is not a coin-operated shop' });
+        }
+
+        const washDry = parseWashDryFromItems(order.items || []);
+        if (!washDry.hasWashItem) {
+            return res.status(400).json({ success: false, message: 'Order has no wash item' });
+        }
+
+        const washServices = shop.washServices || [];
+        const targetWeight = washDry.washWeight ?? 14;
+        let washIdx = -1;
+        let duration = washDry.washDuration ?? 45;
+        // เลือกเฉพาะเครื่องที่ available (ไม่ใช้ ready = รอไรเดอร์มารับ)
+        for (let i = 0; i < washServices.length; i++) {
+            const ws = washServices[i];
+            if (ws.status === 'available' && ws.weight >= targetWeight - 3 && ws.weight <= targetWeight + 5) {
+                washIdx = i;
+                if (ws.options?.[0]) duration = ws.options[0].duration;
+                break;
+            }
+        }
+        if (washIdx < 0) {
+            for (let i = 0; i < washServices.length; i++) {
+                if (washServices[i].status === 'available') {
+                    washIdx = i;
+                    if (washServices[i].options?.[0]) duration = washServices[i].options[0].duration;
+                    break;
+                }
+            }
+        }
+        if (washIdx < 0) {
+            return res.status(400).json({ success: false, message: 'No available wash machine' });
+        }
+
+        const finishTime = new Date(Date.now() + duration * 60 * 1000);
+
+        // ใช้ positional $set แทนการแทนที่ทั้ง array เพื่อให้ Mongoose อัปเดตได้ถูกต้อง
+        const shopUpdate: Record<string, unknown> = {
+            [`washServices.${washIdx}.status`]: 'busy',
+            [`washServices.${washIdx}.finishTime`]: finishTime,
+        };
+        const shopUpdated = await Shop.findByIdAndUpdate(
+            order.shopId,
+            { $set: shopUpdate },
+            { new: true }
+        );
+        if (!shopUpdated) {
+            console.error('Start Coin Wash: Shop update failed for', order.shopId);
+            return res.status(500).json({ success: false, message: 'Failed to update shop machine' });
+        }
+        console.log('Start Coin Wash: Shop washServices updated', shopUpdated.washServices?.[washIdx]?.status);
+        await Order.findByIdAndUpdate(orderId, {
+            coinWashFinishTime: finishTime,
+            washMachineIndex: washIdx,
+        });
+
+        res.json({ success: true, message: 'Wash started', duration });
+    } catch (error) {
+        console.error('Start Coin Wash Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to start wash' });
+    }
+};
+
+/** POST /api/orders/:orderId/start-coin-dry - Rider เริ่มเครื่องอบ (ร้าน coin, หลัง wash เสร็จ) */
+export const startCoinDry = async (req: AuthRequest, res: Response) => {
+    try {
+        const { orderId } = req.params;
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+        if (order.status !== 'in_progress' && order.status !== 'out_for_delivery') {
+            return res.status(400).json({ success: false, message: 'Order must be Ready for Pickup to start dry (rider picked up after wash)' });
+        }
+
+        const washDry = parseWashDryFromItems(order.items || []);
+        if (!washDry.hasDryItem) {
+            return res.status(400).json({ success: false, message: 'Order has no dry item' });
+        }
+        if ((order as any).coinDryDone) {
+            return res.status(400).json({ success: false, message: 'Dry already done' });
+        }
+
+        const shop = await Shop.findById(order.shopId);
+        if (!shop) {
+            return res.status(404).json({ success: false, message: 'Shop not found' });
+        }
+        if (shop.type !== 'coin') {
+            return res.status(400).json({ success: false, message: 'Shop is not a coin-operated shop' });
+        }
+
+        const dryServices = shop.dryServices || [];
+        const targetWeight = washDry.dryWeight ?? 15;
+        let dryIdx = -1;
+        let duration = washDry.dryDuration ?? 45;
+        // เลือกเฉพาะเครื่องที่ available (ไม่ใช้ ready)
+        for (let i = 0; i < dryServices.length; i++) {
+            const ds = dryServices[i];
+            if (ds.status === 'available' && ds.weight >= targetWeight - 5 && ds.weight <= targetWeight + 10) {
+                dryIdx = i;
+                if (ds.options?.[0]) duration = ds.options[0].duration;
+                break;
+            }
+        }
+        if (dryIdx < 0) {
+            for (let i = 0; i < dryServices.length; i++) {
+                if (dryServices[i].status === 'available') {
+                    dryIdx = i;
+                    if (dryServices[i].options?.[0]) duration = dryServices[i].options[0].duration;
+                    break;
+                }
+            }
+        }
+        if (dryIdx < 0) {
+            return res.status(400).json({ success: false, message: 'No available dry machine' });
+        }
+
+        const finishTime = new Date(Date.now() + duration * 60 * 1000);
+
+        // ใช้ positional $set แทนการแทนที่ทั้ง array
+        const shopUpdate: Record<string, unknown> = {
+            [`dryServices.${dryIdx}.status`]: 'busy',
+            [`dryServices.${dryIdx}.finishTime`]: finishTime,
+        };
+        const shopUpdated = await Shop.findByIdAndUpdate(
+            order.shopId,
+            { $set: shopUpdate },
+            { new: true }
+        );
+        if (!shopUpdated) {
+            console.error('Start Coin Dry: Shop update failed for', order.shopId);
+            return res.status(500).json({ success: false, message: 'Failed to update shop machine' });
+        }
+        // ไรเดอร์มารับผ้าซักแล้ว → เครื่องซัก ready → available
+        const washIdx = (order as any).washMachineIndex;
+        if (typeof washIdx === 'number' && washIdx >= 0) {
+            await Shop.findByIdAndUpdate(order.shopId, {
+                $set: {
+                    [`washServices.${washIdx}.status`]: 'available',
+                    [`washServices.${washIdx}.finishTime`]: null,
+                },
+            });
+        }
+        await Order.findByIdAndUpdate(orderId, {
+            status: 'at_shop',
+            coinWashDone: true,
+            coinDryFinishTime: finishTime,
+            dryMachineIndex: dryIdx,
+        });
+
+        res.json({ success: true, message: 'Dry started', duration });
+    } catch (error) {
+        console.error('Start Coin Dry Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to start dry' });
     }
 };

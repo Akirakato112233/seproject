@@ -12,6 +12,7 @@ import ridersRoutes from './routes/riders';
 import shopsRoutes from './routes/shops';
 import orderRoutes from './routes/orderRoutes';
 import { Order } from './models/Order';
+import { Shop } from './models/Shop';
 
 dotenv.config();
 
@@ -92,7 +93,108 @@ app.get('/api/health', (req, res) => {
 // Connect to MongoDB
 connectDB();
 
+// Cron: ตรวจสอบ coin wash/dry เสร็จ → อัปเดต order เป็น Ready for Pickup
+function runCoinCompletionCron() {
+  Order.updateMany(
+    { status: 'at_shop', coinWashFinishTime: { $lte: new Date(), $exists: true, $ne: null } },
+    { $set: { status: 'in_progress', coinWashDone: true }, $unset: { coinWashFinishTime: '' } }
+  ).then((r) => {
+    if (r.modifiedCount > 0) console.log('[Coin Cron] Wash completed:', r.modifiedCount, 'orders');
+  }).catch((e) => console.error('[Coin Cron] Wash error:', e));
+
+  Order.updateMany(
+    { status: 'at_shop', coinDryFinishTime: { $lte: new Date(), $exists: true, $ne: null } },
+    { $set: { status: 'in_progress', coinDryDone: true }, $unset: { coinDryFinishTime: '' } }
+  ).then((r) => {
+    if (r.modifiedCount > 0) console.log('[Coin Cron] Dry completed:', r.modifiedCount, 'orders');
+  }).catch((e) => console.error('[Coin Cron] Dry error:', e));
+}
+
+// Cron: เครื่องซัก/อบในร้าน coin เสร็จแล้ว → เปลี่ยน status เป็น ready
+// และอัปเดต Order ที่ใช้เครื่องนั้นเป็น Ready for Pickup (in_progress)
+async function runShopMachineCompletionCron() {
+  const now = new Date();
+
+  const setWashReady = (r: { modifiedCount: number }) => {
+    if (r.modifiedCount > 0) console.log('[Coin Cron] Shop wash machines set to ready:', r.modifiedCount);
+  };
+  const setDryReady = (r: { modifiedCount: number }) => {
+    if (r.modifiedCount > 0) console.log('[Coin Cron] Shop dry machines set to ready:', r.modifiedCount);
+  };
+
+  // เครื่องซัก: busy → ready เมื่อ finishTime ผ่าน (รอไรเดอร์มารับ)
+  await Shop.updateMany(
+    { type: 'coin', 'washServices.status': 'busy' },
+    { $set: { 'washServices.$[elem].status': 'ready', 'washServices.$[elem].finishTime': null } },
+    { arrayFilters: [{ 'elem.status': 'busy', 'elem.finishTime': { $lte: now } }] }
+  ).then(setWashReady).catch((e) => console.error('[Coin Cron] Shop wash error:', e));
+
+  // เครื่องซัก: busy + finishTime เป็น null → ready
+  await Shop.updateMany(
+    { type: 'coin', 'washServices.status': 'busy' },
+    { $set: { 'washServices.$[elem].status': 'ready', 'washServices.$[elem].finishTime': null } },
+    { arrayFilters: [{ 'elem.status': 'busy', 'elem.finishTime': null }] }
+  ).then(setWashReady).catch((e) => console.error('[Coin Cron] Shop wash (null) error:', e));
+
+  // เครื่องอบ: busy → ready เมื่อ finishTime ผ่าน
+  await Shop.updateMany(
+    { type: 'coin', 'dryServices.status': 'busy' },
+    { $set: { 'dryServices.$[elem].status': 'ready', 'dryServices.$[elem].finishTime': null } },
+    { arrayFilters: [{ 'elem.status': 'busy', 'elem.finishTime': { $lte: now } }] }
+  ).then(setDryReady).catch((e) => console.error('[Coin Cron] Shop dry error:', e));
+
+  // เครื่องอบ: busy + finishTime เป็น null → ready
+  await Shop.updateMany(
+    { type: 'coin', 'dryServices.status': 'busy' },
+    { $set: { 'dryServices.$[elem].status': 'ready', 'dryServices.$[elem].finishTime': null } },
+    { arrayFilters: [{ 'elem.status': 'busy', 'elem.finishTime': null }] }
+  ).then(setDryReady).catch((e) => console.error('[Coin Cron] Shop dry (null) error:', e));
+
+  // เครื่อง ready แล้ว → อัปเดต Order ที่ใช้เครื่องนั้นเป็น Ready for Pickup
+  try {
+    const shops = await Shop.find({ type: 'coin' }).lean();
+    for (const shop of shops) {
+      const shopId = String(shop._id);
+      const washServices = shop.washServices || [];
+      for (let i = 0; i < washServices.length; i++) {
+        if (washServices[i].status === 'ready') {
+          const r = await Order.updateMany(
+            { shopId, status: 'at_shop', washMachineIndex: i },
+            { $set: { status: 'in_progress', coinWashDone: true }, $unset: { coinWashFinishTime: '' } }
+          );
+          if (r.modifiedCount > 0) console.log('[Coin Cron] Orders → Ready for Pickup (wash):', r.modifiedCount);
+        }
+      }
+      const dryServices = shop.dryServices || [];
+      for (let i = 0; i < dryServices.length; i++) {
+        if (dryServices[i].status === 'ready') {
+          const r = await Order.updateMany(
+            { shopId, status: 'at_shop', dryMachineIndex: i },
+            { $set: { status: 'in_progress', coinDryDone: true }, $unset: { coinDryFinishTime: '' } }
+          );
+          if (r.modifiedCount > 0) console.log('[Coin Cron] Orders → Ready for Pickup (dry):', r.modifiedCount);
+        }
+      }
+    }
+    // Fallback: Order ที่ coinWashFinishTime ผ่านแล้วแต่ยังไม่มี washMachineIndex (order เก่า)
+    const r = await Order.updateMany(
+      { status: 'at_shop', coinWashFinishTime: { $lte: now, $exists: true, $ne: null } },
+      { $set: { status: 'in_progress', coinWashDone: true }, $unset: { coinWashFinishTime: '' } }
+    );
+    if (r.modifiedCount > 0) console.log('[Coin Cron] Orders → Ready for Pickup (fallback):', r.modifiedCount);
+  } catch (e) {
+    console.error('[Coin Cron] Order update error:', e);
+  }
+}
+
 // Start server
 app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
+  // รอ DB connect ก่อนรัน cron (connectDB ถูกเรียกก่อน listen แต่อาจยังไม่เสร็จ)
+  setTimeout(() => {
+    runCoinCompletionCron();
+    runShopMachineCompletionCron();
+  }, 2000);
+  setInterval(runCoinCompletionCron, 15000); // ทุก 15 วินาที
+  setInterval(runShopMachineCompletionCron, 15000); // ทุก 15 วินาที
 });

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Linking,
+  Modal,
   Platform,
   StyleSheet,
   Text,
@@ -15,9 +16,38 @@ import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import { LatLng, useDelivery } from "../context/DeliveryContext";
 import { useAuth } from "../context/AuthContext";
+import { API, BASE_URL } from "../config";
 
 // Longdo Map API Key
 const LONGDO_API_KEY = process.env.EXPO_PUBLIC_LONGDO_MAP_API_KEY || "d4ceb6847662fe82cb2411759980ffa4";
+
+const NGROK_HEADERS: Record<string, string> = BASE_URL.includes("ngrok")
+  ? { "ngrok-skip-browser-warning": "1" }
+  : {};
+
+/** Parse wash/dry from items for coin shop popup display */
+function parseWashDryFromItems(items: { name: string; details?: string; price?: number }[] | undefined): {
+  washWeight?: number;
+  washDuration?: number;
+  dryWeight?: number;
+  dryDuration?: number;
+} {
+  const result: { washWeight?: number; washDuration?: number; dryWeight?: number; dryDuration?: number } = {};
+  if (!Array.isArray(items)) return result;
+  for (const item of items) {
+    const name = (item.name || "").toLowerCase();
+    const weightMatch = name.match(/(\d+)\s*kg/);
+    const weight = weightMatch ? parseInt(weightMatch[1], 10) : undefined;
+    if (name.includes("wash") || name.startsWith("wash")) {
+      result.washWeight = weight ?? result.washWeight;
+      result.washDuration = result.washDuration ?? 45;
+    } else if (name.includes("dry") || name.startsWith("dry")) {
+      result.dryWeight = weight ?? result.dryWeight;
+      result.dryDuration = result.dryDuration ?? 45;
+    }
+  }
+  return result;
+}
 
 const DEFAULT_COORDS = {
   latitude: 40.0827,
@@ -29,13 +59,16 @@ export default function JobScreen() {
   const webViewRef = useRef<WebView | null>(null);
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
 
-  const { active, markPickedUp, markAtShop, markPickedUpFromShop, markDelivered } = useDelivery();
+  const { active, markPickedUp, markAtShop, updateOrderStatusToAtShop, markPickedUpFromShop, clearActive, markDelivered } = useDelivery();
   const { user, isDevMode } = useAuth();
   const effectiveRiderId = (user?._id ?? user?.id) ?? (isDevMode ? "698e27ff93d8fdbda13bb05c" : undefined);
 
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [myCoord, setMyCoord] = useState<LatLng>(DEFAULT_COORDS);
   const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
+  const [showStartWashModal, setShowStartWashModal] = useState(false);
+  const [showStartDryModal, setShowStartDryModal] = useState(false);
+  const [coinLoading, setCoinLoading] = useState(false);
 
   const stage = active?.status ?? "going_to_customer";
   const target = useMemo<LatLng | null>(() => {
@@ -354,10 +387,18 @@ export default function JobScreen() {
       return;
     }
     if (stage === "going_to_shop") {
+      if ((active as any).shopType === "coin") {
+        setShowStartWashModal(true);
+        return;
+      }
       markAtShop();
       return;
     }
     if (stage === "going_to_shop_pickup") {
+      if ((active as any).hasDryItem && !(active as any).coinDryDone) {
+        setShowStartDryModal(true);
+        return;
+      }
       markPickedUpFromShop();
       return;
     }
@@ -482,6 +523,125 @@ export default function JobScreen() {
           <Text style={s.backLinkText}>Back to Home</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Coin shop: Start Wash modal */}
+      <Modal visible={showStartWashModal} transparent animationType="fade">
+        <View style={s.modalOverlay}>
+          <View style={s.modalCard}>
+            <Text style={s.modalTitle}>เริ่มซัก</Text>
+            {(() => {
+              const items = (active as any)?.itemsList;
+              const { washWeight, washDuration } = parseWashDryFromItems(items);
+              return (
+                <>
+                  <Text style={s.modalBody}>
+                    น้ำหนัก {washWeight ?? "—"} kg • เวลาซัก {washDuration ?? 45} นาที
+                  </Text>
+                  <View style={s.modalActions}>
+                    <TouchableOpacity
+                      style={[s.modalBtn, s.modalBtnSecondary]}
+                      onPress={() => setShowStartWashModal(false)}
+                      disabled={coinLoading}
+                    >
+                      <Text style={s.modalBtnSecondaryText}>ยกเลิก</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[s.modalBtn, s.modalBtnPrimary]}
+                      onPress={async () => {
+                        if (!active || coinLoading) return;
+                        setCoinLoading(true);
+                        try {
+                          // อัปเดตสถานะเป็น at_shop ก่อน (backend ต้องการก่อน start-coin-wash)
+                          const statusResult = await updateOrderStatusToAtShop(active.id);
+                          if (!statusResult.success) {
+                            Alert.alert("ผิดพลาด", statusResult.message || "ไม่สามารถอัปเดตสถานะได้");
+                            return;
+                          }
+                          const res = await fetch(API.ORDER_START_COIN_WASH(active.id), {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", ...NGROK_HEADERS },
+                          });
+                          const data = await res.json();
+                          if (data.success) {
+                            setShowStartWashModal(false);
+                            markAtShop();
+                          } else {
+                            Alert.alert("ผิดพลาด", data.message || "ไม่สามารถเริ่มซักได้");
+                          }
+                        } catch (e) {
+                          Alert.alert("ผิดพลาด", "ไม่สามารถเชื่อมต่อได้");
+                        } finally {
+                          setCoinLoading(false);
+                        }
+                      }}
+                      disabled={coinLoading}
+                    >
+                      <Text style={s.modalBtnPrimaryText}>{coinLoading ? "กำลังดำเนินการ..." : "เริ่มซัก"}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              );
+            })()}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Coin shop: Start Dry modal */}
+      <Modal visible={showStartDryModal} transparent animationType="fade">
+        <View style={s.modalOverlay}>
+          <View style={s.modalCard}>
+            <Text style={s.modalTitle}>เริ่มอบ</Text>
+            {(() => {
+              const items = (active as any)?.itemsList;
+              const { dryWeight, dryDuration } = parseWashDryFromItems(items);
+              return (
+                <>
+                  <Text style={s.modalBody}>
+                    น้ำหนัก {dryWeight ?? "—"} kg • เวลาอบ {dryDuration ?? 45} นาที
+                  </Text>
+                  <View style={s.modalActions}>
+                    <TouchableOpacity
+                      style={[s.modalBtn, s.modalBtnSecondary]}
+                      onPress={() => setShowStartDryModal(false)}
+                      disabled={coinLoading}
+                    >
+                      <Text style={s.modalBtnSecondaryText}>ยกเลิก</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[s.modalBtn, s.modalBtnPrimary]}
+                      onPress={async () => {
+                        if (!active || coinLoading) return;
+                        setCoinLoading(true);
+                        try {
+                          const res = await fetch(API.ORDER_START_COIN_DRY(active.id), {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", ...NGROK_HEADERS },
+                          });
+                          const data = await res.json();
+                          if (data.success) {
+                            setShowStartDryModal(false);
+                            clearActive();
+                            router.replace("/(tabs)");
+                          } else {
+                            Alert.alert("ผิดพลาด", data.message || "ไม่สามารถเริ่มอบได้");
+                          }
+                        } catch (e) {
+                          Alert.alert("ผิดพลาด", "ไม่สามารถเชื่อมต่อได้");
+                        } finally {
+                          setCoinLoading(false);
+                        }
+                      }}
+                      disabled={coinLoading}
+                    >
+                      <Text style={s.modalBtnPrimaryText}>{coinLoading ? "กำลังดำเนินการ..." : "เริ่มอบ"}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              );
+            })()}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -626,4 +786,27 @@ const s = StyleSheet.create({
   emptyWrap: { flex: 1, alignItems: "center", justifyContent: "center", padding: 20, gap: 10 },
   emptyTitle: { fontSize: 18, fontWeight: "900", color: "#0F172A" },
   emptySub: { color: "#64748B", fontWeight: "700", marginBottom: 8 },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 24,
+    width: "100%",
+    maxWidth: 340,
+  },
+  modalTitle: { fontSize: 20, fontWeight: "900", color: "#0F172A", marginBottom: 12 },
+  modalBody: { fontSize: 16, color: "#64748B", fontWeight: "700", marginBottom: 20 },
+  modalActions: { flexDirection: "row", gap: 12 },
+  modalBtn: { flex: 1, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  modalBtnSecondary: { backgroundColor: "#EEF2F7" },
+  modalBtnSecondaryText: { color: "#0F172A", fontWeight: "900", fontSize: 16 },
+  modalBtnPrimary: { backgroundColor: "#0E3A78" },
+  modalBtnPrimaryText: { color: "#fff", fontWeight: "900", fontSize: 16 },
 });

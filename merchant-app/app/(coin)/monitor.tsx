@@ -21,7 +21,7 @@ import { Colors } from '../../constants/colors';
 import { useCoinShop } from '../../context/CoinShopContext';
 import { useMachines, type Machine, type MachineStatus, type MachineOption } from '../../context/MachineContext';
 
-type FilterKey = 'all' | 'available' | 'running' | 'finished';
+type FilterKey = 'all' | 'available' | 'running' | 'ready';
 
 const CYCLE_TIME_OPTIONS = ['30 minutes', '45 minutes', '60 minutes', '90 minutes'];
 
@@ -29,6 +29,7 @@ const STATUS_LABEL: Record<MachineStatus, string> = {
   available: 'ว่าง',
   running: 'กำลังทำงาน',
   finished: 'เสร็จสิ้น',
+  ready: 'รอไรเดอร์รับ',
   offline: 'Offline',
 };
 
@@ -45,14 +46,14 @@ export default function LiveMonitorScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ openAdd?: string }>();
   const insets = useSafeAreaInsets();
-  const { shop } = useCoinShop();
+  const { shop, refreshShop } = useCoinShop();
   const { machines, addMachine, startMachine, skipMachine, collectMachine, todayRevenue } = useMachines();
   const [filter, setFilter] = useState<FilterKey>('all');
   const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
   const selectedMachineIdRef = useRef<string | null>(null);
   const [selectedOption, setSelectedOption] = useState<MachineOption | null>(null);
   const [runningMachine, setRunningMachine] = useState<Machine | null>(null);
-  const [finishedMachine, setFinishedMachine] = useState<Machine | null>(null);
+  const [readyMachine, setReadyMachine] = useState<Machine | null>(null);
   const [collectedAmount, setCollectedAmount] = useState<number | null>(null);
   const [addMachineVisible, setAddMachineVisible] = useState(false);
   const [newMachineId, setNewMachineId] = useState('');
@@ -71,6 +72,12 @@ export default function LiveMonitorScreen() {
     }
   }, [params.openAdd]);
 
+  // โพล์ข้อมูลร้านทุก 4 วินาที เพื่อให้เห็นเครื่องที่ไรเดอร์เริ่ม (start-coin-wash) ทันที
+  useEffect(() => {
+    const interval = setInterval(refreshShop, 4000);
+    return () => clearInterval(interval);
+  }, [refreshShop]);
+
   const filteredMachines = useMemo(() => {
     if (filter === 'all') return machines;
     return machines.filter((m) => m.status === filter);
@@ -81,13 +88,13 @@ export default function LiveMonitorScreen() {
       all: machines.length,
       available: machines.filter((m) => m.status === 'available').length,
       running: machines.filter((m) => m.status === 'running').length,
-      finished: machines.filter((m) => m.status === 'finished').length,
+      ready: machines.filter((m) => m.status === 'ready').length,
     }),
     [machines]
   );
 
   const occupancy = machines.length > 0
-    ? Math.round((counts.running / machines.length) * 100)
+    ? Math.round(((counts.running + counts.ready) / machines.length) * 100)
     : 0;
   const revenueChange = 0;
 
@@ -149,15 +156,15 @@ export default function LiveMonitorScreen() {
   const handleSystem = () => router.push('/(coin)/settings');
 
   // กดเครื่อง Available (สีฟ้า) → เปิด modal ให้กดเริ่ม
-  // กดเครื่อง Finished (สีเขียว) → เปิด modal รับเงิน
+  // กดเครื่อง Ready (สีเขียว) → เปิด modal รับเงิน / รอไรเดอร์
   const onMachinePress = (machine: Machine) => {
     if (machine.status === 'available') {
       setSelectedMachine(machine);
       selectedMachineIdRef.current = machine.id;
       const firstOpt = machine.options?.[0];
       setSelectedOption(firstOpt ?? { setting: 'Cold', duration: 45, price: parseInt(machine.price, 10) || 40 });
-    } else if (machine.status === 'finished') {
-      setFinishedMachine(machine);
+    } else if (machine.status === 'ready' || machine.status === 'finished') {
+      setReadyMachine(machine);
       setCollectedAmount(null);
     }
   };
@@ -186,7 +193,7 @@ export default function LiveMonitorScreen() {
     { key: 'all', label: 'All', count: counts.all, icon: 'list' },
     { key: 'available', label: 'Available', count: counts.available, icon: 'checkmark-circle' },
     { key: 'running', label: 'Running', count: counts.running, icon: 'time' },
-    { key: 'finished', label: 'Ready', count: counts.finished, icon: 'checkmark-done' },
+    { key: 'ready', label: 'Ready', count: counts.ready, icon: 'checkmark-done' },
   ];
 
   return (
@@ -219,7 +226,7 @@ export default function LiveMonitorScreen() {
             ? Colors.white
             : key === 'running'
               ? '#eab308'
-              : key === 'finished'
+              : key === 'ready'
                 ? Colors.successGreen
                 : Colors.primaryBlue;
           return (
@@ -230,7 +237,7 @@ export default function LiveMonitorScreen() {
               activeOpacity={0.7}
             >
               <Ionicons name={icon as any} size={16} color={iconColor} />
-              <Text style={[s.filterText, isActive && s.filterTextActive, !isActive && key === 'running' && s.filterTextRunning, !isActive && key === 'finished' && s.filterTextReady]}>
+              <Text style={[s.filterText, isActive && s.filterTextActive, !isActive && key === 'running' && s.filterTextRunning, !isActive && key === 'ready' && s.filterTextReady]}>
                 {label} ({count})
               </Text>
             </TouchableOpacity>
@@ -295,7 +302,7 @@ export default function LiveMonitorScreen() {
                     <Ionicons name="add" size={32} color={Colors.primaryBlue} />
                   </View>
                 )}
-                {machine.status === 'finished' && (
+                {(machine.status === 'ready' || machine.status === 'finished') && (
                   <View style={[s.circle, s.circleFinished]}>
                     <Ionicons name="checkmark" size={28} color={Colors.white} />
                     <Text style={s.circleReadyText}>READY</Text>
@@ -321,7 +328,7 @@ export default function LiveMonitorScreen() {
                       </TouchableOpacity>
                     )}
                     {machine.status === 'available' && <Ionicons name="information-circle-outline" size={16} color={Colors.textMuted} />}
-                    {machine.status === 'finished' && <Ionicons name="notifications-outline" size={16} color={Colors.textMuted} />}
+                    {(machine.status === 'ready' || machine.status === 'finished') && <Ionicons name="notifications-outline" size={16} color={Colors.textMuted} />}
                     {machine.status === 'offline' && <Ionicons name="refresh-outline" size={16} color={Colors.textMuted} />}
                   </View>
                 </View>
@@ -636,17 +643,17 @@ export default function LiveMonitorScreen() {
         </TouchableOpacity>
       </Modal>
 
-      {/* Finished Machine — รับเงิน Modal */}
+      {/* Ready Machine — รอไรเดอร์รับ / รับเงิน Modal */}
       <Modal
-        visible={finishedMachine != null}
+        visible={readyMachine != null}
         transparent
         animationType="fade"
-        onRequestClose={() => setFinishedMachine(null)}
+        onRequestClose={() => setReadyMachine(null)}
       >
         <TouchableOpacity
           style={s.modalOverlay}
           activeOpacity={1}
-          onPress={() => setFinishedMachine(null)}
+          onPress={() => setReadyMachine(null)}
         >
           <TouchableOpacity
             style={s.modalCard}
@@ -660,9 +667,9 @@ export default function LiveMonitorScreen() {
                     <View style={[s.modalMachineIcon, { backgroundColor: '#dcfce7' }]}>
                       <Ionicons name="checkmark-circle" size={24} color={Colors.successGreen} />
                     </View>
-                    <Text style={s.modalTitle}>{finishedMachine?.name} — เสร็จสิ้น</Text>
+                    <Text style={s.modalTitle}>{readyMachine?.name} — รอไรเดอร์รับ</Text>
                   </View>
-                  <TouchableOpacity onPress={() => setFinishedMachine(null)}>
+                  <TouchableOpacity onPress={() => setReadyMachine(null)}>
                     <Ionicons name="close" size={22} color={Colors.textMuted} />
                   </TouchableOpacity>
                 </View>
@@ -671,29 +678,29 @@ export default function LiveMonitorScreen() {
                   <Ionicons name="cash-outline" size={20} color={Colors.successGreen} />
                   <View>
                     <Text style={s.modalRowTitle}>ค่าบริการ</Text>
-                    <Text style={s.modalRowSub}>฿{finishedMachine?.price ?? '0'}</Text>
+                    <Text style={s.modalRowSub}>฿{readyMachine?.price ?? '0'}</Text>
                   </View>
                 </View>
                 <View style={s.modalRow}>
                   <Ionicons name="shirt-outline" size={20} color={Colors.primaryBlue} />
                   <View>
-                    <Text style={s.modalRowTitle}>{finishedMachine?.washMode ?? finishedMachine?.program}</Text>
-                    <Text style={s.modalRowSub}>{finishedMachine?.capacity}kg</Text>
+                    <Text style={s.modalRowTitle}>{readyMachine?.washMode ?? readyMachine?.program}</Text>
+                    <Text style={s.modalRowSub}>{readyMachine?.capacity}kg</Text>
                   </View>
                 </View>
 
                 <TouchableOpacity
                   style={s.collectBtn}
                   onPress={() => {
-                    if (finishedMachine) {
-                      const earned = collectMachine(finishedMachine.id);
+                    if (readyMachine) {
+                      const earned = collectMachine(readyMachine.id);
                       setCollectedAmount(earned);
                     }
                   }}
                   activeOpacity={0.8}
                 >
                   <Ionicons name="wallet-outline" size={20} color={Colors.white} />
-                  <Text style={s.collectBtnText}>รับเงิน ฿{finishedMachine?.price ?? '0'}</Text>
+                  <Text style={s.collectBtnText}>รับเงิน ฿{readyMachine?.price ?? '0'}</Text>
                 </TouchableOpacity>
               </>
             ) : (
@@ -706,7 +713,7 @@ export default function LiveMonitorScreen() {
                 <Text style={s.collectedSub}>เครื่องพร้อมใช้งานแล้ว</Text>
                 <TouchableOpacity
                   style={[s.collectBtn, { width: '100%' }]}
-                  onPress={() => { setFinishedMachine(null); setCollectedAmount(null); }}
+                  onPress={() => { setReadyMachine(null); setCollectedAmount(null); }}
                   activeOpacity={0.8}
                 >
                   <Text style={s.collectBtnText}>ตกลง</Text>
@@ -843,6 +850,7 @@ const s = StyleSheet.create({
   statusBadge_running: { backgroundColor: '#fef9c3' },
   statusBadge_available: { backgroundColor: '#dbeafe' },
   statusBadge_finished: { backgroundColor: '#dcfce7' },
+  statusBadge_ready: { backgroundColor: '#dcfce7' },
   statusBadge_offline: { backgroundColor: '#f3f4f6' },
   machineStatusLabel: {
     fontSize: 11,
@@ -851,6 +859,7 @@ const s = StyleSheet.create({
   status_running: { color: '#a16207' },
   status_available: { color: Colors.primaryBlue },
   status_finished: { color: '#166534' },
+  status_ready: { color: '#166534' },
   status_offline: { color: Colors.textMuted },
   machineCircleWrap: {
     alignItems: 'center',

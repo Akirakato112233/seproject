@@ -10,7 +10,7 @@ export interface IWashServiceOption {
 export interface IWashService {
   machineId?: string; // รหัสเครื่อง (WASH-01, WASH-02)
   weight: number; // kg (9, 14, 18)
-  status?: 'available' | 'busy';
+  status?: 'available' | 'busy' | 'ready'; // ready = ซักเสร็จ รอไรเดอร์มารับ
   finishTime?: Date | null;
   options: IWashServiceOption[];
 }
@@ -25,7 +25,7 @@ export interface IDryServiceOption {
 export interface IDryService {
   machineId?: string; // รหัสเครื่อง (DRY-01, DRY-02)
   weight: number; // kg (15, 25)
-  status?: 'available' | 'busy';
+  status?: 'available' | 'busy' | 'ready'; // ready = อบเสร็จ รอไรเดอร์มารับ
   finishTime?: Date | null;
   options: IDryServiceOption[];
 }
@@ -96,7 +96,7 @@ const WashServiceOptionSchema = new Schema({
 const WashServiceSchema = new Schema({
   machineId: { type: String },
   weight: { type: Number, required: true },
-  status: { type: String, enum: ['available', 'busy'], default: 'available' },
+  status: { type: String, enum: ['available', 'busy', 'ready'], default: 'available' },
   finishTime: { type: Date, default: null },
   options: [WashServiceOptionSchema],
 }, { _id: false });
@@ -110,7 +110,7 @@ const DryServiceOptionSchema = new Schema({
 const DryServiceSchema = new Schema({
   machineId: { type: String },
   weight: { type: Number, required: true },
-  status: { type: String, enum: ['available', 'busy'], default: 'available' },
+  status: { type: String, enum: ['available', 'busy', 'ready'], default: 'available' },
   finishTime: { type: Date, default: null },
   options: [DryServiceOptionSchema],
 }, { _id: false });

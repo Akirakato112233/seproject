@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { API, NGROK_HEADERS } from '../config';
+import { API, NGROK_HEADERS, COIN_SHOP_ID } from '../config';
 
 export interface WashServiceOption {
   setting: string;
@@ -9,7 +9,7 @@ export interface WashServiceOption {
 export interface WashService {
   machineId?: string;
   weight: number;
-  status?: 'available' | 'busy';
+  status?: 'available' | 'busy' | 'ready';
   finishTime?: string | null;
   options: WashServiceOption[];
 }
@@ -22,7 +22,7 @@ export interface DryServiceOption {
 export interface DryService {
   machineId?: string;
   weight: number;
-  status?: 'available' | 'busy';
+  status?: 'available' | 'busy' | 'ready';
   finishTime?: string | null;
   options: DryServiceOption[];
 }
@@ -62,14 +62,22 @@ export function CoinShopProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(API.SHOPS + '?type=coin', { headers: NGROK_HEADERS });
-      if (!res.ok) throw new Error('Failed to fetch shops');
-      const shops: CoinShopData[] = await res.json();
-      if (shops.length > 0) {
-        setShop(shops[0]);
-        console.log('Coin Shop loaded:', shops[0].name);
+      if (COIN_SHOP_ID && COIN_SHOP_ID.trim()) {
+        const res = await fetch(`${API.SHOPS}/${COIN_SHOP_ID}`, { headers: NGROK_HEADERS });
+        if (!res.ok) throw new Error('Failed to fetch coin shop');
+        const shopData: CoinShopData = await res.json();
+        setShop(shopData);
+        console.log('Coin Shop loaded:', shopData.name);
       } else {
-        setError('No coin shop found');
+        const res = await fetch(API.SHOPS + '?type=coin', { headers: NGROK_HEADERS });
+        if (!res.ok) throw new Error('Failed to fetch shops');
+        const shops: CoinShopData[] = await res.json();
+        if (shops.length > 0) {
+          setShop(shops[0]);
+          console.log('Coin Shop loaded:', shops[0].name);
+        } else {
+          setError('No coin shop found');
+        }
       }
     } catch (err: any) {
       console.error('Error loading coin shop:', err);

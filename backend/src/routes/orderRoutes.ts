@@ -12,7 +12,9 @@ import {
     getMerchantCurrentOrders,
     getMerchantOrderHistory,
     merchantAcceptOrder,
-    merchantUpdateOrderStatus
+    merchantUpdateOrderStatus,
+    startCoinWash,
+    startCoinDry
 } from '../controllers/orderController';
 import { authenticateToken } from '../middleware/auth';
 
@@ -43,6 +45,11 @@ router.patch('/:orderId/merchant-status', merchantUpdateOrderStatus);
 
 // PATCH /api/orders/:orderId/status - อัพเดทสถานะ order (Rider ใช้ - ไม่ต้อง auth)
 router.patch('/:orderId/status', updateOrderStatus);
+
+// POST /api/orders/:orderId/start-coin-wash - Rider เริ่มเครื่องซัก (ร้าน coin)
+router.post('/:orderId/start-coin-wash', startCoinWash);
+// POST /api/orders/:orderId/start-coin-dry - Rider เริ่มเครื่องอบ (ร้าน coin)
+router.post('/:orderId/start-coin-dry', startCoinDry);
 
 // Apply auth middleware to remaining order routes
 router.use(authenticateToken);

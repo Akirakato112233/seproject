@@ -33,6 +33,14 @@ export type Order = {
 
   // order status from backend
   status?: string;
+
+  // Coin shop popups
+  shopType?: 'coin' | 'full';
+  hasWashItem?: boolean;
+  hasDryItem?: boolean;
+  coinWashDone?: boolean;
+  coinDryDone?: boolean;
+  itemsList?: { name: string; details?: string; price: number }[];
 };
 
 export type ActiveOrder = Order & { status: DeliveryStatus };
@@ -67,10 +75,14 @@ type DeliveryContextType = {
   markPickedUp: () => void;
   // ถึงร้านแล้ว (วางผ้า) → ปล่อยไรเดอร์ รอร้านซักเสร็จ
   markAtShop: () => void;
+  /** อัปเดต order เป็น at_shop (ใช้ก่อน start-coin-wash) */
+  updateOrderStatusToAtShop: (orderId: string) => Promise<{ success: boolean; message?: string }>;
   // เริ่มไปรับผ้าที่ร้าน (จาก Ready for Pickup)
   startPickupFromShop: (order: ReadyForPickupOrder) => void;
   // รับผ้าที่ร้านแล้ว (ซักเสร็จ) → ไปส่งลูกค้า
   markPickedUpFromShop: () => void;
+  /** ปล่อยไรเดอร์หลังเริ่มอบ (coin dry) — order จะกลับไป Ready for Pickup เมื่ออบเสร็จ */
+  clearActive: () => void;
   markDelivered: () => void;
 
   refreshReadyForPickup: () => Promise<void>;
@@ -278,6 +290,9 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
     setActive(null);
   };
 
+  const updateOrderStatusToAtShop = (orderId: string) =>
+    updateBackendStatus(orderId, 'at_shop');
+
   const fetchReadyForPickup = async () => {
     const riderId = effectiveRiderId;
     if (!riderId) {
@@ -311,6 +326,11 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
           shopPhone: o.shopPhone,
           customerPhone: o.customerPhone,
           ...(Array.isArray(o.items) && { itemsList: o.items }),
+          shopType: o.shopType ?? 'full',
+          hasWashItem: o.hasWashItem ?? false,
+          hasDryItem: o.hasDryItem ?? false,
+          coinWashDone: o.coinWashDone ?? false,
+          coinDryDone: o.coinDryDone ?? false,
         }));
         setReadyForPickup(mapped);
       } else {
@@ -359,6 +379,11 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
           updatedAt: o.updatedAt,
           createdAt: o.createdAt,
           ...(Array.isArray(o.items) && { itemsList: o.items }),
+          shopType: o.shopType ?? 'full',
+          hasWashItem: o.hasWashItem ?? false,
+          hasDryItem: o.hasDryItem ?? false,
+          coinWashDone: o.coinWashDone ?? false,
+          coinDryDone: o.coinDryDone ?? false,
         }));
         setAtShopOrders(mapped);
       } else {
@@ -401,6 +426,8 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
     setActive({ ...active, status: "delivering" });
   };
 
+  const clearActive = () => setActive(null);
+
   const markDelivered = () => {
     if (!active) return;
 
@@ -437,8 +464,10 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
         declineOrder,
         markPickedUp,
         markAtShop,
+        updateOrderStatusToAtShop,
         startPickupFromShop,
         markPickedUpFromShop,
+        clearActive,
         markDelivered,
         refreshReadyForPickup,
         refreshAtShopOrders,
