@@ -207,7 +207,12 @@ export default function LiveMonitorScreen() {
       </View>
 
       {/* Filter tabs */}
-      <View style={s.filterRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={s.filterRow}
+        style={s.filterRowScroll}
+      >
         {filterButtons.map(({ key, label, count, icon }) => {
           const isActive = filter === key;
           const iconColor = isActive
@@ -231,7 +236,7 @@ export default function LiveMonitorScreen() {
             </TouchableOpacity>
           );
         })}
-      </View>
+      </ScrollView>
 
       {/* OCCUPANCY & TODAY'S REVENUE */}
       <View style={s.summaryRow}>
@@ -741,6 +746,7 @@ const s = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: Colors.cardBorder,
   },
+  filterRowScroll: { flexGrow: 0 },
   filterRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
@@ -751,6 +757,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flexShrink: 0,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
@@ -1113,8 +1120,8 @@ const s = StyleSheet.create({
     paddingTop: 8,
     paddingHorizontal: 20,
     paddingBottom: 32,
-    maxHeight: '85%',
-    minHeight: 320,
+    maxHeight: '95%',
+    minHeight: 600,
   },
   sheetHeader: {
     flexDirection: 'row',
@@ -1124,7 +1131,7 @@ const s = StyleSheet.create({
   },
   sheetClose: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   sheetTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, flex: 1, textAlign: 'center' },
-  sheetScroll: { flex: 1, maxHeight: 420 },
+  sheetScroll: { flex: 1, maxHeight: 650 },
   sheetScrollContent: { paddingBottom: 24 },
   sheetSectionTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
   sheetSectionSub: { fontSize: 13, color: Colors.textSecondary, marginBottom: 16, lineHeight: 18 },
