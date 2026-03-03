@@ -42,8 +42,6 @@ export default function Step1Screen() {
       owner_first_name: formData.owner_first_name || defaultFirstName,
       owner_last_name: formData.owner_last_name || defaultLastName,
       owner_phone: formData.owner_phone || '',
-      password: '',
-      confirm_password: '',
     },
   });
 
@@ -61,7 +59,6 @@ export default function Step1Screen() {
       owner_first_name: data.owner_first_name,
       owner_last_name: data.owner_last_name,
       owner_phone: data.owner_phone || undefined,
-      password: data.password,
     };
     updateForm(nextForm);
     if (merchantUserId) {
@@ -215,47 +212,6 @@ export default function Step1Screen() {
               )}
             </View>
 
-            <View style={s.field}>
-              <Text style={s.label}>รหัสผ่าน *</Text>
-              <Controller
-                control={control}
-                name="password"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    style={[s.input, errors.password && s.inputError]}
-                    placeholder="อย่างน้อย 8 ตัว มีตัวเลข 1 ตัว"
-                    value={value}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
-                    secureTextEntry
-                  />
-                )}
-              />
-              {errors.password && (
-                <Text style={s.error}>{errors.password.message}</Text>
-              )}
-            </View>
-
-            <View style={s.field}>
-              <Text style={s.label}>ยืนยันรหัสผ่าน *</Text>
-              <Controller
-                control={control}
-                name="confirm_password"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    style={[s.input, errors.confirm_password && s.inputError]}
-                    placeholder="กรอกรหัสผ่านอีกครั้ง"
-                    value={value}
-                    onChangeText={onChange}
-                    onBlur={onBlur}
-                    secureTextEntry
-                  />
-                )}
-              />
-              {errors.confirm_password && (
-                <Text style={s.error}>{errors.confirm_password.message}</Text>
-              )}
-            </View>
           </View>
         </ScrollView>
 

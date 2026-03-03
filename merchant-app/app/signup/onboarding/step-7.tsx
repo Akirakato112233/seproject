@@ -33,6 +33,7 @@ export default function Step7Screen() {
     addServiceItem,
     removeServiceCategory,
     removeServiceItem,
+    businessType,
   } = useRegistrationStore();
   const [submitting, setSubmitting] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -46,16 +47,8 @@ export default function Step7Screen() {
   const [newItemDuration, setNewItemDuration] = useState('');
   const [newItemDescription, setNewItemDescription] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
-  const [deliveryFeeType, setDeliveryFeeType] = useState<'free' | 'by_distance' | 'fixed'>(
-    formData.delivery_fee_type || 'free'
-  );
-  const [deliveryFixedPrice, setDeliveryFixedPrice] = useState(
-    formData.delivery_fixed_price?.toString() || ''
-  );
-  const [standardDuration, setStandardDuration] = useState(
-    formData.standard_duration_hours?.toString() || '24'
-  );
 
+  const isCoin = businessType === 'coin';
   const categories = formData.service_categories || [];
 
   useEffect(() => {
@@ -110,9 +103,16 @@ export default function Step7Screen() {
     c.items.some((i) => (i.price ?? 0) > 0)
   );
 
+  const hasValidServices = isCoin ? true : hasAtLeastOneItemWithPrice;
+
   const onNext = async () => {
-    if (!hasAtLeastOneItemWithPrice) {
-      Alert.alert('Error', 'กรุณาเพิ่มบริการอย่างน้อย 1 รายการและกรอกราคา');
+    if (!hasValidServices) {
+      Alert.alert(
+        'Error',
+        isCoin
+          ? 'กรุณาเพิ่มเครื่องอย่างน้อย 1 เครื่อง และกรอกราคา/เวลาของทุกตัวเลือกให้ครบ'
+          : 'กรุณาเพิ่มบริการอย่างน้อย 1 รายการและกรอกราคา'
+      );
       return;
     }
 
@@ -125,10 +125,13 @@ export default function Step7Screen() {
 
     setSubmitting(true);
     try {
+      const deliveryFeeType: 'free' | 'by_distance' | 'fixed' = 'free';
+      const standardDurationHours = 24;
+
       updateForm({
         delivery_fee_type: deliveryFeeType,
-        delivery_fixed_price: deliveryFixedPrice ? parseFloat(deliveryFixedPrice) : undefined,
-        standard_duration_hours: parseInt(standardDuration, 10) || 24,
+        delivery_fixed_price: undefined,
+        standard_duration_hours: standardDurationHours,
       });
 
       const nextForm = useRegistrationStore.getState().formData;
@@ -137,8 +140,8 @@ export default function Step7Screen() {
         overrides: {
           businessType,
           delivery_fee_type: deliveryFeeType,
-          delivery_fixed_price: deliveryFixedPrice ? parseFloat(deliveryFixedPrice) : undefined,
-          standard_duration_hours: parseInt(standardDuration, 10) || 24,
+          delivery_fixed_price: undefined,
+          standard_duration_hours: standardDurationHours,
         },
       });
 
@@ -171,133 +174,110 @@ export default function Step7Screen() {
           <Text style={s.title}>บริการและราคา</Text>
           <Text style={s.subtitle}>ขั้นตอนที่ 7 จาก 9</Text>
 
-          <Text style={s.sectionTitle}>
-            Services : ({categories.length} Categories)
-          </Text>
+          {isCoin ? (
+            <>
+              <Text style={s.sectionTitle}>ร้านหยอดเหรียญ</Text>
+              <Text style={s.infoText}>
+                สำหรับร้านแบบหยอดเหรียญ คุณสามารถเพิ่มและจัดการเครื่องซัก/อบได้ภายหลังในหน้า
+                Monitor ภายในแอป
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={s.sectionTitle}>
+                Services : ({categories.length} Categories)
+              </Text>
 
-          {categories.map((cat) => (
-            <View key={cat.id} style={s.categoryBlock}>
-              <View style={s.categoryRowWrap}>
-                <TouchableOpacity
-                  style={s.categoryRow}
-                  onPress={() => toggleExpand(cat.id)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={s.categoryName}>{cat.name}</Text>
-                  <View style={s.categoryRight}>
-                    <Text style={s.itemCount}>
-                      {cat.items.length} item{cat.items.length !== 1 ? 's' : ''}
-                    </Text>
-                    <Ionicons
-                      name={expandedId === cat.id ? 'chevron-up' : 'chevron-down'}
-                      size={20}
-                      color={Colors.textSecondary}
-                    />
-                  </View>
-                </TouchableOpacity>
-                <Pressable
-                  style={({ pressed }) => [s.deleteBtn, pressed && s.deleteBtnPressed]}
-                  onPress={() => handleDeleteCategory(cat.name, cat.id)}
-                  hitSlop={16}
-                >
-                  <Ionicons name="trash-outline" size={22} color="#dc2626" />
-                </Pressable>
-              </View>
-              {expandedId === cat.id && (
-                <View style={s.itemsList}>
-                  {cat.items.length === 0 ? (
-                    <Text style={s.emptyItems}>ยังไม่มีรายการ</Text>
-                  ) : (
-                    cat.items.map((item) => (
-                      <View key={item.id} style={s.itemRow}>
-                        <View style={s.itemInfo}>
-                          <Text style={s.itemName}>{item.name}</Text>
-                          {(item.weight_kg || item.duration_minutes) && (
-                            <Text style={s.itemMeta}>
-                              {[item.weight_kg && `${item.weight_kg} kg`, item.duration_minutes && `${item.duration_minutes} นาที`].filter(Boolean).join(' • ')}
-                            </Text>
-                          )}
-                        </View>
-                        {item.price != null && item.price > 0 && (
-                          <Text style={s.itemPrice}>{item.price} บาท</Text>
-                        )}
-                        <Pressable
-                          style={({ pressed }) => [s.itemDeleteBtn, pressed && { opacity: 0.6 }]}
-                          onPress={() => handleDeleteItem(item.name, cat.id, item.id)}
-                          hitSlop={12}
-                        >
-                          <Ionicons name="trash-outline" size={20} color="#dc2626" />
-                        </Pressable>
+              {categories.map((cat) => (
+                <View key={cat.id} style={s.categoryBlock}>
+                  <View style={s.categoryRowWrap}>
+                    <TouchableOpacity
+                      style={s.categoryRow}
+                      onPress={() => toggleExpand(cat.id)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={s.categoryName}>{cat.name}</Text>
+                      <View style={s.categoryRight}>
+                        <Text style={s.itemCount}>
+                          {cat.items.length} item{cat.items.length !== 1 ? 's' : ''}
+                        </Text>
+                        <Ionicons
+                          name={expandedId === cat.id ? 'chevron-up' : 'chevron-down'}
+                          size={20}
+                          color={Colors.textSecondary}
+                        />
                       </View>
-                    ))
+                    </TouchableOpacity>
+                    <Pressable
+                      style={({ pressed }) => [s.deleteBtn, pressed && s.deleteBtnPressed]}
+                      onPress={() => handleDeleteCategory(cat.name, cat.id)}
+                      hitSlop={16}
+                    >
+                      <Ionicons name="trash-outline" size={22} color="#dc2626" />
+                    </Pressable>
+                  </View>
+                  {expandedId === cat.id && (
+                    <View style={s.itemsList}>
+                      {cat.items.length === 0 ? (
+                        <Text style={s.emptyItems}>ยังไม่มีรายการ</Text>
+                      ) : (
+                        cat.items.map((item) => (
+                          <View key={item.id} style={s.itemRow}>
+                            <View style={s.itemInfo}>
+                              <Text style={s.itemName}>{item.name}</Text>
+                              {(item.weight_kg || item.duration_minutes) && (
+                                <Text style={s.itemMeta}>
+                                  {[item.weight_kg && `${item.weight_kg} kg`, item.duration_minutes && `${item.duration_minutes} นาที`]
+                                    .filter(Boolean)
+                                    .join(' • ')}
+                                </Text>
+                              )}
+                            </View>
+                            {item.price != null && item.price > 0 && (
+                              <Text style={s.itemPrice}>{item.price} บาท</Text>
+                            )}
+                            <Pressable
+                              style={({ pressed }) => [s.itemDeleteBtn, pressed && { opacity: 0.6 }]}
+                              onPress={() => handleDeleteItem(item.name, cat.id, item.id)}
+                              hitSlop={12}
+                            >
+                              <Ionicons name="trash-outline" size={20} color="#dc2626" />
+                            </Pressable>
+                          </View>
+                        ))
+                      )}
+                      <TouchableOpacity
+                        style={s.addItemInCategory}
+                        onPress={() => {
+                          setAddItemCatId(cat.id);
+                          setAddItemCatName(cat.name);
+                          setNewItemName('');
+                          setNewItemWeight('');
+                          setNewItemDuration('');
+                          setNewItemDescription('');
+                          setNewItemPrice('');
+                          setShowAddItem(true);
+                        }}
+                      >
+                        <Ionicons name="add-circle-outline" size={18} color={Colors.primaryBlue} />
+                        <Text style={s.addItemText}>Add item in {cat.name}</Text>
+                      </TouchableOpacity>
+                    </View>
                   )}
-                  <TouchableOpacity
-                    style={s.addItemInCategory}
-                    onPress={() => {
-                      setAddItemCatId(cat.id);
-                      setAddItemCatName(cat.name);
-                      setNewItemName('');
-                      setNewItemWeight('');
-                      setNewItemDuration('');
-                      setNewItemDescription('');
-                      setNewItemPrice('');
-                      setShowAddItem(true);
-                    }}
-                  >
-                    <Ionicons name="add-circle-outline" size={18} color={Colors.primaryBlue} />
-                    <Text style={s.addItemText}>Add item in {cat.name}</Text>
-                  </TouchableOpacity>
                 </View>
-              )}
-            </View>
-          ))}
-
-          <TouchableOpacity
-            style={s.addBtn}
-            onPress={() => {
-              setNewCategoryName('');
-              setShowAddCategory(true);
-            }}
-          >
-            <Text style={s.addBtnText}>Add Category</Text>
-          </TouchableOpacity>
-
-          <View style={s.field}>
-            <Text style={s.label}>ค่าจัดส่ง</Text>
-            <View style={s.toggleRow}>
-              {(['free', 'by_distance', 'fixed'] as const).map((t) => (
-                <TouchableOpacity
-                  key={t}
-                  style={[s.toggle, deliveryFeeType === t && s.toggleActive]}
-                  onPress={() => setDeliveryFeeType(t)}
-                >
-                  <Text style={[s.toggleText, deliveryFeeType === t && s.toggleTextActive]}>
-                    {t === 'free' ? 'ฟรี' : t === 'by_distance' ? 'ตามระยะทาง' : 'คงที่'}
-                  </Text>
-                </TouchableOpacity>
               ))}
-            </View>
-            {deliveryFeeType === 'fixed' && (
-              <TextInput
-                style={s.input}
-                placeholder="ราคาคงที่ (บาท)"
-                value={deliveryFixedPrice}
-                onChangeText={setDeliveryFixedPrice}
-                keyboardType="decimal-pad"
-              />
-            )}
-          </View>
 
-          <View style={s.field}>
-            <Text style={s.label}>เวลารอคอยมาตรฐาน (ชม.) *</Text>
-            <TextInput
-              style={s.input}
-              placeholder="24"
-              value={standardDuration}
-              onChangeText={setStandardDuration}
-              keyboardType="number-pad"
-            />
-          </View>
+              <TouchableOpacity
+                style={s.addBtn}
+                onPress={() => {
+                  setNewCategoryName('');
+                  setShowAddCategory(true);
+                }}
+              >
+                <Text style={s.addBtnText}>Add Category</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </ScrollView>
 
         <StepNav
@@ -313,6 +293,7 @@ export default function Step7Screen() {
         />
       </KeyboardAvoidingView>
 
+      {!isCoin && (
       <Modal visible={showAddCategory} transparent animationType="fade">
         <View style={s.modalOverlay}>
           <Pressable style={s.modalBackdrop} onPress={() => setShowAddCategory(false)} />
@@ -339,7 +320,9 @@ export default function Step7Screen() {
           </View>
         </View>
       </Modal>
+      )}
 
+      {!isCoin && (
       <Modal visible={showAddItem} transparent animationType="fade">
         <KeyboardAvoidingView
           style={s.modalKav}
@@ -436,6 +419,7 @@ export default function Step7Screen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -589,4 +573,5 @@ const s = StyleSheet.create({
   modalBtnPrimary: { backgroundColor: Colors.primaryBlue, borderColor: Colors.primaryBlue },
   modalBtnPrimaryText: { fontSize: 16, fontWeight: '600', color: '#fff' },
   modalBtnDisabled: { opacity: 0.5 },
+  infoText: { fontSize: 14, color: Colors.textSecondary, marginTop: 8, lineHeight: 20 },
 });

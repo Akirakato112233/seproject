@@ -23,17 +23,14 @@ export const step1Schema = z
     phone: z
       .string()
       .min(1, 'กรุณากรอกเบอร์โทรร้าน')
-      .refine((v) => thaiMobileRegex.test(formatPhoneForValidation(v)), 'เบอร์โทรต้องขึ้นต้น 06/08/09 และ 10 หลัก'),
+      .refine(
+        (v) => thaiMobileRegex.test(formatPhoneForValidation(v)),
+        'เบอร์โทรต้องขึ้นต้น 06/08/09 และ 10 หลัก'
+      ),
     email: z.string().email('รูปแบบอีเมลไม่ถูกต้อง'),
     owner_first_name: z.string().min(1, 'กรุณากรอกชื่อ'),
     owner_last_name: z.string().min(1, 'กรุณากรอกนามสกุล'),
     owner_phone: z.string().optional(),
-    password: z.string().min(8, 'รหัสผ่านอย่างน้อย 8 ตัว').regex(/\d/, 'รหัสผ่านต้องมีตัวเลขอย่างน้อย 1 ตัว'),
-    confirm_password: z.string(),
-  })
-  .refine((d) => d.password === d.confirm_password, {
-    message: 'รหัสผ่านไม่ตรงกัน',
-    path: ['confirm_password'],
   })
   .refine(
     (d) => !d.owner_phone || thaiMobileRegex.test(formatPhoneForValidation(d.owner_phone)),
@@ -65,14 +62,17 @@ export const step3Schema = z.object({
 });
 
 export const step4Schema = z.object({
-  bank_name: z.string().min(1, 'กรุณาเลือกธนาคาร'),
+  bank_name: z.string().optional(),
   account_number: z
     .string()
-    .min(1, 'กรุณากรอกเลขบัญชี')
-    .refine((v) => /^\d{10,12}$/.test(v.replace(/\D/g, '')), 'เลขบัญชี 10-12 หลัก'),
-  account_name: z.string().min(1, 'กรุณากรอกชื่อบัญชี'),
-  account_type: z.enum(['savings', 'current'], { required_error: 'กรุณาเลือกประเภทบัญชี' }),
-  bank_book_image: z.string().min(1, 'กรุณาอัปโหลดสมุดบัญชี'),
+    .min(1, 'กรุณากรอกเบอร์ทรูมันนี่')
+    .refine(
+      (v) => thaiMobileRegex.test(formatPhoneForValidation(v)),
+      'เบอร์ทรูมันนี่ต้องขึ้นต้น 06/08/09 และ 10 หลัก'
+    ),
+  account_name: z.string().min(1, 'กรุณากรอกชื่อผู้รับ'),
+  account_type: z.enum(['savings', 'current']).optional(),
+  bank_book_image: z.string().optional(),
 });
 
 export const step5Schema = z.object({

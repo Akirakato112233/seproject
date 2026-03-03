@@ -83,6 +83,19 @@ export interface IShopRegistration extends Document {
     }>;
   }>;
   businessType?: 'full' | 'coin';
+  coin_machines?: Array<{
+    machineId: string;
+    type: 'washer' | 'dryer';
+    capacityKg: number;
+    pricePerCycle?: number;
+    durationMinutes?: number;
+    options?: Array<{
+      id: string;
+      setting: string;
+      duration: number;
+      price: number;
+    }>;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -168,6 +181,23 @@ const ShopRegistrationSchema = new Schema<IShopRegistration>(
       },
     ],
     businessType: { type: String, enum: ['full', 'coin'] },
+    coin_machines: [
+      {
+        machineId: String,
+        type: { type: String, enum: ['washer', 'dryer'] },
+        capacityKg: Number,
+        pricePerCycle: Number,
+        durationMinutes: Number,
+        options: [
+          {
+            id: String,
+            setting: String,
+            duration: Number,
+            price: Number,
+          },
+        ],
+      },
+    ],
   },
   { timestamps: true }
 );

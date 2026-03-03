@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { ShopRegistration } from '../models/ShopRegistration';
+import { Shop } from '../models/Shop';
+import { buildShopFromRegistration } from '../services/shopMapping';
 
 const REGISTRATION_FIELDS = {
   merchantUserId: 1,
@@ -65,8 +67,8 @@ function buildUpdatePayload(body: Record<string, unknown>) {
 
 /**
  * POST /api/shops/register
- * Upsert shop registration by merchantUserId (save every step)
- * Body: JSON with registration fields, images as base64 strings
+ * บันทึก/อัปเดตข้อมูลสมัครร้านใน collection shop-registrations ตาม merchantUserId
+ * ไม่สร้าง/อัปเดตร้านจริง (Shop) ที่ใช้ในระบบจนกว่าจะมีการกด \"เปิดรับออเดอร์เลย!\"
  */
 export const registerShop = async (req: Request, res: Response) => {
   try {
@@ -97,6 +99,44 @@ export const registerShop = async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       message: err.message || 'Registration failed',
+    });
+  }
+};
+
+/**
+ * POST /api/shops/publish
+ * ใช้ตอนกดปุ่ม \"เปิดรับออเดอร์เลย!\" เพื่อสร้าง/อัปเดตร้านจริงใน collection Shop
+ * จากข้อมูลล่าสุดใน shop-registrations ตาม merchantUserId
+ */
+export const publishShop = async (req: Request, res: Response) => {
+  try {
+    const { merchantUserId } = req.body;
+    if (!merchantUserId) {
+      return res.status(400).json({ success: false, message: 'Missing merchantUserId' });
+    }
+
+    const reg = await ShopRegistration.findOne({ merchantUserId: String(merchantUserId) });
+    if (!reg) {
+      return res.status(404).json({ success: false, message: 'Registration not found' });
+    }
+
+    const shopData = buildShopFromRegistration(reg);
+    const shop = await Shop.findOneAndUpdate(
+      { merchantUserId: String(merchantUserId) },
+      { $set: shopData },
+      { new: true, upsert: true }
+    );
+
+    return res.status(200).json({
+      success: true,
+      shop,
+    });
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error('Publish shop error:', err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || 'Publish failed',
     });
   }
 };

@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,6 +19,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { StepNav } from '../../../components/registration/StepNav';
 import { step5Schema } from '../../../lib/registrationSchemas';
 import { useRegistrationStore } from '../../../stores/registrationStore';
@@ -55,6 +56,23 @@ export default function Step5Screen() {
   const router = useRouter();
   const { formData, updateForm, setStep, merchantUserId } = useRegistrationStore();
   const [loadingPhotos, setLoadingPhotos] = useState(false);
+  const {
+    lat: paramLat,
+    lon: paramLon,
+    address: paramAddress,
+    subdistrict: paramSubdistrict,
+    district: paramDistrict,
+    province: paramProvince,
+    postalCode: paramPostalCode,
+  } = useLocalSearchParams<{
+    lat?: string;
+    lon?: string;
+    address?: string;
+    subdistrict?: string;
+    district?: string;
+    province?: string;
+    postalCode?: string;
+  }>();
 
   const {
     control,
@@ -83,7 +101,51 @@ export default function Step5Screen() {
 
   useEffect(() => {
     setStep(5);
-  }, []);
+  }, [setStep]);
+
+  // sync map params into form when returning from location screens
+  useEffect(() => {
+    if (paramLat && paramLon) {
+      const latNum = parseFloat(String(paramLat));
+      const lonNum = parseFloat(String(paramLon));
+      if (!Number.isNaN(latNum) && !Number.isNaN(lonNum)) {
+        setValue('latitude', latNum);
+        setValue('longitude', lonNum);
+      }
+    }
+    if (paramAddress && !formData.address_line) {
+      setValue('address_line', String(paramAddress));
+    }
+    if (paramSubdistrict && !formData.subdistrict) {
+      setValue('subdistrict', String(paramSubdistrict));
+    }
+    if (paramDistrict && !formData.district) {
+      setValue('district', String(paramDistrict));
+    }
+    if (paramProvince && !formData.province) {
+      setValue('province', String(paramProvince));
+    }
+    if (paramPostalCode && !formData.postal_code) {
+      const cleaned = String(paramPostalCode).replace(/\D/g, '').slice(0, 5);
+      if (cleaned) {
+        setValue('postal_code', cleaned);
+      }
+    }
+  }, [
+    paramLat,
+    paramLon,
+    paramAddress,
+    paramSubdistrict,
+    paramDistrict,
+    paramProvince,
+    paramPostalCode,
+    setValue,
+    formData.address_line,
+    formData.subdistrict,
+    formData.district,
+    formData.province,
+    formData.postal_code,
+  ]);
 
   const addPhotos = async () => {
     if (shopPhotos.length >= 5) return;
@@ -176,6 +238,24 @@ export default function Step5Screen() {
               {errors.shop_photos && (
                 <Text style={s.error}>{errors.shop_photos.message}</Text>
               )}
+            </View>
+
+            <View style={s.field}>
+              <TouchableOpacity
+                style={s.mapButton}
+                activeOpacity={0.85}
+                onPress={() => router.push('/location/search')}
+              >
+                <View style={s.mapIconWrap}>
+                  <Ionicons name="map-outline" size={20} color="#0E3A78" />
+                </View>
+                <View style={s.mapTextWrap}>
+                  <Text style={s.mapTitle}>เลือกตำแหน่งจากแผนที่</Text>
+                  <Text style={s.mapSubtitle} numberOfLines={1}>
+                    ระบบจะใช้พิกัดจากแผนที่ในการจัดส่ง
+                  </Text>
+                </View>
+              </TouchableOpacity>
             </View>
 
             <View style={s.field}>
@@ -280,41 +360,6 @@ export default function Step5Screen() {
                   <Text style={s.error}>{errors.postal_code.message}</Text>
                 )}
               </View>
-            </View>
-
-            <View style={s.field}>
-              <Text style={s.label}>ตำแหน่ง (ละติจูด, ลองจิจูด)</Text>
-              <View style={s.row}>
-                <Controller
-                  control={control}
-                  name="latitude"
-                  render={({ field: { onChange, value } }) => (
-                    <TextInput
-                      style={[s.input, s.coordInput]}
-                      placeholder="13.7563"
-                      value={value?.toString() || ''}
-                      onChangeText={(t) => onChange(parseFloat(t) || 0)}
-                      keyboardType="decimal-pad"
-                    />
-                  )}
-                />
-                <Controller
-                  control={control}
-                  name="longitude"
-                  render={({ field: { onChange, value } }) => (
-                    <TextInput
-                      style={[s.input, s.coordInput]}
-                      placeholder="100.5018"
-                      value={value?.toString() || ''}
-                      onChangeText={(t) => onChange(parseFloat(t) || 0)}
-                      keyboardType="decimal-pad"
-                    />
-                  )}
-                />
-              </View>
-              {errors.latitude && (
-                <Text style={s.error}>{errors.latitude.message}</Text>
-              )}
             </View>
 
             <View style={s.field}>
@@ -425,4 +470,24 @@ const s = StyleSheet.create({
   slider: { width: '100%', height: 40 },
   inputError: { borderColor: '#E53935' },
   error: { fontSize: 12, color: '#E53935' },
+  mapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#E3F2FD',
+    gap: 12,
+  },
+  mapIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mapTextWrap: { flex: 1 },
+  mapTitle: { fontSize: 14, fontWeight: '700', color: '#0E3A78' },
+  mapSubtitle: { fontSize: 12, color: '#1565C0', marginTop: 2 },
 });

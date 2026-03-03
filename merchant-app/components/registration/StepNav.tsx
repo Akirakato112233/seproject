@@ -21,13 +21,9 @@ export function StepNav({
 }: StepNavProps) {
   return (
     <View style={s.row}>
-      {step > 1 ? (
-        <TouchableOpacity style={s.backBtn} onPress={onBack} activeOpacity={0.8}>
-          <Text style={s.backText}>ย้อนกลับ</Text>
-        </TouchableOpacity>
-      ) : (
-        <View style={s.backBtn} />
-      )}
+      <TouchableOpacity style={s.backBtn} onPress={onBack} activeOpacity={0.8}>
+        <Text style={s.backText}>ย้อนกลับ</Text>
+      </TouchableOpacity>
       <TouchableOpacity
         style={[s.nextBtn, nextDisabled && s.nextDisabled]}
         onPress={onNext}

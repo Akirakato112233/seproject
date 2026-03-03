@@ -3,8 +3,8 @@ import { Platform } from 'react-native';
 
 // Web: ใช้ localhost (เครื่องเดียวกับ backend)
 // Mobile: ใช้ ngrok (ต้องรัน ngrok http 3000 ก่อน)
-// เปลี่ยนใน .env ได้: EXPO_PUBLIC_BASE_URL=https://xxx.ngrok-free.dev
-const NGROK_URL = process.env.EXPO_PUBLIC_BASE_URL || 'https://unwainscotted-unshoved-deborah.ngrok-free.dev';
+// เปลี่ยนใน .env ได้: EXPO_PUBLIC_BASE_URL=https://judith-cottony-cami.ngrok-free.dev
+const NGROK_URL = process.env.EXPO_PUBLIC_BASE_URL || 'https://judith-cottony-cami.ngrok-free.dev';
 export const BASE_URL = Platform.OS === 'web'
   ? 'http://localhost:3000'
   : NGROK_URL;
@@ -30,6 +30,7 @@ export const API = {
     CHAT: `${BASE_URL}/api/chat`,
     SHOPS: `${BASE_URL}/api/shops`,
     SHOPS_REGISTER: `${BASE_URL}/api/shops/register`,
+  SHOPS_PUBLISH: `${BASE_URL}/api/shops/publish`,
     // Auth APIs
     SIGNUP: `${BASE_URL}/api/auth/signup`,
     REQUEST_OTP: `${BASE_URL}/api/auth/request-otp`,

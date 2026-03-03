@@ -2,11 +2,11 @@
 
 const ENV = {
   dev: {
-    apiUrl: 'http://192.168.2.37:3000/api',
+    apiUrl: 'http://192.168.2.40:3000/api',
   },
   prod: {
     // อันนี้สำหรับตอนเอาขึ้น Server จริง (ค่อยมาแก้ทีหลังได้)
-    apiUrl: 'https://unwainscotted-unshoved-deborah.ngrok-free.dev/api',
+    apiUrl: 'https://judith-cottony-cami.ngrok-free.dev/api',
   },
 };
 

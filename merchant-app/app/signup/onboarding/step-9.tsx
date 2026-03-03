@@ -1,12 +1,14 @@
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRegistrationStore } from '../../../stores/registrationStore';
+import { API, NGROK_HEADERS } from '../../../config';
 
 export default function Step9Screen() {
   const router = useRouter();
-  const { setStep, formData } = useRegistrationStore();
+  const { setStep, formData, businessType, merchantUserId } = useRegistrationStore();
+  const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
     setStep(9);
@@ -14,12 +16,35 @@ export default function Step9Screen() {
 
   const shopName = formData.shop_name || 'ร้านของคุณ';
 
-  const openShop = () => {
-    router.replace('/(tabs)');
+  const publishShop = async () => {
+    if (!merchantUserId) return;
+    try {
+      setPublishing(true);
+      await fetch(API.SHOPS_PUBLISH, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
+        body: JSON.stringify({ merchantUserId }),
+      }).catch(() => undefined);
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const openShop = async () => {
+    await publishShop();
+    if (businessType === 'coin') {
+      router.replace('/(coin)');
+    } else {
+      router.replace('/(tabs)');
+    }
   };
 
   const viewDashboard = () => {
-    router.replace('/(tabs)');
+    if (businessType === 'coin') {
+      router.replace('/(coin)');
+    } else {
+      router.replace('/(tabs)');
+    }
   };
 
   return (
@@ -50,8 +75,17 @@ export default function Step9Screen() {
           </View>
         </View>
 
-        <TouchableOpacity style={s.primaryBtn} onPress={openShop} activeOpacity={0.85}>
-          <Text style={s.primaryBtnText}>เปิดรับออเดอร์เลย!</Text>
+        <TouchableOpacity
+          style={s.primaryBtn}
+          onPress={openShop}
+          activeOpacity={0.85}
+          disabled={publishing}
+        >
+          {publishing ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={s.primaryBtnText}>เปิดรับออเดอร์เลย!</Text>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity style={s.secondaryBtn} onPress={viewDashboard} activeOpacity={0.85}>

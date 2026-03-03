@@ -11,10 +11,16 @@ export const getShops = async (req: Request, res: Response) => {
       nearMe,
       promo,
       open,
+      merchantUserId,
     } = req.query;
 
     // สร้าง query object
     const query: any = {};
+
+    // Filter by merchantUserId (สำหรับ merchant dashboard)
+    if (merchantUserId) {
+      query.merchantUserId = String(merchantUserId);
+    }
 
     // Filter by type
     if (type) {

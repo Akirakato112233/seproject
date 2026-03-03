@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StepNav } from '../../../components/registration/StepNav';
 import { step6Schema } from '../../../lib/registrationSchemas';
-import { useRegistrationStore } from '../../../stores/registrationStore';
+import { useRegistrationStore, build24hBusinessHours } from '../../../stores/registrationStore';
 import { saveRegistration } from '../../../lib/registrationApi';
 import { z } from 'zod';
 
@@ -27,7 +27,7 @@ const DAYS_FULL = ['จันทร์', 'อังคาร', 'พุธ', 'พ
 
 export default function Step6Screen() {
   const router = useRouter();
-  const { formData, updateForm, setStep, merchantUserId } = useRegistrationStore();
+  const { formData, updateForm, setStep, merchantUserId, businessType } = useRegistrationStore();
   const [selectedDays, setSelectedDays] = useState<number[]>(() => {
     const hours = formData.business_hours || [];
     if (hours.length === 0) return [0, 1, 2, 3, 4, 5];
@@ -61,8 +61,18 @@ export default function Step6Screen() {
   });
 
   useEffect(() => {
+    if (businessType === 'coin') {
+      const hours = build24hBusinessHours();
+      updateForm({
+        business_hours: hours,
+        cut_off_time: formData.cut_off_time || '18:00',
+      });
+      setStep(7);
+      router.replace('/signup/onboarding/step-7');
+      return;
+    }
     setStep(6);
-  }, []);
+  }, [businessType, formData.cut_off_time, router, setStep, updateForm]);
 
   const toggleDay = (idx: number) => {
     setSelectedDays((prev) =>

@@ -114,6 +114,7 @@ export async function saveRegistration(
     delivery_fee_type: formData.delivery_fee_type,
     delivery_fixed_price: formData.delivery_fixed_price,
     standard_duration_hours: formData.standard_duration_hours,
+    coin_machines: formData.coin_machines,
     ...overrides,
   };
 

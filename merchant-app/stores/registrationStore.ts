@@ -42,6 +42,24 @@ export type IronOnlyService = {
   items: IronOnlyItem[];
 };
 
+export type CoinMachineOption = {
+  id: string;
+  setting: string;
+  duration: number;
+  price: number;
+};
+
+export type CoinMachine = {
+  id: string;
+  machineId: string;
+  type: 'washer' | 'dryer';
+  capacityKg: number;
+  /** ค่า base เดิม เผื่อใช้ fallback/คำนวณ template ภายหลัง */
+  pricePerCycle?: number;
+  durationMinutes?: number;
+  options: CoinMachineOption[];
+};
+
 export interface RegistrationFormData {
   // Step 1
   shop_name?: string;
@@ -50,8 +68,6 @@ export interface RegistrationFormData {
   owner_first_name?: string;
   owner_last_name?: string;
   owner_phone?: string;
-  password?: string;
-  confirm_password?: string;
   // Step 2
   id_card_front?: string;
   id_card_back?: string;
@@ -96,6 +112,7 @@ export interface RegistrationFormData {
   delivery_fee_type?: 'free' | 'by_distance' | 'fixed';
   delivery_fixed_price?: number;
   standard_duration_hours?: number;
+  coin_machines?: CoinMachine[];
 }
 
 function generateId() {
@@ -120,9 +137,22 @@ interface RegistrationState {
   addServiceItem: (categoryId: string, name: string, price?: number, extras?: { weight_kg?: string; duration_minutes?: string; description?: string }) => void;
   removeServiceCategory: (id: string) => void;
   removeServiceItem: (categoryId: string, itemId: string) => void;
+  addCoinMachine: (machine: Omit<CoinMachine, 'id'>) => void;
+  updateCoinMachine: (id: string, patch: Partial<Omit<CoinMachine, 'id'>>) => void;
+  removeCoinMachine: (id: string) => void;
 }
 
 const DAYS = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์'];
+
+export function build24hBusinessHours(): BusinessHoursDay[] {
+  return DAYS.map((day) => ({
+    day,
+    is_open: true,
+    open_time: '00:00',
+    close_time: '23:59',
+  }));
+}
+
 const defaultBusinessHours: BusinessHoursDay[] = DAYS.map((day) => ({
   day,
   is_open: day !== 'อาทิตย์',
@@ -141,6 +171,23 @@ const defaultIronOnlyItems: IronOnlyItem[] = [
   { name: 'เสื้อ', price: 0 },
   { name: 'กางเกง', price: 0 },
 ];
+
+function buildDefaultCoinOptions(type: 'washer' | 'dryer'): CoinMachineOption[] {
+  if (type === 'washer') {
+    return ['Cold', 'Warm', 'Hot'].map((label) => ({
+      id: generateId(),
+      setting: label,
+      duration: 0,
+      price: 0,
+    }));
+  }
+  return ['Low Heat', 'Medium Heat', 'High Heat'].map((label) => ({
+    id: generateId(),
+    setting: label,
+    duration: 0,
+    price: 0,
+  }));
+}
 
 const DEFAULT_SERVICE_CATEGORIES: RegistrationServiceCategory[] = [
   { id: 'wash', name: 'Washing', items: [] },
@@ -179,7 +226,17 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
       prefillPhone: p.phone,
     }),
   setMerchantUser: (id) => set({ merchantUserId: id }),
-  setBusinessType: (t) => set({ businessType: t }),
+  setBusinessType: (t) =>
+    set((s) => ({
+      businessType: t,
+      formData:
+        t === 'coin'
+          ? {
+              ...s.formData,
+              business_hours: build24hBusinessHours(),
+            }
+          : s.formData,
+    })),
   resetForm: () =>
     set({
       formData: { ...initialState },
@@ -235,6 +292,40 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
             ? { ...c, items: c.items.filter((i) => i.id !== itemId) }
             : c
         ),
+      },
+    })),
+  addCoinMachine: (machine) =>
+    set((s) => {
+      const existing = s.formData.coin_machines || [];
+      const withId: CoinMachine = {
+        id: generateId(),
+        ...machine,
+        options:
+          machine.options && machine.options.length
+            ? machine.options
+            : buildDefaultCoinOptions(machine.type),
+      };
+      return {
+        formData: {
+          ...s.formData,
+          coin_machines: [...existing, withId],
+        },
+      };
+    }),
+  updateCoinMachine: (id, patch) =>
+    set((s) => ({
+      formData: {
+        ...s.formData,
+        coin_machines: (s.formData.coin_machines || []).map((m) =>
+          m.id === id ? { ...m, ...patch } : m
+        ),
+      },
+    })),
+  removeCoinMachine: (id) =>
+    set((s) => ({
+      formData: {
+        ...s.formData,
+        coin_machines: (s.formData.coin_machines || []).filter((m) => m.id !== id),
       },
     })),
 }));

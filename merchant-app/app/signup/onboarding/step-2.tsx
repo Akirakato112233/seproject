@@ -214,7 +214,7 @@ export default function Step2Screen() {
                   />
                 )}
               />
-              <Text style={s.hint}>กรอกปี-เดือน-วัน (8 หลัก)</Text>
+              <Text style={s.hint}>ใช้ปี ค.ศ. เท่านั้น (กรอกปี-เดือน-วัน รวม 8 หลัก เช่น 20050202)</Text>
               {errors.date_of_birth && (
                 <Text style={s.error}>{errors.date_of_birth.message}</Text>
               )}

@@ -65,6 +65,7 @@ export interface IOtherService {
 }
 
 export interface IShop extends Document {
+  merchantUserId?: string;
   name: string;
   rating: number;
   reviewCount: number;
@@ -156,6 +157,7 @@ const OpeningHoursItemSchema = new Schema({
 }, { _id: false });
 
 const ShopSchema = new Schema<IShop>({
+  merchantUserId: { type: String },
   name: { type: String, required: true },
   rating: { type: Number, required: true, min: 0, max: 5 },
   reviewCount: { type: Number, default: 0 },
