@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
+    Alert,
     ScrollView,
     StyleSheet,
     Switch,
@@ -10,12 +12,117 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useShop } from '../../context/ShopContext';
 
 export default function ShopScreen() {
-    const [isOpen, setIsOpen] = useState(true);
-    const [shopName, setShopName] = useState('WashPro Laundry');
-    const [address, setAddress] = useState('123 Main Street, Bangkok');
-    const [phone, setPhone] = useState('02-123-4567');
+    const { shop, loading, updateShop } = useShop();
+
+    const [isOpen, setIsOpen] = useState(shop?.status ?? true);
+    const [shopName, setShopName] = useState(shop?.name ?? '');
+    const [saving, setSaving] = useState(false);
+
+    // sync local state when shop data loads/changes
+    useEffect(() => {
+        if (shop) {
+            setIsOpen(shop.status ?? true);
+            setShopName(shop.name ?? '');
+        }
+    }, [shop]);
+
+    const handleToggleStatus = async (value: boolean) => {
+        setIsOpen(value);
+        await updateShop({ status: value });
+    };
+
+    const handleSave = async () => {
+        if (!shopName.trim()) {
+            Alert.alert('Error', 'กรุณากรอกชื่อร้าน');
+            return;
+        }
+        setSaving(true);
+        const ok = await updateShop({ name: shopName.trim() });
+        setSaving(false);
+        if (ok) {
+            Alert.alert('สำเร็จ', 'บันทึกข้อมูลร้านเรียบร้อยแล้ว');
+        } else {
+            Alert.alert('Error', 'ไม่สามารถบันทึกข้อมูลได้');
+        }
+    };
+
+    // Build a flat list of services from shop data for display
+    const serviceItems: { icon: keyof typeof Ionicons.glyphMap; name: string; desc: string; price: string }[] = [];
+
+    if (shop?.washServices?.length) {
+        const minPrice = Math.min(
+            ...shop.washServices.flatMap((ws) => ws.options.map((o) => o.price))
+        );
+        serviceItems.push({
+            icon: 'water-outline',
+            name: 'Wash',
+            desc: `${shop.washServices.length} เครื่อง/ขนาด`,
+            price: `฿${minPrice}+`,
+        });
+    }
+
+    if (shop?.dryServices?.length) {
+        const minPrice = Math.min(
+            ...shop.dryServices.flatMap((ds) => ds.options.map((o) => o.price))
+        );
+        serviceItems.push({
+            icon: 'sunny-outline',
+            name: 'Dry',
+            desc: `${shop.dryServices.length} เครื่อง/ขนาด`,
+            price: `฿${minPrice}+`,
+        });
+    }
+
+    if (shop?.ironingServices?.length) {
+        const minPrice = Math.min(
+            ...shop.ironingServices.flatMap((is) => is.options.map((o) => o.price))
+        );
+        serviceItems.push({
+            icon: 'shirt-outline',
+            name: 'Iron',
+            desc: `${shop.ironingServices.length} หมวด`,
+            price: `฿${minPrice}+`,
+        });
+    }
+
+    if (shop?.foldingServices?.length) {
+        const minPrice = Math.min(
+            ...shop.foldingServices.flatMap((fs) => fs.options.map((o) => o.pricePerKg))
+        );
+        serviceItems.push({
+            icon: 'layers-outline',
+            name: 'Fold',
+            desc: 'พับผ้า',
+            price: `฿${minPrice}/kg+`,
+        });
+    }
+
+    if (shop?.otherServices?.length) {
+        const totalItems = shop.otherServices.reduce((sum, os) => sum + os.options.length, 0);
+        serviceItems.push({
+            icon: 'ellipsis-horizontal-outline',
+            name: 'Other',
+            desc: `${totalItems} รายการ`,
+            price: '',
+        });
+    }
+
+    if (loading) {
+        return (
+            <SafeAreaView style={s.safe}>
+                <View style={s.header}>
+                    <Text style={s.title}>My Shop</Text>
+                </View>
+                <View style={s.loadingWrap}>
+                    <ActivityIndicator size="large" color="#0E3A78" />
+                    <Text style={s.loadingText}>กำลังโหลดข้อมูลร้าน...</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={s.safe}>
@@ -34,7 +141,7 @@ export default function ShopScreen() {
                     </View>
                     <Switch
                         value={isOpen}
-                        onValueChange={setIsOpen}
+                        onValueChange={handleToggleStatus}
                         trackColor={{ false: '#ccc', true: '#0E3A78' }}
                     />
                 </View>
@@ -53,66 +160,80 @@ export default function ShopScreen() {
                     </View>
 
                     <View style={s.inputGroup}>
-                        <Text style={s.label}>Address</Text>
-                        <TextInput
-                            style={[s.input, s.inputMultiline]}
-                            value={address}
-                            onChangeText={setAddress}
-                            multiline
-                        />
+                        <Text style={s.label}>Type</Text>
+                        <View style={[s.input, s.inputDisabled]}>
+                            <Text style={s.inputDisabledText}>
+                                {shop?.type === 'coin' ? '🪙 Coin-operated' : '🏪 Full Service'}
+                            </Text>
+                        </View>
                     </View>
 
                     <View style={s.inputGroup}>
-                        <Text style={s.label}>Phone</Text>
-                        <TextInput
-                            style={s.input}
-                            value={phone}
-                            onChangeText={setPhone}
-                            keyboardType="phone-pad"
-                        />
+                        <Text style={s.label}>Rating</Text>
+                        <View style={[s.input, s.inputDisabled]}>
+                            <Text style={s.inputDisabledText}>
+                                ⭐ {shop?.rating?.toFixed(1) ?? '-'} ({shop?.reviewCount ?? 0} reviews)
+                            </Text>
+                        </View>
+                    </View>
+
+                    <View style={s.inputGroup}>
+                        <Text style={s.label}>Delivery Fee</Text>
+                        <View style={[s.input, s.inputDisabled]}>
+                            <Text style={s.inputDisabledText}>
+                                {shop?.deliveryFee === 0 ? 'Free' : `฿${shop?.deliveryFee ?? 0}`}
+                            </Text>
+                        </View>
                     </View>
                 </View>
+
+                {/* Opening Hours */}
+                {shop?.openingHours && shop.openingHours.length > 0 && (
+                    <View style={s.section}>
+                        <Text style={s.sectionTitle}>Opening Hours</Text>
+                        {shop.openingHours.map((oh, i) => (
+                            <View key={i} style={s.hoursRow}>
+                                <Text style={s.hoursDay}>{oh.days.join(', ')}</Text>
+                                <Text style={s.hoursTime}>{oh.open} - {oh.close}</Text>
+                            </View>
+                        ))}
+                    </View>
+                )}
 
                 {/* Services */}
                 <View style={s.section}>
                     <Text style={s.sectionTitle}>Services & Pricing</Text>
 
-                    <View style={s.serviceCard}>
-                        <View style={s.serviceLeft}>
-                            <Ionicons name="water-outline" size={24} color="#0E3A78" />
-                            <View>
-                                <Text style={s.serviceName}>Wash</Text>
-                                <Text style={s.serviceDesc}>Regular wash service</Text>
+                    {serviceItems.length === 0 ? (
+                        <Text style={s.emptyText}>ยังไม่มีบริการ</Text>
+                    ) : (
+                        serviceItems.map((item, i) => (
+                            <View key={i} style={s.serviceCard}>
+                                <View style={s.serviceLeft}>
+                                    <Ionicons name={item.icon} size={24} color="#0E3A78" />
+                                    <View>
+                                        <Text style={s.serviceName}>{item.name}</Text>
+                                        <Text style={s.serviceDesc}>{item.desc}</Text>
+                                    </View>
+                                </View>
+                                {item.price ? (
+                                    <Text style={s.servicePrice}>{item.price}</Text>
+                                ) : null}
                             </View>
-                        </View>
-                        <Text style={s.servicePrice}>฿50/kg</Text>
-                    </View>
-
-                    <View style={s.serviceCard}>
-                        <View style={s.serviceLeft}>
-                            <Ionicons name="sunny-outline" size={24} color="#0E3A78" />
-                            <View>
-                                <Text style={s.serviceName}>Dry</Text>
-                                <Text style={s.serviceDesc}>Machine dry</Text>
-                            </View>
-                        </View>
-                        <Text style={s.servicePrice}>฿30/kg</Text>
-                    </View>
-
-                    <View style={s.serviceCard}>
-                        <View style={s.serviceLeft}>
-                            <Ionicons name="shirt-outline" size={24} color="#0E3A78" />
-                            <View>
-                                <Text style={s.serviceName}>Iron</Text>
-                                <Text style={s.serviceDesc}>Professional ironing</Text>
-                            </View>
-                        </View>
-                        <Text style={s.servicePrice}>฿20/piece</Text>
-                    </View>
+                        ))
+                    )}
                 </View>
 
-                <TouchableOpacity style={s.saveBtn}>
-                    <Text style={s.saveBtnText}>Save Changes</Text>
+                <TouchableOpacity
+                    style={[s.saveBtn, saving && s.saveBtnDisabled]}
+                    onPress={handleSave}
+                    disabled={saving}
+                >
+                    {saving ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <Text style={s.saveBtnText}>Save Changes</Text>
+                    )}
                 </TouchableOpacity>
             </ScrollView>
         </SafeAreaView>
@@ -132,6 +253,17 @@ const s = StyleSheet.create({
     },
     content: {
         padding: 16,
+        paddingBottom: 40,
+    },
+    loadingWrap: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12,
+    },
+    loadingText: {
+        fontSize: 14,
+        color: '#666',
     },
     statusCard: {
         flexDirection: 'row',
@@ -193,9 +325,33 @@ const s = StyleSheet.create({
         fontSize: 14,
         backgroundColor: '#fafafa',
     },
+    inputDisabled: {
+        backgroundColor: '#f0f0f0',
+    },
+    inputDisabledText: {
+        fontSize: 14,
+        color: '#666',
+    },
     inputMultiline: {
         height: 80,
         textAlignVertical: 'top',
+    },
+    hoursRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+    },
+    hoursDay: {
+        fontSize: 14,
+        color: '#333',
+        fontWeight: '500',
+    },
+    hoursTime: {
+        fontSize: 14,
+        color: '#0E3A78',
+        fontWeight: '600',
     },
     serviceCard: {
         flexDirection: 'row',
@@ -224,12 +380,21 @@ const s = StyleSheet.create({
         fontWeight: '700',
         color: '#0E3A78',
     },
+    emptyText: {
+        fontSize: 14,
+        color: '#999',
+        textAlign: 'center',
+        paddingVertical: 16,
+    },
     saveBtn: {
         backgroundColor: '#0E3A78',
         borderRadius: 12,
         paddingVertical: 16,
         alignItems: 'center',
         marginTop: 8,
+    },
+    saveBtnDisabled: {
+        opacity: 0.6,
     },
     saveBtnText: {
         color: '#fff',
