@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { API, NGROK_HEADERS, COIN_SHOP_ID } from '../config';
+import { useAuth } from './AuthContext';
 
 export interface WashServiceOption {
   setting: string;
@@ -57,11 +58,37 @@ export function CoinShopProvider({ children }: { children: React.ReactNode }) {
   const [shop, setShop] = useState<CoinShopData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
   const loadShop = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+
+      // 1) ถ้ามี user (merchant) ให้ดึงร้าน coin ของ user นั้นก่อน
+      if (user?._id) {
+        const res = await fetch(
+          `${API.SHOPS}?merchantUserId=${encodeURIComponent(user._id)}`,
+          { headers: NGROK_HEADERS }
+        );
+        if (res.ok) {
+          const shops: CoinShopData[] = await res.json();
+          const coinShop = shops.find((s) => s.type === 'coin');
+          if (coinShop) {
+            setShop(coinShop);
+            console.log('Coin Shop loaded (by merchantUserId):', coinShop.name);
+            return;
+          }
+          // ถ้ามีร้านแต่ไม่ใช่ coin ก็ใช้ร้านแรก (fallback)
+          if (shops.length > 0) {
+            setShop(shops[0]);
+            console.log('Shop loaded (by merchantUserId, no coin type):', shops[0].name);
+            return;
+          }
+        }
+      }
+
+      // 2) ถ้ากำหนด COIN_SHOP_ID ไว้ ให้โหลดร้านตาม id
       if (COIN_SHOP_ID && COIN_SHOP_ID.trim()) {
         const res = await fetch(`${API.SHOPS}/${COIN_SHOP_ID}`, { headers: NGROK_HEADERS });
         if (!res.ok) throw new Error('Failed to fetch coin shop');
@@ -69,6 +96,7 @@ export function CoinShopProvider({ children }: { children: React.ReactNode }) {
         setShop(shopData);
         console.log('Coin Shop loaded:', shopData.name);
       } else {
+        // 3) สุดท้าย fallback เป็นร้าน coin ร้านแรกในระบบ
         const res = await fetch(API.SHOPS + '?type=coin', { headers: NGROK_HEADERS });
         if (!res.ok) throw new Error('Failed to fetch shops');
         const shops: CoinShopData[] = await res.json();
@@ -85,7 +113,7 @@ export function CoinShopProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?._id]);
 
   useEffect(() => {
     loadShop();

@@ -76,6 +76,25 @@ export default function CreateAccountScreen() {
         });
       } else if (data.next === 'APP') {
         await login(String(data.token), data.user as any);
+        // Fetch shop to determine type (coin vs full)
+        const userId = (data.user as any)?._id || (data.user as any)?.id;
+        if (userId) {
+          try {
+            const shopRes = await fetch(
+              `${API.SHOPS}?merchantUserId=${encodeURIComponent(userId)}`,
+              { headers: { ...NGROK_HEADERS } }
+            );
+            if (shopRes.ok) {
+              const shops = await shopRes.json();
+              if (shops.length > 0 && shops[0].type === 'coin') {
+                router.replace('/(coin)');
+                return;
+              }
+            }
+          } catch (e) {
+            console.warn('Could not determine shop type, defaulting to full:', e);
+          }
+        }
         router.replace('/(tabs)');
       } else {
         Alert.alert('Error', (data.message as string) || 'Login failed');

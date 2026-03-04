@@ -5,6 +5,7 @@ export interface IChatMessage extends Document {
   shopId?: string;
   sender: 'user' | 'rider';
   text: string;
+  imageUrl?: string;
   createdAt: Date;
 }
 
@@ -13,7 +14,8 @@ const ChatMessageSchema = new Schema<IChatMessage>(
     riderId: { type: String, required: true },
     shopId: { type: String },
     sender: { type: String, enum: ['user', 'rider'], required: true },
-    text: { type: String, required: true },
+    text: { type: String },
+    imageUrl: { type: String },
     createdAt: { type: Date, default: Date.now },
   },
   {

@@ -26,27 +26,50 @@ export const getMessages = async (req: Request, res: Response) => {
 // POST /api/chat/messages
 export const createMessage = async (req: Request, res: Response) => {
   try {
-    const { riderId, shopId, sender, text } = req.body;
+    const { riderId, shopId, sender, text, imageUrl } = req.body;
 
-    console.log('📨 Received message:', { riderId, shopId, sender, text }); // Debug log
+    console.log('📨 Received message:', { riderId, shopId, sender, text: text?.slice(0, 50), hasImage: !!imageUrl });
 
-    if (!riderId || !sender || !text) {
-      return res.status(400).json({ message: 'riderId, sender and text are required' });
+    if (!riderId || !sender) {
+      return res.status(400).json({ message: 'riderId and sender are required' });
+    }
+
+    if (!text && !imageUrl) {
+      return res.status(400).json({ message: 'text or imageUrl is required' });
     }
 
     const message = await ChatMessage.create({
       riderId,
       shopId,
       sender,
-      text,
+      text: text || '',
+      imageUrl,
       createdAt: new Date(),
     });
 
-    console.log('✅ Message saved:', message); // Debug log
+    console.log('✅ Message saved:', message._id);
 
     return res.status(201).json(message);
   } catch (error) {
     console.error('Error creating chat message:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// POST /api/chat/upload — upload image for chat
+export const uploadChatImage = async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    // Build URL path to the uploaded file
+    const imageUrl = `/uploads/chat/${req.file.filename}`;
+    console.log('📷 Chat image uploaded:', imageUrl);
+
+    return res.status(201).json({ imageUrl });
+  } catch (error) {
+    console.error('Error uploading chat image:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 };

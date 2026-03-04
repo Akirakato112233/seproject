@@ -6,7 +6,7 @@ const ENV = {
         // วิธีดู IP:
         // Windows: เปิด cmd พิมพ์ ipconfig ดูตรง IPv4 Address
         // Mac: เปิด Terminal พิมพ์ ifconfig หรือดูใน Network Settings
-        apiUrl: 'https://putative-renea-whisperingly.ngrok-free.dev',
+        apiUrl: 'https://judith-cottony-cami.ngrok-free.dev',
     },
     prod: {
         // อันนี้สำหรับตอนเอาขึ้น Server จริง (ค่อยมาแก้ทีหลังได้)

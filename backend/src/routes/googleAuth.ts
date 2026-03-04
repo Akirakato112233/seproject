@@ -59,7 +59,7 @@ router.post('/login', async (req: Request, res: Response) => {
       if (existingByEmail) {
         if (!existingByEmail.googleSub) {
           existingByEmail.googleSub = googleSub;
-          await existingByEmail.save().catch(() => {});
+          await existingByEmail.save().catch(() => { });
         }
         const token = signAppToken({ userId: existingByEmail._id.toString() });
         return res.json({
@@ -146,15 +146,15 @@ router.post('/login', async (req: Request, res: Response) => {
           const bySub = await User.findOne({ googleSub, role });
           const byEmail = emailLower
             ? await User.findOne({
-                email: { $regex: new RegExp(`^${emailLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
-                role,
-              })
+              email: { $regex: new RegExp(`^${emailLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+              role,
+            })
             : null;
           const existing = bySub || byEmail;
           if (existing) {
             if (!existing.googleSub) {
               existing.googleSub = googleSub;
-              await existing.save().catch(() => {});
+              await existing.save().catch(() => { });
             }
             const token = signAppToken({ userId: existing._id.toString() });
             return res.json({
@@ -320,7 +320,7 @@ router.get('/start', (req: Request, res: Response) => {
   const redirectScheme = (req.query.redirect_scheme as string) || 'exp://192.168.2.40:8081';
   const GOOGLE_CLIENT_ID =
     '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
-  const CALLBACK_URL = `${process.env.NGROK_URL || 'https://putative-renea-whisperingly.ngrok-free.dev'}/api/google/callback`;
+  const CALLBACK_URL = `${process.env.NGROK_URL || 'https://judith-cottony-cami.ngrok-free.dev'}/api/google/callback`;
 
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
@@ -347,7 +347,7 @@ router.get('/callback', async (req: Request, res: Response) => {
     const GOOGLE_CLIENT_ID =
       '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
     const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
-    const CALLBACK_URL = `${process.env.NGROK_URL || 'https://putative-renea-whisperingly.ngrok-free.dev'}/api/google/callback`;
+    const CALLBACK_URL = `${process.env.NGROK_URL || 'https://judith-cottony-cami.ngrok-free.dev'}/api/google/callback`;
 
     if (!code) {
       return res.status(400).send('Missing authorization code');
