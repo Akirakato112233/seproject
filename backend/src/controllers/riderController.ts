@@ -803,7 +803,7 @@ export const getLatestRegistration = async (req: Request, res: Response) => {
 };
 
 // GET /api/riders/:id
-// order.riderId is User._id (from rider app auth), so fallback to User when Rider not found
+// order.riderId is User._id (from rider app auth), so fallback to User/RiderRegistration when Rider not found
 export const getRiderById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -812,14 +812,51 @@ export const getRiderById = async (req: Request, res: Response) => {
     }
     let rider = await Rider.findById(id).lean();
     if (!rider) {
+      // riderId อาจเป็น User._id ที่มี role='user' หรือ role='rider'
       const user = await User.findById(id).lean();
       if (user) {
-        return res.json({
-          displayName: user.displayName || 'Rider',
-          fullName: user.displayName || 'Rider',
-        });
+        // หา User ที่มี role='rider' ด้วย email เดียวกัน (อาจเป็น document คนละตัว)
+        const riderUser = user.role === 'rider' ? user : await User.findOne({ email: user.email, role: 'rider' }).lean();
+        const displayName = (riderUser?.displayName) || user.displayName || 'Rider';
+        const emailToSearch = riderUser?.email || user.email;
+
+        // ดึง phone และ fullName จาก rider_registrations เสมอ (แม่นยำที่สุด)
+        let phone: string | undefined;
+        let regFullName: string | undefined;
+        let registration = null;
+        // ค้นหาด้วย email ก่อน
+        if (emailToSearch) {
+          registration = await RiderRegistration.findOne({
+            email: { $regex: new RegExp(`^${emailToSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+          }).lean();
+        }
+        // ถ้าไม่เจอด้วย email → ค้นหาด้วย phone จาก User
+        if (!registration) {
+          const phoneToSearch = riderUser?.phone || user.phone;
+          if (phoneToSearch) {
+            registration = await RiderRegistration.findOne({ phone: phoneToSearch }).lean();
+          }
+        }
+        if (registration) {
+          phone = registration.phone;
+          regFullName = registration.fullName;
+        }
+        // fallback: ใช้ phone จาก riderUser หรือ user
+        if (!phone) phone = riderUser?.phone || user.phone || undefined;
+        const finalName = regFullName || displayName;
+
+        return res.json({ displayName: finalName, fullName: finalName, phone });
       }
       return res.json({ displayName: 'Rider', fullName: 'Rider' });
+    }
+    // ถ้า rider ไม่มี phone ให้ลองดึงจาก rider_registrations
+    if (!rider.phone) {
+      const registration = await RiderRegistration.findOne({
+        $or: [{ email: (rider as any).email }, { fullName: rider.fullName }],
+      }).lean();
+      if (registration) {
+        (rider as any).phone = registration.phone;
+      }
     }
     return res.json(rider);
   } catch (error) {

@@ -28,6 +28,7 @@ interface OrderData {
     createdAt?: string;
     riderId?: string;
     riderDisplayName?: string;
+    note?: string;
 }
 
 const STEP_CONFIG: Record<OrderStep, { title: string; description: string; icon: string }> = {
@@ -58,6 +59,7 @@ export default function OrderStatusScreen() {
     const [order, setOrder] = useState<OrderData | null>(null);
     const [loading, setLoading] = useState(true);
     const [riderName, setRiderName] = useState<string | null>(null);
+    const [riderPhone, setRiderPhone] = useState<string | null>(null);
 
     // Parse step จาก params (default = 1)
     const currentStep: OrderStep = parseInt(stepParam ?? '0') as OrderStep;
@@ -115,12 +117,12 @@ export default function OrderStatusScreen() {
         return () => clearInterval(interval);
     }, [id]);
 
-    // ดึงชื่อ rider จาก order.riderDisplayName (จาก API) หรือ fetch แยกถ้ายังไม่มี
+    // ดึงชื่อและเบอร์โทร rider จาก API
     useEffect(() => {
         if (!order?.riderId) return;
-        if (order.riderDisplayName) {
+        // ใช้ riderDisplayName ถ้ามี แต่ยังต้อง fetch phone
+        if (order.riderDisplayName && !riderName) {
             setRiderName(order.riderDisplayName);
-            return;
         }
         const fetchRider = async () => {
             try {
@@ -130,12 +132,13 @@ export default function OrderStatusScreen() {
                 const data = await res.json();
                 const name = data.displayName || data.fullName || 'Rider';
                 setRiderName(name);
+                if (data.phone) setRiderPhone(data.phone);
             } catch {
-                setRiderName('Rider');
+                if (!riderName) setRiderName('Rider');
             }
         };
         fetchRider();
-    }, [order?.riderId, order?.riderDisplayName]);
+    }, [order?.riderId]);
 
     const fetchOrder = async () => {
         try {
@@ -145,9 +148,7 @@ export default function OrderStatusScreen() {
             console.log('📦 Order createdAt:', data.order?.createdAt);
             if (data.success) {
                 setOrder(data.order);
-                if (data.order?.riderDisplayName) {
-                    setRiderName(data.order.riderDisplayName);
-                }
+                // ไม่ set riderName จาก order แล้ว - ให้ดึงจาก API riders/:id แทน (useEffect อื่น)
 
                 // Redirect ตาม status (เช็คก่อนว่า step ปัจจุบันตรงแล้วหรือยัง เพื่อไม่ให้ loop)
                 const status = data.order?.status;
@@ -167,8 +168,8 @@ export default function OrderStatusScreen() {
                     });
                 } else if (status === 'completed') {
                     router.replace({
-                        pathname: '/shop/order/arrived/[id]' as any,
-                        params: { id },
+                        pathname: '/shop/order/rate/[id]' as any,
+                        params: { id, riderName: data.order?.riderDisplayName || riderName || 'Rider' },
                     });
                 }
             }
@@ -180,7 +181,12 @@ export default function OrderStatusScreen() {
     };
 
     const handleCall = () => {
-        Linking.openURL('tel:+66649525694');
+        if (riderPhone) {
+            const phone = riderPhone.startsWith('0') ? `+66${riderPhone.slice(1)}` : riderPhone;
+            Linking.openURL(`tel:${phone}`);
+        } else {
+            alert('ไม่พบเบอร์โทรศัพท์ของ Rider');
+        }
     };
 
     const handleChat = () => {
@@ -311,6 +317,12 @@ export default function OrderStatusScreen() {
                                 <Text style={styles.itemPrice}>฿{item.price}</Text>
                             </View>
                         ))}
+                        {order.note && (
+                            <View style={styles.noteContainer}>
+                                <Ionicons name="document-text-outline" size={16} color="#666" />
+                                <Text style={styles.noteText}>{order.note}</Text>
+                            </View>
+                        )}
                     </View>
                 )}
 
@@ -326,7 +338,7 @@ export default function OrderStatusScreen() {
                             <Text style={styles.infoName}>
                                 {currentStep === 0
                                     ? 'Waiting for rider...'
-                                    : riderName || order?.riderDisplayName || 'Rider'}
+                                    : riderName || 'Rider'}
                             </Text>
                         </View>
                         {currentStep !== 0 && (
@@ -566,6 +578,22 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '500',
         color: '#333',
+    },
+    noteContainer: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginTop: 12,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#f0f0f0',
+        gap: 8,
+    },
+    noteText: {
+        flex: 1,
+        fontSize: 13,
+        color: '#666',
+        fontStyle: 'italic',
+        lineHeight: 18,
     },
     // Info Section
     infoSection: {

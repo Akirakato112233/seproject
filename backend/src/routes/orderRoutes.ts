@@ -15,6 +15,7 @@ import {
   merchantUpdateOrderStatus,
   startCoinWash,
   startCoinDry,
+  rateOrder,
 } from '../controllers/orderController';
 import { authenticateToken } from '../middleware/auth';
 
@@ -65,6 +66,9 @@ router.get('/history', getOrderHistory);
 
 // GET /api/orders/:orderId - ดึง order ตาม ID
 router.get('/:orderId', getOrderById);
+
+// POST /api/orders/:orderId/rate - User ให้คะแนน rider
+router.post('/:orderId/rate', rateOrder);
 
 // (moved above auth middleware)
 

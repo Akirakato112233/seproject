@@ -142,6 +142,10 @@ export interface IRiderRegistration extends Document {
   possessorName?: string;
   possessorId?: string;
   vehicleBookDisclaimerAgreed?: boolean;
+
+  // Rating from users
+  totalRating?: number; // ผลรวมคะแนนทั้งหมด
+  ratingCount?: number; // จำนวนครั้งที่ถูกให้คะแนน
 }
 
 const RiderRegistrationSchema = new Schema<IRiderRegistration>(
@@ -242,6 +246,10 @@ const RiderRegistrationSchema = new Schema<IRiderRegistration>(
     possessorName: { type: String },
     possessorId: { type: String },
     vehicleBookDisclaimerAgreed: { type: Boolean },
+
+    // Rating from users
+    totalRating: { type: Number, default: 0 },
+    ratingCount: { type: Number, default: 0 },
 
     // Admin review status
     status: {

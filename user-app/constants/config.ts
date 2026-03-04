@@ -2,11 +2,11 @@
 
 const ENV = {
     dev: {
-        apiUrl: 'https://nonheritably-panpsychistic-joannie.ngrok-free.dev/api',
+        apiUrl: 'https://putative-renea-whisperingly.ngrok-free.dev',
     },
     prod: {
         // อันนี้สำหรับตอนเอาขึ้น Server จริง (ค่อยมาแก้ทีหลังได้)
-        apiUrl: 'https://nonheritably-panpsychistic-joannie.ngrok-free.dev/api',
+        apiUrl: 'https://putative-renea-whisperingly.ngrok-free.dev',
     },
 };
 

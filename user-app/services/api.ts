@@ -35,7 +35,7 @@ export const getShops = async (filters?: FilterParams): Promise<LaundryShop[]> =
         }
 
         // ต่อ String URL ให้ถูกต้อง
-        const url = `${API_BASE_URL}/shops${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+        const url = `${API_BASE_URL}/api/shops${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
 
         console.log('Fetching URL:', url); // log ดูว่ายิงไปถูกที่ไหม
 
@@ -69,7 +69,7 @@ export const getShops = async (filters?: FilterParams): Promise<LaundryShop[]> =
  */
 export const getShopById = async (id: string): Promise<LaundryShop> => {
     try {
-        const url = `${API_BASE_URL}/shops/${id}`;
+        const url = `${API_BASE_URL}/api/shops/${id}`;
         console.log('Fetching Detail URL:', url);
 
         const response = await fetch(url, {

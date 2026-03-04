@@ -13,6 +13,7 @@ import {
 import { User } from '../models/User';
 import { Shop } from '../models/Shop';
 import { Rider } from '../models/Rider';
+import { RiderRegistration } from '../models/RiderRegistration';
 
 const findOrderWithModel = async (orderId: string) => {
   const order = await Order.findById(orderId);
@@ -79,7 +80,7 @@ function parseWashDryFromItems(items: { name: string; details?: string; price?: 
 // สร้าง Order ใหม่
 export const createOrder = async (req: AuthRequest, res: Response) => {
   try {
-    const { shopId, shopName, items, serviceTotal, deliveryFee, total, paymentMethod } = req.body;
+    const { shopId, shopName, items, serviceTotal, deliveryFee, total, paymentMethod, additionalRequest } = req.body;
 
     console.log('=== CREATE ORDER REQUEST ===');
     console.log('Body:', JSON.stringify(req.body, null, 2));
@@ -115,7 +116,7 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
     }
 
     // สร้าง order ใหม่ (รวม user info จาก database)
-    const orderData = {
+    const orderData: any = {
       userId,
       userDisplayName: user.displayName || 'Unknown User',
       userAddress: user.address || 'No address set',
@@ -128,6 +129,7 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
       paymentMethod: paymentMethod || 'cash',
       status: 'decision', // เริ่มต้นที่สถานะรอการตัดสินใจ
     };
+    if (additionalRequest) orderData.note = additionalRequest;
 
     console.log('Creating order with data:', JSON.stringify(orderData, null, 2));
 
@@ -1109,5 +1111,61 @@ export const startCoinDry = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Start Coin Dry Error:', error);
     res.status(500).json({ success: false, message: 'Failed to start dry' });
+  }
+};
+
+// POST /api/orders/:orderId/rate - User ให้คะแนน rider
+export const rateOrder = async (req: AuthRequest, res: Response) => {
+  try {
+    const { orderId } = req.params;
+    const { rating } = req.body;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ success: false, message: 'Rating must be 1-5' });
+    }
+
+    // หา order เพื่อดึง riderId
+    const foundOrder = await findOrderWithModel(orderId);
+    const order = foundOrder?.order;
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    const riderId = (order as any).riderId;
+    if (!riderId) {
+      return res.status(400).json({ success: false, message: 'No rider assigned to this order' });
+    }
+
+    // หา User ที่เป็น rider เพื่อดึง email
+    const riderUser = await User.findById(riderId).lean();
+    if (!riderUser) {
+      return res.status(404).json({ success: false, message: 'Rider user not found' });
+    }
+
+    // หา RiderRegistration ด้วย email หรือ phone
+    let registration = null;
+    if (riderUser.email) {
+      registration = await RiderRegistration.findOne({
+        email: { $regex: new RegExp(`^${riderUser.email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+      });
+    }
+    if (!registration && riderUser.phone) {
+      registration = await RiderRegistration.findOne({ phone: riderUser.phone });
+    }
+
+    if (registration) {
+      // อัพเดท rating: เพิ่ม totalRating และ ratingCount
+      await RiderRegistration.findByIdAndUpdate(registration._id, {
+        $inc: { totalRating: rating, ratingCount: 1 },
+      });
+      console.log(`⭐ Rating ${rating} added to rider ${registration.fullName}`);
+    } else {
+      console.log(`⚠️ Rider registration not found for user ${riderId}`);
+    }
+
+    res.json({ success: true, message: 'Rating submitted' });
+  } catch (error) {
+    console.error('Rate Order Error:', error);
+    res.status(500).json({ success: false, message: 'Failed to submit rating' });
   }
 };

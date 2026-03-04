@@ -395,6 +395,8 @@ export default function OrderScreen() {
 
                         try {
                             let response;
+                            // ดึง additionalRequest จาก item แรก (ถ้ามี)
+                            const additionalRequest = orderItems[0]?.additionalRequest || undefined;
                             const orderBody = {
                                 shopId: id,
                                 shopName: shop?.name || 'Unknown Shop',
@@ -407,6 +409,7 @@ export default function OrderScreen() {
                                 deliveryFee,
                                 total,
                                 paymentMethod: selectedPayment,
+                                additionalRequest,
                             };
 
                             // ลอง auth API ก่อน ถ้า fail ให้ fallback ไปใช้ dev-create
