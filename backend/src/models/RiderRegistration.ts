@@ -38,6 +38,8 @@ export interface IRiderRegistration extends Document {
   phone: string;
   /** Country dialing code, e.g. "+66" */
   countryCode: string;
+  /** Email (optional; from Google when started signup via Google) – ใช้เช็คตอน login ว่าเคย regis แล้ว */
+  email?: string;
   /** City or province chosen during sign-up */
   city: string;
   /** Whether the rider accepted the initial terms */
@@ -150,6 +152,7 @@ const RiderRegistrationSchema = new Schema<IRiderRegistration>(
     fullName: { type: String, required: true },
     phone: { type: String, required: true },
     countryCode: { type: String, default: '+66' },
+    email: { type: String },
     city: { type: String, required: true },
     agreedToTerms: { type: Boolean, default: true },
     vehicleType: { type: String, required: true },

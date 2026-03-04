@@ -9,6 +9,8 @@ import {
     ActivityIndicator,
     TextInput,
     Image,
+    Modal,
+    FlatList,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +18,11 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Config } from '../../constants/config';
 
 const ILLUSTRATION = require('../../assets/images/package-hero.png');
+
+// ตำบล/แขวง ทุกจังหวัด (แขวงในกรุงเทพ = ตำบลในจังหวัดอื่น ความหมายเดียวกัน)
+const SUBDISTRICTS_BY_PROVINCE: Record<string, string[]> = require('../../data/thailandSubdistrictsByProvince.json');
+
+const PROVINCES = Object.keys(SUBDISTRICTS_BY_PROVINCE).sort();
 
 const PACKAGE_OPTIONS = [
     { value: '990', label: '990 บาท (กระเป๋าขนาดกลาง)' },
@@ -36,6 +43,18 @@ export default function PackageScreen() {
     const [showDropdown, setShowDropdown] = useState(false);
     const [consent, setConsent] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [showProvinceModal, setShowProvinceModal] = useState(false);
+    const [provinceSearch, setProvinceSearch] = useState('');
+    const [showDistrictModal, setShowDistrictModal] = useState(false);
+    const [districtSearch, setDistrictSearch] = useState('');
+
+    const subdistrictOptions = SUBDISTRICTS_BY_PROVINCE[province] || [];
+
+    const onProvinceSelect = (p: string) => {
+        setProvince(p);
+        setDistrict('');
+        setShowProvinceModal(false);
+    };
 
     const selected = choice ? PACKAGE_OPTIONS.find((p) => p.value === choice) : null;
     const canContinue =
@@ -103,24 +122,44 @@ export default function PackageScreen() {
 
                 <View style={s.fieldWrap}>
                     <Text style={s.label}>พื้นที่ทำการสมัครให้บริการ (จังหวัด)</Text>
-                    <TextInput
-                        style={s.input}
-                        value={province}
-                        onChangeText={setProvince}
-                        placeholder="จังหวัด"
-                        placeholderTextColor="#94A3B8"
-                    />
+                    <TouchableOpacity
+                        style={s.selectBtn}
+                        onPress={() => {
+                            setProvinceSearch('');
+                            setShowProvinceModal(true);
+                        }}
+                    >
+                        <Text
+                            style={[s.selectBtnText, !province && s.selectBtnPlaceholder]}
+                            numberOfLines={1}
+                        >
+                            {province || 'เลือกจังหวัด'}
+                        </Text>
+                        <Ionicons name="chevron-down" size={20} color="#64748B" />
+                    </TouchableOpacity>
                 </View>
 
                 <View style={s.fieldWrap}>
-                    <Text style={s.label}>พื้นที่ที่ให้บริการบ่อย (ตำบล)</Text>
-                    <TextInput
-                        style={s.input}
-                        value={district}
-                        onChangeText={setDistrict}
-                        placeholder="ตำบล"
-                        placeholderTextColor="#94A3B8"
-                    />
+                    <Text style={s.label}>พื้นที่ที่ให้บริการบ่อย (ตำบล/แขวง)</Text>
+                    <TouchableOpacity
+                        style={s.selectBtn}
+                        onPress={() => {
+                            if (!province) return;
+                            setDistrictSearch('');
+                            setShowDistrictModal(true);
+                        }}
+                        disabled={!province}
+                    >
+                        <Text
+                            style={[s.selectBtnText, (!district || !province) && s.selectBtnPlaceholder]}
+                            numberOfLines={1}
+                        >
+                            {!province
+                                ? 'เลือกจังหวัดก่อน'
+                                : district || 'เลือกตำบล/แขวง'}
+                        </Text>
+                        <Ionicons name="chevron-down" size={20} color="#64748B" />
+                    </TouchableOpacity>
                 </View>
 
                 <Text style={[s.label, { marginTop: 4 }]}>โปรดเลือกแพ็กเกจอุปกรณ์การสมัคร</Text>
@@ -172,6 +211,126 @@ export default function PackageScreen() {
                     <Text style={s.consentText}>{DISCLAIMER}</Text>
                 </TouchableOpacity>
             </ScrollView>
+
+            <Modal visible={showProvinceModal} animationType="slide">
+                <SafeAreaView style={s.modalFull}>
+                    <View style={s.modalHeader}>
+                        <TouchableOpacity onPress={() => setShowProvinceModal(false)}>
+                            <Text style={s.modalHeaderCancel}>ปิด</Text>
+                        </TouchableOpacity>
+                        <Text style={s.modalHeaderTitle}>เลือกจังหวัด</Text>
+                        <View style={{ width: 40 }} />
+                    </View>
+                    <View style={s.searchBox}>
+                        <Ionicons name="search" size={18} color="#94A3B8" />
+                        <TextInput
+                            style={s.searchInput}
+                            placeholder="ค้นหาจังหวัด..."
+                            placeholderTextColor="#94A3B8"
+                            value={provinceSearch}
+                            onChangeText={setProvinceSearch}
+                            autoCorrect={false}
+                            autoFocus
+                        />
+                        {provinceSearch.length > 0 && (
+                            <TouchableOpacity onPress={() => setProvinceSearch('')}>
+                                <Ionicons name="close-circle" size={20} color="#94A3B8" />
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                    <FlatList
+                        data={PROVINCES.filter((p) =>
+                            p.toLowerCase().includes(provinceSearch.trim().toLowerCase())
+                        )}
+                        keyExtractor={(item) => item}
+                        keyboardShouldPersistTaps="handled"
+                        renderItem={({ item }) => (
+                            <TouchableOpacity
+                                style={s.listRow}
+                                onPress={() => onProvinceSelect(item)}
+                            >
+                                <Text
+                                    style={[
+                                        s.listRowText,
+                                        province === item && { color: '#0E3A78', fontWeight: '700' },
+                                    ]}
+                                >
+                                    {item}
+                                </Text>
+                                {province === item && (
+                                    <Ionicons name="checkmark" size={20} color="#0E3A78" />
+                                )}
+                            </TouchableOpacity>
+                        )}
+                        ListEmptyComponent={
+                            <Text style={s.emptySearch}>ไม่พบจังหวัดที่ค้นหา</Text>
+                        }
+                    />
+                </SafeAreaView>
+            </Modal>
+
+            <Modal visible={showDistrictModal} animationType="slide">
+                <SafeAreaView style={s.modalFull}>
+                    <View style={s.modalHeader}>
+                        <TouchableOpacity onPress={() => setShowDistrictModal(false)}>
+                            <Text style={s.modalHeaderCancel}>ปิด</Text>
+                        </TouchableOpacity>
+                        <Text style={s.modalHeaderTitle}>เลือกตำบล/แขวง</Text>
+                        <View style={{ width: 40 }} />
+                    </View>
+                    <View style={s.searchBox}>
+                        <Ionicons name="search" size={18} color="#94A3B8" />
+                        <TextInput
+                            style={s.searchInput}
+                            placeholder="ค้นหาตำบล/แขวง..."
+                            placeholderTextColor="#94A3B8"
+                            value={districtSearch}
+                            onChangeText={setDistrictSearch}
+                            autoCorrect={false}
+                            autoFocus
+                        />
+                        {districtSearch.length > 0 && (
+                            <TouchableOpacity onPress={() => setDistrictSearch('')}>
+                                <Ionicons name="close-circle" size={20} color="#94A3B8" />
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                    <FlatList
+                        data={subdistrictOptions.filter((d) =>
+                            d.toLowerCase().includes(districtSearch.trim().toLowerCase())
+                        )}
+                        keyExtractor={(item) => item}
+                        keyboardShouldPersistTaps="handled"
+                        renderItem={({ item }) => (
+                            <TouchableOpacity
+                                style={s.listRow}
+                                onPress={() => {
+                                    setDistrict(item);
+                                    setShowDistrictModal(false);
+                                }}
+                            >
+                                <Text
+                                    style={[
+                                        s.listRowText,
+                                        district === item && {
+                                            color: '#0E3A78',
+                                            fontWeight: '700',
+                                        },
+                                    ]}
+                                >
+                                    {item}
+                                </Text>
+                                {district === item && (
+                                    <Ionicons name="checkmark" size={20} color="#0E3A78" />
+                                )}
+                            </TouchableOpacity>
+                        )}
+                        ListEmptyComponent={
+                            <Text style={s.emptySearch}>ไม่พบรายการที่ค้นหา</Text>
+                        }
+                    />
+                </SafeAreaView>
+            </Modal>
 
             <View style={[s.footer, { paddingBottom: Math.max(24, insets.bottom + 12) }]}>
                 <TouchableOpacity
@@ -228,6 +387,55 @@ const s = StyleSheet.create({
         fontSize: 16,
         color: '#0F172A',
     },
+    selectBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderRadius: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+    },
+    selectBtnText: { fontSize: 16, color: '#0F172A', flex: 1 },
+    selectBtnPlaceholder: { color: '#94A3B8' },
+    modalFull: { flex: 1, backgroundColor: '#fff' },
+    modalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
+    },
+    modalHeaderCancel: { fontSize: 16, color: '#64748B' },
+    modalHeaderTitle: { fontSize: 18, fontWeight: '600', color: '#0F172A' },
+    searchBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginHorizontal: 16,
+        marginVertical: 12,
+        borderWidth: 1.5,
+        borderColor: '#CBD5E1',
+        borderRadius: 10,
+        paddingHorizontal: 14,
+        height: 44,
+    },
+    searchInput: { flex: 1, fontSize: 15, color: '#0F172A' },
+    listRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
+    },
+    listRowText: { fontSize: 16, color: '#0F172A' },
+    emptySearch: { textAlign: 'center', color: '#94A3B8', fontSize: 15, marginTop: 24 },
     selectWrap: {
         flexDirection: 'row',
         alignItems: 'center',

@@ -26,7 +26,7 @@ export interface IUser extends Document {
 
 const UserSchema: Schema = new Schema(
   {
-    email: { type: String, required: true, unique: true },
+    email: { type: String, required: true },
     username: { type: String, required: true, unique: true },
     displayName: { type: String, default: '' },
     phone: { type: String, default: '' },
@@ -34,7 +34,7 @@ const UserSchema: Schema = new Schema(
     balance: { type: Number, default: 0.0 },
     role: { type: String, enum: ['user', 'rider', 'merchant'], default: 'user' },
     googleId: { type: String },
-    googleSub: { type: String, index: true, unique: true, sparse: true },
+    googleSub: { type: String, index: true },
     isOnboarded: { type: Boolean, default: false },
     profilePhoto: { type: String, default: '' },
     lat: { type: Number },
@@ -45,5 +45,10 @@ const UserSchema: Schema = new Schema(
     timestamps: true, // adds createdAt and updatedAt
   }
 );
+
+// Same Google account can have one document per role (user and rider separate)
+UserSchema.index({ googleSub: 1, role: 1 }, { unique: true, sparse: true });
+// Within same app: same email cannot register twice (one email = one user, one email = one rider)
+UserSchema.index({ email: 1, role: 1 }, { unique: true });
 
 export const User = mongoose.model<IUser>('User', UserSchema);

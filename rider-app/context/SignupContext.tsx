@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { API } from '../config';
 
 export interface SignupData {
+    // จาก Google ตอนเริ่ม signup (ส่งไป backend เพื่อให้ login ครั้งถัดไปเข้าได้เลย)
+    email?: string;
     // Basic (register.tsx)
     firstName: string;
     lastName: string;
@@ -43,6 +45,7 @@ interface SignupContextType {
 }
 
 const defaultData: SignupData = {
+    email: undefined,
     firstName: '',
     lastName: '',
     phone: '',
@@ -89,7 +92,7 @@ export function SignupProvider({ children }: { children: ReactNode }) {
             const d = { ...data, ...overrides };
 
             const body = {
-                // Basic
+                email: d.email?.trim() || undefined,
                 firstName: d.firstName,
                 lastName: d.lastName,
                 phone: d.phone,

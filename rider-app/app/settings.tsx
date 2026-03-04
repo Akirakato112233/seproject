@@ -18,7 +18,7 @@ interface RegData {
 export default function SettingsScreen() {
     const router = useRouter();
     const { isOnline, autoAccept, toggleAutoAccept } = useDelivery();
-    const { logout, isDevMode, setDevMode } = useAuth();
+    const { user, logout, isDevMode, setDevMode } = useAuth();
     const [reg, setReg] = useState<RegData | null>(null);
 
     useFocusEffect(
@@ -93,7 +93,7 @@ export default function SettingsScreen() {
                                 pathname: '/communications',
                                 params: {
                                     registrationId: reg._id,
-                                    hasEmail: 'false',
+                                    hasEmail: user?.email ? 'true' : 'false',
                                 },
                             });
                         }
@@ -128,22 +128,27 @@ export default function SettingsScreen() {
 
                 <View style={s.divider} />
 
-                {/* Dev Mode - ใช้รับงานได้โดยไม่ต้อง login */}
-                <View style={s.section}>
-                    <Text style={s.sectionTitle}>Developer</Text>
-                    <View style={s.card}>
-                        <View style={{ flex: 1 }}>
-                            <Text style={s.cardTitle}>Dev Mode</Text>
-                            <Text style={s.cardSub}>รับงานได้โดยไม่ต้อง login (สำหรับทดสอบ)</Text>
+                {/* Developer – แสดงเฉพาะเมื่อเข้าแอปด้วย Dev Mode (Skip Login), ไม่แสดงถ้า regis ผ่าน Google */}
+                {__DEV__ && isDevMode && (
+                    <>
+                        <View style={s.section}>
+                            <Text style={s.sectionTitle}>Developer</Text>
+                            <View style={s.card}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={s.cardTitle}>Dev Mode</Text>
+                                    <Text style={s.cardSub}>รับงานได้โดยไม่ต้อง login (สำหรับทดสอบ)</Text>
+                                </View>
+                                <Switch
+                                    value={isDevMode}
+                                    onValueChange={setDevMode}
+                                    trackColor={{ false: '#E2E8F0', true: '#4ADE80' }}
+                                    thumbColor={'#FFFFFF'}
+                                />
+                            </View>
                         </View>
-                        <Switch
-                            value={isDevMode}
-                            onValueChange={setDevMode}
-                            trackColor={{ false: '#E2E8F0', true: '#4ADE80' }}
-                            thumbColor={'#FFFFFF'}
-                        />
-                    </View>
-                </View>
+                        <View style={s.divider} />
+                    </>
+                )}
 
                 {/* Job Settings */}
                 <View style={s.section}>

@@ -4,6 +4,7 @@
  */
 import { Router, Request, Response } from 'express';
 import { User } from '../models/User';
+import { RiderRegistration } from '../models/RiderRegistration';
 import { signAppToken, signTempToken, verifyToken } from '../utils/tokens';
 
 const router = Router();
@@ -42,14 +43,139 @@ router.post('/login', async (req: Request, res: Response) => {
 
     const googleSub = googleProfile.sub;
     const email = googleProfile.email || null;
+    const emailLower = email ? email.trim().toLowerCase() : '';
 
-    // Find user by googleSub or email
-    let user = await User.findOne({ googleSub });
-    if (!user && email) {
-      user = await User.findOne({ email });
+    // Find by (googleSub + role) or (email + role)
+    const emailRegex = emailLower
+      ? new RegExp(`^${emailLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')
+      : null;
+    let user = await User.findOne({ googleSub, role });
+    if (!user && emailLower) {
+      user = await User.findOne({ email: emailRegex!, role });
+    }
+    // ถ้ามี user ด้วยอีเมลนี้อยู่แล้ว (ไม่ว่าจะ role อะไร) = อยู่ในระบบแล้ว → ให้เข้าแอปได้เลย
+    if (!user && emailLower) {
+      const existingByEmail = await User.findOne({ email: emailRegex! });
+      if (existingByEmail) {
+        if (!existingByEmail.googleSub) {
+          existingByEmail.googleSub = googleSub;
+          await existingByEmail.save().catch(() => {});
+        }
+        const token = signAppToken({ userId: existingByEmail._id.toString() });
+        return res.json({
+          next: 'APP',
+          token,
+          user: {
+            id: existingByEmail._id,
+            email: existingByEmail.email,
+            displayName: existingByEmail.displayName,
+            phone: existingByEmail.phone,
+            address: existingByEmail.address,
+            balance: existingByEmail.balance,
+            role: existingByEmail.role,
+          },
+        });
+      }
     }
 
-    // User not found → go to register
+    // No User for this role → ถ้าเป็น rider และมี RiderRegistration กับเมลนี้แล้ว = เคย regis แล้ว ให้สร้าง User (หรือใช้ของเดิมถ้ามีแล้ว)
+    if (!user && role === 'rider' && emailLower) {
+      const reg = await RiderRegistration.findOne({
+        email: { $regex: new RegExp(`^${emailLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+      })
+        .sort({ createdAt: -1 })
+        .lean();
+      if (reg) {
+        // อาจมี User อยู่แล้ว (สร้างจากครั้งก่อนหรือ race) – เช็คอีกครั้งก่อน create
+        let existing = await User.findOne({ googleSub, role });
+        if (!existing && emailLower) {
+          existing = await User.findOne({
+            email: { $regex: new RegExp(`^${emailLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+            role,
+          });
+        }
+        if (existing) {
+          if (!existing.googleSub) {
+            existing.googleSub = googleSub;
+            await existing.save();
+          }
+          const token = signAppToken({ userId: existing._id.toString() });
+          return res.json({
+            next: 'APP',
+            token,
+            user: {
+              id: existing._id,
+              email: existing.email,
+              displayName: existing.displayName,
+              phone: existing.phone,
+              address: existing.address,
+              balance: existing.balance,
+              role: existing.role,
+            },
+          });
+        }
+        const username = `${emailLower}_rider`;
+        try {
+          const newUser = await User.create({
+            googleSub,
+            email: emailLower,
+            username,
+            displayName: (reg as any).fullName || googleProfile.name || '',
+            phone: (reg as any).phone || '',
+            address: (reg as any).address || '',
+            balance: 0,
+            role: 'rider',
+            isOnboarded: true,
+          });
+          const token = signAppToken({ userId: newUser._id.toString() });
+          return res.json({
+            next: 'APP',
+            token,
+            user: {
+              id: newUser._id,
+              email: newUser.email,
+              displayName: newUser.displayName,
+              phone: newUser.phone,
+              address: newUser.address,
+              balance: newUser.balance,
+              role: newUser.role,
+            },
+          });
+        } catch (createErr: any) {
+          console.error('Google login User.create error:', createErr?.message, createErr?.code);
+          const bySub = await User.findOne({ googleSub, role });
+          const byEmail = emailLower
+            ? await User.findOne({
+                email: { $regex: new RegExp(`^${emailLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+                role,
+              })
+            : null;
+          const existing = bySub || byEmail;
+          if (existing) {
+            if (!existing.googleSub) {
+              existing.googleSub = googleSub;
+              await existing.save().catch(() => {});
+            }
+            const token = signAppToken({ userId: existing._id.toString() });
+            return res.json({
+              next: 'APP',
+              token,
+              user: {
+                id: existing._id,
+                email: existing.email,
+                displayName: existing.displayName,
+                phone: existing.phone,
+                address: existing.address,
+                balance: existing.balance,
+                role: existing.role,
+              },
+            });
+          }
+          throw createErr;
+        }
+      }
+    }
+
     if (!user) {
       const tempToken = signTempToken({
         googleSub,
@@ -71,7 +197,7 @@ router.post('/login', async (req: Request, res: Response) => {
       });
     }
 
-    // User exists but not onboarded → continue registration
+    // Exists but not onboarded for this app → continue registration
     if (!user.isOnboarded) {
       const tempToken = signTempToken({ userId: user._id.toString(), role });
       return res.json({
@@ -83,13 +209,6 @@ router.post('/login', async (req: Request, res: Response) => {
           name: user.displayName,
           picture: '',
         },
-      });
-    }
-
-    // User exists but has different role → reject
-    if (user.role !== role) {
-      return res.status(403).json({
-        message: `This account is registered as ${user.role}. Please use the correct app.`,
       });
     }
 
@@ -108,8 +227,14 @@ router.post('/login', async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Google login error:', error);
-    return res.status(500).json({ message: 'Server error', error: String(error) });
+    const errMsg = error?.message ?? String(error);
+    const errCode = error?.code;
+    console.error('Google login error:', errMsg, errCode, error?.stack);
+    return res.status(500).json({
+      message: errMsg || 'Server error',
+      error: errMsg,
+      code: errCode,
+    });
   }
 });
 
@@ -135,21 +260,23 @@ router.post('/register', async (req: Request, res: Response) => {
         return res.status(404).json({ message: 'User not found' });
       }
     } else {
-      // Case: new user from Google
+      // Case: new user from Google (per-role: same Google can be both user and rider)
       const { googleSub, email, name } = decoded;
-      user = await User.findOne({ googleSub });
+      const regRole = decoded.role || role;
+      user = await User.findOne({ googleSub, role: regRole });
 
       if (!user) {
-        // Create new user with role
+        const baseName = email || googleSub;
+        const username = `${baseName}_${regRole}`;
         user = await User.create({
           googleSub,
           email,
-          username: email || googleSub, // Use email as username
+          username,
           displayName: name || '',
           phone: '',
           address: '',
           balance: 0,
-          role: decoded.role || role,
+          role: regRole,
           isOnboarded: false,
         });
       }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -12,10 +12,11 @@ import {
     KeyboardAvoidingView,
     Platform,
     ActivityIndicator,
+    BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { useSignup } from '../../context/SignupContext';
 import { API } from '../../config';
@@ -32,8 +33,23 @@ const COUNTRIES = [{ label: '+66', flag: '🇹🇭', value: '+66' }];
 
 export default function RegisterScreen() {
     const router = useRouter();
+    const params = useLocalSearchParams<{ email?: string }>();
     const { setDevMode } = useAuth();
     const { setField } = useSignup();
+
+    useEffect(() => {
+        if (params.email) setField('email', params.email);
+    }, [params.email]);
+
+    // ปุ่มกลับของเครื่อง (Android): ไป create-account แทน GO_BACK (กัน stack ผิด)
+    useEffect(() => {
+        if (Platform.OS !== 'android') return;
+        const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+            router.replace('/create-account');
+            return true;
+        });
+        return () => sub.remove();
+    }, [router]);
 
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
@@ -100,7 +116,7 @@ export default function RegisterScreen() {
                     keyboardShouldPersistTaps="handled"
                 >
                     {/* Header */}
-                    <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
+                    <TouchableOpacity style={s.backBtn} onPress={() => router.replace('/create-account')}>
                         <Ionicons name="arrow-back" size={22} color="#111" />
                     </TouchableOpacity>
 

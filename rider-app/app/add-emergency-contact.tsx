@@ -27,7 +27,20 @@ export default function AddEmergencyContactScreen() {
     const [countryCode] = useState('+66');
     const [saving, setSaving] = useState(false);
 
-    const hasUnsavedChanges = name.trim().length > 0 || phone.trim().length > 0;
+    const hasUnsavedChanges = name.trim().length > 0 || phone.length > 0;
+
+    const handlePhoneChange = (text: string) => {
+        const digits = text.replace(/\D/g, '');
+        if (digits.length === 0) {
+            setPhone('');
+            return;
+        }
+        if (digits[0] !== '0') {
+            setPhone('0' + digits.slice(0, 9));
+        } else {
+            setPhone(digits.slice(0, 10));
+        }
+    };
 
     const confirmDiscard = useCallback(() => {
         if (!hasUnsavedChanges) {
@@ -62,12 +75,16 @@ export default function AddEmergencyContactScreen() {
             Alert.alert('Missing name', "Please enter the contact person's name.");
             return;
         }
-        if (!phone.trim()) {
+        const digitsOnly = phone.replace(/\D/g, '');
+        if (digitsOnly.length === 0) {
             Alert.alert('Missing phone', 'Please enter a mobile number.');
             return;
         }
-        if (!/^\d{9,10}$/.test(phone.trim())) {
-            Alert.alert('Invalid phone', 'Phone number must be 9-10 digits.');
+        if (digitsOnly.length !== 10 || digitsOnly[0] !== '0') {
+            Alert.alert(
+                'Invalid phone',
+                'Mobile number must be 10 digits and start with 0 (e.g. 08xxxxxxxx).'
+            );
             return;
         }
 
@@ -80,7 +97,7 @@ export default function AddEmergencyContactScreen() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         name: name.trim(),
-                        phone: phone.trim(),
+                        phone: digitsOnly,
                         countryCode,
                     }),
                 }
@@ -135,11 +152,12 @@ export default function AddEmergencyContactScreen() {
                         </View>
                         <TextInput
                             style={[s.input, { flex: 1 }]}
-                            placeholder="Mobile number"
+                            placeholder="0xxxxxxxxx"
                             placeholderTextColor="#94A3B8"
                             value={phone}
-                            onChangeText={setPhone}
+                            onChangeText={handlePhoneChange}
                             keyboardType="phone-pad"
+                            maxLength={10}
                         />
                     </View>
 

@@ -35,11 +35,20 @@ export default function LinkedAccountsScreen() {
                     const res = await fetch(`${API.RIDERS}/registrations/latest`);
                     const json = await res.json();
                     if (json.success && json.data) {
-                        setGoogleLinked(json.data.linkedGoogle ?? false);
+                        const fromApi = json.data.linkedGoogle;
+                        const showLinked = fromApi ?? isLoggedInWithGoogle;
+                        setGoogleLinked(showLinked);
+                        if (isLoggedInWithGoogle && fromApi !== true) {
+                            fetch(`${API.RIDERS}/registrations/${registrationId}/linked-accounts`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ linkedGoogle: true }),
+                            }).catch(() => {});
+                        }
                     }
                 } catch (_) {}
             })();
-        }, [registrationId])
+        }, [registrationId, isLoggedInWithGoogle])
     );
 
     const handleToggle = async (val: boolean) => {

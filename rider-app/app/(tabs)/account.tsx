@@ -35,7 +35,7 @@ interface RegistrationData {
 
 export default function AccountScreen() {
     const router = useRouter();
-    const { logout } = useAuth();
+    const { token, logout } = useAuth();
     const [data, setData] = useState<RegistrationData | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -50,7 +50,9 @@ export default function AccountScreen() {
     const fetchRegistration = async () => {
         try {
             setError(false);
-            const res = await fetch(`${API.RIDERS}/registrations/latest`);
+            const headers: HeadersInit = {};
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const res = await fetch(`${API.RIDERS}/registrations/latest`, { headers });
             const json = await res.json();
             if (json.success && json.data) {
                 setData(json.data);
@@ -81,8 +83,11 @@ export default function AccountScreen() {
                     onPress: async () => {
                         if (!data?._id) return;
                         try {
+                            const headers: HeadersInit = {};
+                            if (token) headers['Authorization'] = `Bearer ${token}`;
                             const res = await fetch(`${API.RIDERS}/registrations/${data._id}`, {
                                 method: 'DELETE',
+                                headers,
                             });
                             const json = await res.json();
                             if (json.success) {
@@ -98,20 +103,6 @@ export default function AccountScreen() {
                 },
             ]
         );
-    };
-
-    const handleLogout = () => {
-        Alert.alert('Log Out', 'Are you sure you want to log out?', [
-            { text: 'Cancel', style: 'cancel' },
-            {
-                text: 'Log Out',
-                style: 'destructive',
-                onPress: async () => {
-                    await logout();
-                    router.replace('/');
-                },
-            },
-        ]);
     };
 
     if (loading) {
@@ -144,18 +135,17 @@ export default function AccountScreen() {
 
     return (
         <SafeAreaView style={s.container} edges={['top']}>
-            {/* Header */}
             <View style={s.header}>
                 <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-                    <Ionicons name="arrow-back" size={24} color="#000" />
+                    <Ionicons name="arrow-back" size={24} color="#0F172A" />
                 </TouchableOpacity>
                 <Text style={s.headerTitle}>Edit Account</Text>
-                <View style={{ width: 24 }} />
+                <View style={s.headerRight} />
             </View>
 
             <ScrollView
-                style={s.content}
-                contentContainerStyle={{ paddingBottom: 120 }}
+                style={s.scroll}
+                contentContainerStyle={s.scrollContent}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
@@ -164,11 +154,14 @@ export default function AccountScreen() {
                     />
                 }
             >
-                {/* Personal Information */}
-                <View style={s.section}>
+                {/* Personal Information card */}
+                <View style={s.card}>
                     <Text style={s.sectionTitle}>Personal Information</Text>
                     <View style={s.profileRow}>
-                        <Text style={s.label}>Profile Photo</Text>
+                        <View>
+                            <Text style={s.label}>Profile Photo</Text>
+                            <Text style={s.labelHint}>Selfie from registration</Text>
+                        </View>
                         {data?.selfieUri ? (
                             <Image source={{ uri: data.selfieUri }} style={s.avatar} />
                         ) : (
@@ -177,79 +170,59 @@ export default function AccountScreen() {
                             </View>
                         )}
                     </View>
-                </View>
-
-                <View style={s.divider} />
-
-                {/* Name */}
-                <View style={s.fieldSection}>
-                    <Text style={s.fieldLabel}>Name</Text>
-                    <Text style={s.fieldValue}>{displayName}</Text>
-                </View>
-
-                <View style={s.divider} />
-
-                {/* Mobile Number */}
-                <View style={s.fieldSection}>
-                    <Text style={s.fieldLabel}>Mobile Number</Text>
-                    <Text style={s.fieldValue}>{phoneDisplay}</Text>
-                </View>
-
-                <View style={s.divider} />
-
-                {/* Email Address */}
-                <View style={s.fieldSection}>
-                    <Text style={s.fieldLabel}>Email Address</Text>
-                    <Text style={s.fieldValue}>Not set</Text>
-                </View>
-
-                <View style={s.divider} />
-
-                {/* Emergency Contacts */}
-                <TouchableOpacity
-                    style={s.fieldSectionRow}
-                    onPress={() => {
-                        if (data?._id) {
-                            router.push({
-                                pathname: '/emergency-contacts',
-                                params: { registrationId: data._id },
-                            });
-                        }
-                    }}
-                >
-                    <View style={{ flex: 1 }}>
-                        <Text style={s.fieldLabel}>Emergency Contacts</Text>
-                        <Text style={s.fieldValue}>
-                            {data?.emergencyContacts?.length ?? 0} out of 3 contacts set up
-                        </Text>
+                    <View style={s.divider} />
+                    <View style={s.field}>
+                        <Text style={s.fieldLabel}>Name</Text>
+                        <Text style={s.fieldValue}>{displayName}</Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
-                </TouchableOpacity>
-
-                <View style={s.divider} />
-
-                {/* Vehicle Information */}
-                <View style={s.section}>
-                    <Text style={s.sectionTitle}>Vehicle Information</Text>
-                    <Text style={s.vehiclePlate}>{plateNo}</Text>
-                    <Text style={s.vehicleModel}>{vehicleLabel}</Text>
+                    <View style={s.divider} />
+                    <View style={s.field}>
+                        <Text style={s.fieldLabel}>Mobile Number</Text>
+                        <Text style={s.fieldValue}>{phoneDisplay}</Text>
+                    </View>
+                    <View style={s.divider} />
+                    <View style={s.field}>
+                        <Text style={s.fieldLabel}>Email Address</Text>
+                        <Text style={s.fieldValue}>Not set</Text>
+                    </View>
+                    <View style={s.divider} />
+                    <TouchableOpacity
+                        style={s.fieldRow}
+                        onPress={() => {
+                            if (data?._id) {
+                                router.push({
+                                    pathname: '/emergency-contacts',
+                                    params: { registrationId: data._id },
+                                });
+                            }
+                        }}
+                    >
+                        <View style={s.fieldRowInner}>
+                            <Text style={s.fieldLabel}>Emergency Contacts</Text>
+                            <Text style={s.fieldValue}>
+                                {data?.emergencyContacts?.length ?? 0} of 3 set up
+                            </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
+                    </TouchableOpacity>
                 </View>
 
-                <View style={s.divider} />
+                {/* Vehicle Information card */}
+                <View style={s.card}>
+                    <Text style={s.sectionTitle}>Vehicle Information</Text>
+                    <View style={s.vehicleBlock}>
+                        <Text style={s.vehiclePlate}>{plateNo}</Text>
+                        <Text style={s.vehicleModel}>{vehicleLabel}</Text>
+                    </View>
+                </View>
 
-                {/* Manage Your Account */}
-                <View style={s.section}>
+                {/* Manage Account card */}
+                <View style={s.card}>
                     <Text style={s.sectionTitle}>Manage Your Account</Text>
-
-                    <TouchableOpacity onPress={handleLogout} style={s.logoutRow}>
-                        <Ionicons name="log-out-outline" size={20} color="#0E3A78" />
-                        <Text style={s.logoutText}>Log Out</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity onPress={handleDeleteAccount} style={{ marginTop: 16 }}>
+                    <TouchableOpacity onPress={handleDeleteAccount} style={s.deleteRow}>
                         <Text style={s.deleteText}>Delete Account</Text>
+                        <Text style={s.deleteHint}>All account data will be erased</Text>
                     </TouchableOpacity>
-                    <Text style={s.deleteHint}>All account data will be erased</Text>
                 </View>
             </ScrollView>
         </SafeAreaView>
@@ -257,12 +230,12 @@ export default function AccountScreen() {
 }
 
 const s = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#FFFFFF' },
+    container: { flex: 1, backgroundColor: '#F8FAFC' },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#F8FAFC',
     },
     header: {
         flexDirection: 'row',
@@ -270,44 +243,60 @@ const s = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 16,
         paddingVertical: 14,
+        backgroundColor: '#FFFFFF',
         borderBottomWidth: 1,
-        borderBottomColor: '#F1F5F9',
+        borderBottomColor: '#E2E8F0',
     },
-    backBtn: { padding: 4 },
-    headerTitle: { fontSize: 17, fontWeight: '600', color: '#0F172A' },
-    content: { flex: 1 },
+    backBtn: { padding: 8 },
+    headerTitle: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
+    headerRight: { width: 40 },
+    scroll: { flex: 1 },
+    scrollContent: { padding: 16, paddingBottom: 100 },
 
-    section: { paddingHorizontal: 20, paddingVertical: 18 },
-    sectionTitle: { fontSize: 16, fontWeight: '700', color: '#0F172A', marginBottom: 4 },
-
+    card: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 16,
+        shadowColor: '#000',
+        shadowOpacity: 0.04,
+        shadowOffset: { width: 0, height: 2 },
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#0F172A',
+        marginBottom: 16,
+    },
     profileRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginTop: 8,
     },
-    label: { fontSize: 15, color: '#0F172A' },
+    label: { fontSize: 15, color: '#334155' },
+    labelHint: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
     avatar: { width: 56, height: 56, borderRadius: 28 },
     avatarPlaceholder: {
         backgroundColor: '#F1F5F9',
         justifyContent: 'center',
         alignItems: 'center',
     },
-
-    divider: { height: 1, backgroundColor: '#F1F5F9', marginLeft: 20 },
-
-    fieldSection: { paddingHorizontal: 20, paddingVertical: 16 },
-    fieldSectionRow: {
+    divider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 12 },
+    field: { paddingVertical: 4 },
+    fieldRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
+        paddingVertical: 4,
     },
+    fieldRowInner: { flex: 1 },
     fieldLabel: { fontSize: 13, color: '#94A3B8', marginBottom: 4 },
     fieldValue: { fontSize: 16, fontWeight: '500', color: '#0F172A' },
 
-    vehiclePlate: { fontSize: 16, fontWeight: '600', color: '#0F172A', marginTop: 8 },
-    vehicleModel: { fontSize: 14, color: '#64748B', marginTop: 2 },
+    vehicleBlock: { paddingVertical: 8 },
+    vehiclePlate: { fontSize: 17, fontWeight: '600', color: '#0F172A' },
+    vehicleModel: { fontSize: 14, color: '#64748B', marginTop: 4 },
 
     errorText: { fontSize: 16, color: '#64748B', marginTop: 12 },
     retryBtn: {
@@ -319,14 +308,7 @@ const s = StyleSheet.create({
     },
     retryBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
 
-    logoutRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        paddingVertical: 8,
-    },
-    logoutText: { fontSize: 16, fontWeight: '500', color: '#0E3A78' },
-
-    deleteText: { fontSize: 16, fontWeight: '500', color: '#EF4444' },
-    deleteHint: { fontSize: 13, color: '#94A3B8', marginTop: 2 },
+    deleteRow: { paddingVertical: 12 },
+    deleteText: { fontSize: 16, fontWeight: '600', color: '#EF4444' },
+    deleteHint: { fontSize: 13, color: '#94A3B8', marginTop: 4 },
 });

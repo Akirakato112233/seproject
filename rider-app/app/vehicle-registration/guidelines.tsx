@@ -32,7 +32,11 @@ const AVOID = [
 
 export default function VehicleBookGuidelinesScreen() {
     const router = useRouter();
-    const { registrationId } = useLocalSearchParams<{ registrationId?: string }>();
+    const { registrationId, formValues, disclaimerAgreed } = useLocalSearchParams<{
+        registrationId?: string;
+        formValues?: string;
+        disclaimerAgreed?: string;
+    }>();
     const insets = useSafeAreaInsets();
     const [uploading, setUploading] = useState(false);
 
@@ -54,11 +58,16 @@ export default function VehicleBookGuidelinesScreen() {
         try {
             const url = await uploadFileFromUri(uri, { prefix: 'vehicle-book' });
             const regId = (registrationId ?? '').trim();
+            const params: Record<string, string> = {
+                registrationId: regId,
+                photoUri: uri,
+                photoUploadUrl: url,
+            };
+            if (formValues) params.formValues = formValues;
+            if (disclaimerAgreed) params.disclaimerAgreed = disclaimerAgreed;
             router.replace({
                 pathname: '/vehicle-registration',
-                params: regId
-                    ? { registrationId: regId, photoUri: uri, photoUploadUrl: url }
-                    : { photoUri: uri, photoUploadUrl: url },
+                params,
             } as any);
         } catch (e) {
             console.error(e);

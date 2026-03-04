@@ -35,6 +35,7 @@ export const registerRider = async (req: Request, res: Response) => {
       lastName,
       phone,
       countryCode,
+      email,
       city,
       vehicleType,
       // National ID
@@ -105,6 +106,7 @@ export const registerRider = async (req: Request, res: Response) => {
       fullName,
       phone,
       countryCode: countryCode || '+66',
+      email: email ? String(email).trim().toLowerCase() : undefined,
       city,
       vehicleType,
       nameTH,

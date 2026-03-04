@@ -13,9 +13,8 @@ import { useAuth } from '../context/AuthContext';
 WebBrowser.maybeCompleteAuthSession();
 
 const GOOGLE_CLIENT_ID = '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
-const BACKEND_URL = 'https://nonheritably-panpsychistic-joannie.ngrok-free.dev';
 
-// Role for this app
+// Role for this app (backend uses this to return APP or REGISTER)
 const ROLE = 'rider';
 
 export default function CreateAccountScreen() {
@@ -57,7 +56,7 @@ export default function CreateAccountScreen() {
             const data = await backendRes.json();
 
             if (data.next === 'REGISTER') {
-                router.replace({
+                router.push({
                     pathname: '/signup/register',
                     params: {
                         tempToken: data.tempToken,
@@ -82,8 +81,10 @@ export default function CreateAccountScreen() {
     const handleMobileGoogleSignIn = async () => {
         try {
             setIsLoading(true);
-            const scheme = 'exp://192.168.2.40:8081'; // TODO: update IP if needed
-            const authUrl = `${BACKEND_URL}/api/google/start?redirect_scheme=${encodeURIComponent(scheme)}`;
+            const { BASE_URL } = await import('../config');
+            const uri = AuthSession.makeRedirectUri();
+            const scheme = uri.split('/--/')[0].split('?')[0];
+            const authUrl = `${BASE_URL}/api/google/start?redirect_scheme=${encodeURIComponent(scheme)}`;
 
             const result = await WebBrowser.openAuthSessionAsync(
                 authUrl + '&ngrok-skip-browser-warning=1',
@@ -98,6 +99,8 @@ export default function CreateAccountScreen() {
                 } else {
                     Alert.alert('Error', 'No access token received');
                 }
+            } else if (result.type === 'cancel' || result.type === 'dismiss') {
+                router.replace('/create-account');
             }
         } catch (error) {
             Alert.alert('Error', 'Google Sign-In failed');
@@ -154,12 +157,16 @@ export default function CreateAccountScreen() {
                         data.
                     </Text>
 
-                    {/* Google Sign In */}
+                    {/* Google Sign In: web needs request; native uses backend OAuth */}
                     <TouchableOpacity
-                        style={[s.btn, s.btnGoogle, !request && s.disabledBtn]}
+                        style={[
+                            s.btn,
+                            s.btnGoogle,
+                            (Platform.OS === 'web' ? !request : isLoading) && s.disabledBtn,
+                        ]}
                         activeOpacity={0.85}
                         onPress={handleGoogleSignIn}
-                        disabled={!request}
+                        disabled={Platform.OS === 'web' ? !request : isLoading}
                     >
                         <View style={s.googleIconWrapper}>
                             <Ionicons name="logo-google" size={18} color="#EA4335" />

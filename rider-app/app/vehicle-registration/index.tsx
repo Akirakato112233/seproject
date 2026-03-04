@@ -11,6 +11,8 @@ import {
     Image,
     KeyboardAvoidingView,
     Platform,
+    Modal,
+    FlatList,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +25,86 @@ const ILLUSTRATION = require('../../assets/images/vehicle-hero.png');
 
 const DISCLAIMER =
     'ข้าพเจ้าได้กรอกข้อมูลนี้ถูกต้องครบถ้วน หากตรวจสอบแล้วพบว่าข้อมูลไม่ถูกต้อง ข้าพเจ้ายินยอมให้ข้อมูลเป็นโมฆะและยินยอมให้ระบบทำการเปลี่ยนแปลงข้อมูลให้เป็นไปตามความจริง ข้าพเจ้าได้ตรวจสอบและยินยอมให้ระบบทำการเปลี่ยนแปลงข้อมูลให้เป็นไปตามความจริง ข้าพเจ้าตกลงที่จะดำเนินการแก้ไขข้อมูลภายใน 14 วันนับจากวันที่ได้รับแจ้ง มิฉะนั้นการทำงานของข้าพเจ้าอาจถูกระงับชั่วคราว';
+
+const PROVINCES = [
+    'กรุงเทพมหานคร',
+    'กระบี่',
+    'กาญจนบุรี',
+    'กาฬสินธุ์',
+    'กำแพงเพชร',
+    'ขอนแก่น',
+    'จันทบุรี',
+    'ฉะเชิงเทรา',
+    'ชลบุรี',
+    'ชัยนาท',
+    'ชัยภูมิ',
+    'ชุมพร',
+    'เชียงราย',
+    'เชียงใหม่',
+    'ตรัง',
+    'ตราด',
+    'ตาก',
+    'นครนายก',
+    'นครปฐม',
+    'นครพนม',
+    'นครราชสีมา',
+    'นครศรีธรรมราช',
+    'นครสวรรค์',
+    'นนทบุรี',
+    'นราธิวาส',
+    'น่าน',
+    'บึงกาฬ',
+    'บุรีรัมย์',
+    'ปทุมธานี',
+    'ประจวบคีรีขันธ์',
+    'ปราจีนบุรี',
+    'ปัตตานี',
+    'พระนครศรีอยุธยา',
+    'พะเยา',
+    'พังงา',
+    'พัทลุง',
+    'พิจิตร',
+    'พิษณุโลก',
+    'เพชรบุรี',
+    'เพชรบูรณ์',
+    'แพร่',
+    'ภูเก็ต',
+    'มหาสารคาม',
+    'มุกดาหาร',
+    'แม่ฮ่องสอน',
+    'ยโสธร',
+    'ยะลา',
+    'ร้อยเอ็ด',
+    'ระนอง',
+    'ระยอง',
+    'ราชบุรี',
+    'ลพบุรี',
+    'ลำปาง',
+    'ลำพูน',
+    'เลย',
+    'ศรีสะเกษ',
+    'สกลนคร',
+    'สงขลา',
+    'สตูล',
+    'สมุทรปราการ',
+    'สมุทรสงคราม',
+    'สมุทรสาคร',
+    'สระแก้ว',
+    'สระบุรี',
+    'สิงห์บุรี',
+    'สุโขทัย',
+    'สุพรรณบุรี',
+    'สุราษฎร์ธานี',
+    'สุรินทร์',
+    'หนองคาย',
+    'หนองบัวลำภู',
+    'อ่างทอง',
+    'อำนาจเจริญ',
+    'อุดรธานี',
+    'อุตรดิตถ์',
+    'อุทัยธานี',
+    'อุบลราชธานี',
+];
 
 const FIELDS = [
     { key: 'vehicleRegistrationNo', label: 'ทะเบียนรถ', placeholder: '' },
@@ -51,10 +133,14 @@ export default function VehicleRegistrationScreen() {
         registrationId,
         photoUri: paramPhotoUri,
         photoUploadUrl: paramUploadUrl,
+        formValues: paramFormValues,
+        disclaimerAgreed: paramDisclaimerAgreed,
     } = useLocalSearchParams<{
         registrationId?: string;
         photoUri?: string;
         photoUploadUrl?: string;
+        formValues?: string;
+        disclaimerAgreed?: string;
     }>();
     const insets = useSafeAreaInsets();
     const [values, setValues] = useState(getInitialValues);
@@ -63,6 +149,8 @@ export default function VehicleRegistrationScreen() {
     const [uploading, setUploading] = useState(false);
     const [disclaimerAgreed, setDisclaimerAgreed] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [showProvinceModal, setShowProvinceModal] = useState(false);
+    const [provinceSearch, setProvinceSearch] = useState('');
 
     useEffect(() => {
         if (paramUploadUrl && paramPhotoUri) {
@@ -70,6 +158,19 @@ export default function VehicleRegistrationScreen() {
             setPhotoUploadUrl(paramUploadUrl);
         }
     }, [paramUploadUrl, paramPhotoUri]);
+
+    useEffect(() => {
+        if (paramFormValues) {
+            try {
+                const parsed = JSON.parse(paramFormValues) as Record<FieldKey, string>;
+                setValues((prev) => ({ ...getInitialValues(), ...parsed }));
+            } catch (_) {}
+        }
+    }, [paramFormValues]);
+
+    useEffect(() => {
+        if (paramDisclaimerAgreed === '1') setDisclaimerAgreed(true);
+    }, [paramDisclaimerAgreed]);
 
     const updateField = (key: FieldKey, text: string) => {
         setValues((prev) => ({ ...prev, [key]: text }));
@@ -111,6 +212,21 @@ export default function VehicleRegistrationScreen() {
             Alert.alert('ไม่พบข้อมูลการสมัคร', 'กรุณาทำขั้นตอนสมัครให้ครบก่อน', [
                 { text: 'ตกลง', onPress: () => router.replace('/(tabs)') },
             ]);
+            return;
+        }
+        const yearStr = values.vehicleYear.trim();
+        if (yearStr.length !== 4 || !/^\d{4}$/.test(yearStr)) {
+            Alert.alert('กรุณากรอกข้อมูล', 'ปีที่ผลิต (ค.ศ.) ต้องเป็นตัวเลข 4 หลัก');
+            return;
+        }
+        const year = parseInt(yearStr, 10);
+        const currentYear = new Date().getFullYear();
+        if (year < 1900 || year > currentYear + 1) {
+            Alert.alert('กรุณากรอกข้อมูล', `ปีที่ผลิตต้องอยู่ระหว่าง 1900 - ${currentYear + 1}`);
+            return;
+        }
+        if (!values.vehicleRegistrationProvince.trim()) {
+            Alert.alert('กรุณากรอกข้อมูล', 'กรุณาเลือกจังหวัดจดทะเบียนรถ');
             return;
         }
 
@@ -203,6 +319,8 @@ export default function VehicleRegistrationScreen() {
                                               pathname: '/vehicle-registration/guidelines',
                                               params: {
                                                   registrationId: (registrationId ?? '').trim(),
+                                                  formValues: JSON.stringify(values),
+                                                  disclaimerAgreed: disclaimerAgreed ? '1' : '0',
                                               },
                                           } as any)
                                 }
@@ -231,7 +349,11 @@ export default function VehicleRegistrationScreen() {
                         onPress={() =>
                             router.push({
                                 pathname: '/vehicle-registration/guidelines',
-                                params: { registrationId: (registrationId ?? '').trim() },
+                                params: {
+                                    registrationId: (registrationId ?? '').trim(),
+                                    formValues: JSON.stringify(values),
+                                    disclaimerAgreed: disclaimerAgreed ? '1' : '0',
+                                },
                             } as any)
                         }
                         style={s.guidelineLink}
@@ -240,18 +362,62 @@ export default function VehicleRegistrationScreen() {
                         <Ionicons name="chevron-forward" size={18} color="#0E3A78" />
                     </TouchableOpacity>
 
-                    {FIELDS.map(({ key, label }) => (
-                        <View key={key} style={s.fieldWrap}>
-                            <Text style={s.fieldLabel}>{label}</Text>
-                            <TextInput
-                                style={s.input}
-                                value={values[key]}
-                                onChangeText={(t) => updateField(key, t)}
-                                placeholder={`${label}...`}
-                                placeholderTextColor="#94A3B8"
-                            />
-                        </View>
-                    ))}
+                    {FIELDS.map(({ key, label }) => {
+                        if (key === 'vehicleYear') {
+                            return (
+                                <View key={key} style={s.fieldWrap}>
+                                    <Text style={s.fieldLabel}>{label}</Text>
+                                    <TextInput
+                                        style={s.input}
+                                        value={values.vehicleYear}
+                                        onChangeText={(t) =>
+                                            updateField('vehicleYear', t.replace(/\D/g, '').slice(0, 4))
+                                        }
+                                        placeholder="เช่น 2020"
+                                        placeholderTextColor="#94A3B8"
+                                        keyboardType="number-pad"
+                                        maxLength={4}
+                                    />
+                                </View>
+                            );
+                        }
+                        if (key === 'vehicleRegistrationProvince') {
+                            return (
+                                <View key={key} style={s.fieldWrap}>
+                                    <Text style={s.fieldLabel}>{label}</Text>
+                                    <TouchableOpacity
+                                        style={s.provinceBtn}
+                                        onPress={() => {
+                                            setProvinceSearch('');
+                                            setShowProvinceModal(true);
+                                        }}
+                                    >
+                                        <Text
+                                            style={[
+                                                s.provinceBtnText,
+                                                !values.vehicleRegistrationProvince && { color: '#94A3B8' },
+                                            ]}
+                                        >
+                                            {values.vehicleRegistrationProvince || 'เลือกจังหวัดจดทะเบียนรถ'}
+                                        </Text>
+                                        <Ionicons name="chevron-down" size={20} color="#64748B" />
+                                    </TouchableOpacity>
+                                </View>
+                            );
+                        }
+                        return (
+                            <View key={key} style={s.fieldWrap}>
+                                <Text style={s.fieldLabel}>{label}</Text>
+                                <TextInput
+                                    style={s.input}
+                                    value={values[key]}
+                                    onChangeText={(t) => updateField(key, t)}
+                                    placeholder={`${label}...`}
+                                    placeholderTextColor="#94A3B8"
+                                />
+                            </View>
+                        );
+                    })}
 
                     <TouchableOpacity
                         style={s.checkRow}
@@ -266,6 +432,69 @@ export default function VehicleRegistrationScreen() {
                         <Text style={s.disclaimerText}>{DISCLAIMER}</Text>
                     </TouchableOpacity>
                 </ScrollView>
+
+                <Modal visible={showProvinceModal} animationType="slide">
+                    <SafeAreaView style={s.provinceModalFull}>
+                        <View style={s.provinceHeader}>
+                            <TouchableOpacity onPress={() => setShowProvinceModal(false)}>
+                                <Text style={s.provinceHeaderCancel}>ปิด</Text>
+                            </TouchableOpacity>
+                            <Text style={s.provinceHeaderTitle}>เลือกจังหวัด</Text>
+                            <View style={{ width: 40 }} />
+                        </View>
+                        <View style={s.searchBox}>
+                            <Ionicons name="search" size={18} color="#94A3B8" />
+                            <TextInput
+                                style={s.searchInput}
+                                placeholder="ค้นหาจังหวัด..."
+                                placeholderTextColor="#94A3B8"
+                                value={provinceSearch}
+                                onChangeText={setProvinceSearch}
+                                autoCorrect={false}
+                                autoFocus
+                            />
+                            {provinceSearch.length > 0 && (
+                                <TouchableOpacity onPress={() => setProvinceSearch('')}>
+                                    <Ionicons name="close-circle" size={20} color="#94A3B8" />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                        <FlatList
+                            data={PROVINCES.filter((p) =>
+                                p.toLowerCase().includes(provinceSearch.trim().toLowerCase())
+                            )}
+                            keyExtractor={(item) => item}
+                            keyboardShouldPersistTaps="handled"
+                            renderItem={({ item }) => (
+                                <TouchableOpacity
+                                    style={s.provinceRow}
+                                    onPress={() => {
+                                        updateField('vehicleRegistrationProvince', item);
+                                        setShowProvinceModal(false);
+                                    }}
+                                >
+                                    <Text
+                                        style={[
+                                            s.provinceText,
+                                            values.vehicleRegistrationProvince === item && {
+                                                color: '#0E3A78',
+                                                fontWeight: '700',
+                                            },
+                                        ]}
+                                    >
+                                        {item}
+                                    </Text>
+                                    {values.vehicleRegistrationProvince === item && (
+                                        <Ionicons name="checkmark" size={20} color="#0E3A78" />
+                                    )}
+                                </TouchableOpacity>
+                            )}
+                            ListEmptyComponent={
+                                <Text style={s.emptySearch}>ไม่พบจังหวัดที่ค้นหา</Text>
+                            }
+                        />
+                    </SafeAreaView>
+                </Modal>
 
                 <View style={[s.footer, { paddingBottom: Math.max(24, insets.bottom + 12) }]}>
                     <TouchableOpacity
@@ -386,4 +615,52 @@ const s = StyleSheet.create({
     },
     continueBtnDisabled: { backgroundColor: '#94A3B8', opacity: 0.8 },
     continueText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+    provinceBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderRadius: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+    },
+    provinceBtnText: { fontSize: 16, color: '#0F172A' },
+    provinceModalFull: { flex: 1, backgroundColor: '#fff' },
+    provinceHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
+    },
+    provinceHeaderCancel: { fontSize: 16, color: '#64748B' },
+    provinceHeaderTitle: { fontSize: 18, fontWeight: '600', color: '#0F172A' },
+    searchBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginHorizontal: 16,
+        marginVertical: 12,
+        borderWidth: 1.5,
+        borderColor: '#CBD5E1',
+        borderRadius: 10,
+        paddingHorizontal: 14,
+        height: 44,
+    },
+    searchInput: { flex: 1, fontSize: 15, color: '#0F172A' },
+    provinceRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
+    },
+    provinceText: { fontSize: 16, color: '#0F172A' },
+    emptySearch: { textAlign: 'center', color: '#94A3B8', fontSize: 15, marginTop: 24 },
 });

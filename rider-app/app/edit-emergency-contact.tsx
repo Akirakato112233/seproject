@@ -25,12 +25,30 @@ export default function EditEmergencyContactScreen() {
         contactPhone: string;
     }>();
 
+    const normalizePhone = (raw: string) => {
+        const digits = (raw || '').replace(/\D/g, '').slice(0, 10);
+        if (digits.length === 9 && digits[0] !== '0') return '0' + digits;
+        return digits;
+    };
     const [name, setName] = useState(contactName || '');
-    const [phone, setPhone] = useState(contactPhone || '');
+    const [phone, setPhone] = useState(() => normalizePhone(contactPhone || ''));
     const [countryCode] = useState('+66');
     const [saving, setSaving] = useState(false);
 
-    const hasUnsavedChanges = name !== (contactName || '') || phone !== (contactPhone || '');
+    const hasUnsavedChanges = name !== (contactName || '') || phone !== normalizePhone(contactPhone || '');
+
+    const handlePhoneChange = (text: string) => {
+        const digits = text.replace(/\D/g, '');
+        if (digits.length === 0) {
+            setPhone('');
+            return;
+        }
+        if (digits[0] !== '0') {
+            setPhone('0' + digits.slice(0, 9));
+        } else {
+            setPhone(digits.slice(0, 10));
+        }
+    };
 
     const confirmDiscard = useCallback(() => {
         if (!hasUnsavedChanges) {
@@ -65,12 +83,16 @@ export default function EditEmergencyContactScreen() {
             Alert.alert('Missing name', "Please enter the contact person's name.");
             return;
         }
-        if (!phone.trim()) {
+        const digitsOnly = phone.replace(/\D/g, '');
+        if (digitsOnly.length === 0) {
             Alert.alert('Missing phone', 'Please enter a mobile number.');
             return;
         }
-        if (!/^\d{9,10}$/.test(phone.trim())) {
-            Alert.alert('Invalid phone', 'Phone number must be 9-10 digits.');
+        if (digitsOnly.length !== 10 || digitsOnly[0] !== '0') {
+            Alert.alert(
+                'Invalid phone',
+                'Mobile number must be 10 digits and start with 0 (e.g. 08xxxxxxxx).'
+            );
             return;
         }
 
@@ -83,7 +105,7 @@ export default function EditEmergencyContactScreen() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         name: name.trim(),
-                        phone: phone.trim(),
+                        phone: digitsOnly,
                         countryCode,
                     }),
                 }
@@ -158,11 +180,12 @@ export default function EditEmergencyContactScreen() {
                         </View>
                         <TextInput
                             style={[s.input, { flex: 1 }]}
-                            placeholder="Mobile number"
+                            placeholder="0xxxxxxxxx"
                             placeholderTextColor="#94A3B8"
                             value={phone}
-                            onChangeText={setPhone}
+                            onChangeText={handlePhoneChange}
                             keyboardType="phone-pad"
+                            maxLength={10}
                         />
                     </View>
 
