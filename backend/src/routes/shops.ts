@@ -1,5 +1,11 @@
 import { Router } from 'express';
-import { getShops, getShopById, updateShopById, depositBalance, withdrawBalance } from '../controllers/shopController';
+import {
+  getShops,
+  getShopById,
+  updateShopById,
+  depositBalance,
+  withdrawBalance,
+} from '../controllers/shopController';
 import { registerShop, publishShop } from '../controllers/shopRegistrationController';
 
 const router = Router();

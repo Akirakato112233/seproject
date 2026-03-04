@@ -1,10 +1,14 @@
+/**
+ * Auth context: holds current user, token, and auth actions.
+ * Persists to AsyncStorage. Provides login, logout, and updateUser (for profile edits).
+ */
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_user';
 
-// Define User type
+/** User shape returned from API and stored in context. */
 interface UserData {
     _id?: string;
     id?: string;
@@ -23,6 +27,7 @@ interface AuthContextType {
     setDevMode: (value: boolean) => void;
     login: (token: string, user: UserData) => Promise<void>;
     logout: () => Promise<void>;
+    updateUser: (partial: Partial<UserData>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -30,9 +35,10 @@ const AuthContext = createContext<AuthContextType>({
     token: null,
     loading: true,
     isDevMode: false,
-    setDevMode: () => { },
-    login: async () => { },
-    logout: async () => { },
+    setDevMode: () => {},
+    login: async () => {},
+    logout: async () => {},
+    updateUser: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -87,13 +93,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    // Merge partial user data (e.g. after profile edit) and persist to state + AsyncStorage
+    const updateUser = async (partial: Partial<UserData>) => {
+        try {
+            const updated = { ...user, ...partial } as UserData;
+            setUser(updated);
+            await AsyncStorage.setItem(USER_KEY, JSON.stringify(updated));
+        } catch (error) {
+            console.error('Error updating user:', error);
+        }
+    };
+
     const setDevMode = (value: boolean) => {
         console.log('DEV MODE:', value ? 'ON' : 'OFF');
         setIsDevMode(value);
     };
 
     return (
-        <AuthContext.Provider value={{ user, token, loading, isDevMode, setDevMode, login, logout }}>
+        <AuthContext.Provider
+            value={{ user, token, loading, isDevMode, setDevMode, login, logout, updateUser }}
+        >
             {children}
         </AuthContext.Provider>
     );
@@ -107,4 +126,3 @@ export function useAuth() {
     }
     return context;
 }
-

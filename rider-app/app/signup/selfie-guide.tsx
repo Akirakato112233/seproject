@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-    View,
-    Text,
-    TouchableOpacity,
-    StyleSheet,
-    ScrollView,
-    Image,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -29,9 +22,10 @@ export default function SelfieGuideScreen() {
     const selfieUri = data.selfieUri;
     const params = useLocalSearchParams<{ vehicleType?: string }>();
 
-    const vehicleType = params.vehicleType === 'motorcycle'
-        ? 'Motorcycle | รถจักรยานยนต์'
-        : 'Car | รถยนต์ส่วนบุคคล';
+    const vehicleType =
+        params.vehicleType === 'motorcycle'
+            ? 'Motorcycle | รถจักรยานยนต์'
+            : 'Car | รถยนต์ส่วนบุคคล';
 
     const handleContinue = () => {
         if (!selfieUri) {
@@ -155,7 +149,13 @@ const s = StyleSheet.create({
 
     // Body
     body: { flex: 1, paddingHorizontal: 24, paddingTop: 24 },
-    hey: { fontSize: 28, fontWeight: '900', color: '#0F172A', textAlign: 'center', marginBottom: 6 },
+    hey: {
+        fontSize: 28,
+        fontWeight: '900',
+        color: '#0F172A',
+        textAlign: 'center',
+        marginBottom: 6,
+    },
     applying: { fontSize: 16, color: '#334155', textAlign: 'center', marginBottom: 28 },
 
     // Selfie button

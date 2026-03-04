@@ -1,6 +1,7 @@
 # 🚀 Backend Setup Guide - MongoDB + Express + Node.js
 
 ## 📋 สารบัญ
+
 1. [การติดตั้ง Backend](#การติดตั้ง-backend)
 2. [การตั้งค่า MongoDB](#การตั้งค่า-mongodb)
 3. [โครงสร้าง Backend](#โครงสร้าง-backend)
@@ -32,11 +33,11 @@ npm install -D @types/express @types/node typescript ts-node nodemon
 
 ```json
 {
-  "scripts": {
-    "dev": "nodemon src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js"
-  }
+    "scripts": {
+        "dev": "nodemon src/server.ts",
+        "build": "tsc",
+        "start": "node dist/server.js"
+    }
 }
 ```
 
@@ -91,15 +92,15 @@ laundry-backend/
 import mongoose from 'mongoose';
 
 export const connectDB = async () => {
-  try {
-    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/laundry';
-    
-    await mongoose.connect(mongoURI);
-    console.log('✅ MongoDB Connected');
-  } catch (error) {
-    console.error('❌ MongoDB connection error:', error);
-    process.exit(1);
-  }
+    try {
+        const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/laundry';
+
+        await mongoose.connect(mongoURI);
+        console.log('✅ MongoDB Connected');
+    } catch (error) {
+        console.error('❌ MongoDB connection error:', error);
+        process.exit(1);
+    }
 };
 ```
 
@@ -109,36 +110,39 @@ export const connectDB = async () => {
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IShop extends Document {
-  name: string;
-  rating: number;
-  reviewCount: number;
-  priceLevel: number; // 1-4
-  type: 'coin' | 'full';
-  deliveryFee: number;
-  deliveryTime: number; // minutes
-  imageUrl?: string;
-  location?: {
-    lat: number;
-    lng: number;
-  };
+    name: string;
+    rating: number;
+    reviewCount: number;
+    priceLevel: number; // 1-4
+    type: 'coin' | 'full';
+    deliveryFee: number;
+    deliveryTime: number; // minutes
+    imageUrl?: string;
+    location?: {
+        lat: number;
+        lng: number;
+    };
 }
 
-const ShopSchema = new Schema<IShop>({
-  name: { type: String, required: true },
-  rating: { type: Number, required: true, min: 0, max: 5 },
-  reviewCount: { type: Number, default: 0 },
-  priceLevel: { type: Number, required: true, min: 1, max: 4 },
-  type: { type: String, enum: ['coin', 'full'], required: true },
-  deliveryFee: { type: Number, required: true },
-  deliveryTime: { type: Number, required: true },
-  imageUrl: { type: String },
-  location: {
-    lat: { type: Number },
-    lng: { type: Number },
-  },
-}, {
-  timestamps: true, // เพิ่ม createdAt, updatedAt อัตโนมัติ
-});
+const ShopSchema = new Schema<IShop>(
+    {
+        name: { type: String, required: true },
+        rating: { type: Number, required: true, min: 0, max: 5 },
+        reviewCount: { type: Number, default: 0 },
+        priceLevel: { type: Number, required: true, min: 1, max: 4 },
+        type: { type: String, enum: ['coin', 'full'], required: true },
+        deliveryFee: { type: Number, required: true },
+        deliveryTime: { type: Number, required: true },
+        imageUrl: { type: String },
+        location: {
+            lat: { type: Number },
+            lng: { type: Number },
+        },
+    },
+    {
+        timestamps: true, // เพิ่ม createdAt, updatedAt อัตโนมัติ
+    }
+);
 
 export const Shop = mongoose.model<IShop>('Shop', ShopSchema);
 ```
@@ -150,65 +154,57 @@ import { Request, Response } from 'express';
 import { Shop } from '../models/Shop';
 
 export const getShops = async (req: Request, res: Response) => {
-  try {
-    const {
-      type,
-      rating,
-      price,
-      delivery,
-      nearMe,
-      promo,
-      open,
-    } = req.query;
+    try {
+        const { type, rating, price, delivery, nearMe, promo, open } = req.query;
 
-    // สร้าง query object
-    const query: any = {};
+        // สร้าง query object
+        const query: any = {};
 
-    // Filter by type
-    if (type) {
-      query.type = type;
+        // Filter by type
+        if (type) {
+            query.type = type;
+        }
+
+        // Filter by rating (มากกว่าหรือเท่ากับ)
+        if (rating) {
+            query.rating = { $gte: Number(rating) };
+        }
+
+        // Filter by price level
+        if (price) {
+            query.priceLevel = Number(price);
+        }
+
+        // Filter by delivery fee
+        if (delivery && delivery !== 'Any') {
+            const maxFee = parseInt(delivery.toString().replace(/\D/g, ''));
+            query.deliveryFee = { $lte: maxFee };
+        }
+
+        // TODO: Filter by nearMe (ต้องใช้ location)
+        // TODO: Filter by promo (ต้องมี field ใน database)
+        // TODO: Filter by open (ต้องมี field openingHours)
+
+        const shops = await Shop.find(query).sort({ rating: -1 });
+
+        res.json(shops);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch shops' });
     }
-
-    // Filter by rating (มากกว่าหรือเท่ากับ)
-    if (rating) {
-      query.rating = { $gte: Number(rating) };
-    }
-
-    // Filter by price level
-    if (price) {
-      query.priceLevel = Number(price);
-    }
-
-    // Filter by delivery fee
-    if (delivery && delivery !== 'Any') {
-      const maxFee = parseInt(delivery.toString().replace(/\D/g, ''));
-      query.deliveryFee = { $lte: maxFee };
-    }
-
-    // TODO: Filter by nearMe (ต้องใช้ location)
-    // TODO: Filter by promo (ต้องมี field ใน database)
-    // TODO: Filter by open (ต้องมี field openingHours)
-
-    const shops = await Shop.find(query).sort({ rating: -1 });
-    
-    res.json(shops);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch shops' });
-  }
 };
 
 export const getShopById = async (req: Request, res: Response) => {
-  try {
-    const shop = await Shop.findById(req.params.id);
-    
-    if (!shop) {
-      return res.status(404).json({ error: 'Shop not found' });
+    try {
+        const shop = await Shop.findById(req.params.id);
+
+        if (!shop) {
+            return res.status(404).json({ error: 'Shop not found' });
+        }
+
+        res.json(shop);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch shop' });
     }
-    
-    res.json(shop);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch shop' });
-  }
 };
 ```
 
@@ -249,7 +245,7 @@ app.use('/api/shops', shopsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Server is running' });
+    res.json({ status: 'OK', message: 'Server is running' });
 });
 
 // Connect to MongoDB
@@ -257,7 +253,7 @@ connectDB();
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
 ```
 
@@ -274,20 +270,20 @@ MONGODB_URI=mongodb://localhost:27017/laundry
 
 ```json
 {
-  "compilerOptions": {
-    "target": "ES2020",
-    "module": "commonjs",
-    "lib": ["ES2020"],
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules"]
+    "compilerOptions": {
+        "target": "ES2020",
+        "module": "commonjs",
+        "lib": ["ES2020"],
+        "outDir": "./dist",
+        "rootDir": "./src",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "resolveJsonModule": true
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules"]
 }
 ```
 
@@ -340,16 +336,16 @@ GET http://localhost:3000/api/shops/1234567890
 ```javascript
 // ใช้ MongoDB Compass หรือ mongo shell
 db.shops.insertMany([
-  {
-    name: "oi oi oi (หยอดเหรียญจร้า) - บ้านพิม",
-    rating: 4.9,
-    reviewCount: 2000,
-    priceLevel: 3,
-    type: "coin",
-    deliveryFee: 10,
-    deliveryTime: 35
-  },
-  // ... เพิ่มข้อมูลอื่นๆ
+    {
+        name: 'oi oi oi (หยอดเหรียญจร้า) - บ้านพิม',
+        rating: 4.9,
+        reviewCount: 2000,
+        priceLevel: 3,
+        type: 'coin',
+        deliveryFee: 10,
+        deliveryTime: 35,
+    },
+    // ... เพิ่มข้อมูลอื่นๆ
 ]);
 ```
 
@@ -367,14 +363,17 @@ db.shops.insertMany([
 ## 🆘 Troubleshooting
 
 ### CORS Error
+
 - ตรวจสอบว่าใช้ `cors()` middleware ใน Express
 
 ### Connection Refused
+
 - ตรวจสอบว่า Backend server กำลังรันอยู่
 - ตรวจสอบ URL และ Port
 - สำหรับ device จริง ต้องใช้ IP address ไม่ใช่ localhost
 
 ### MongoDB Connection Error
+
 - ตรวจสอบ Connection String
 - ตรวจสอบว่า MongoDB กำลังรันอยู่
 - สำหรับ MongoDB Atlas ตรวจสอบ Network Access

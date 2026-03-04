@@ -6,15 +6,15 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 
 1. Install dependencies
 
-   ```bash
-   npm install
-   ```
+    ```bash
+    npm install
+    ```
 
 2. Start the app
 
-   ```bash
-   npx expo start
-   ```
+    ```bash
+    npx expo start
+    ```
 
 In the output, you'll find options to open the app in a
 
@@ -24,6 +24,13 @@ In the output, you'll find options to open the app in a
 - [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+
+## Account & profile (user-app)
+
+- **Profile photo**: On the Account tab you can set a profile picture by taking a photo or choosing from the gallery. The image is uploaded to Supabase Storage and the public URL is saved to the backend (MongoDB). The same photo is shown on the Home screen avatar.
+- **Edit name & mobile number**: Tapping "Name" or "Mobile Number" opens an edit modal. Changes are sent to `PUT /api/auth/update-profile/:userId` and the local auth state is updated after a successful save.
+- **Mobile number rules**: Must be exactly 10 digits and must start with `0` (e.g. `08xxxxxxxx`). The input field only allows digits and auto-prepends `0` if the user types a digit other than 0 first.
+- **Email**: Read-only (tied to Google account).
 
 ## Get a fresh project
 

@@ -91,7 +91,9 @@ export default function ShopDetailScreen() {
     const [loading, setLoading] = useState(true);
     const [selectedOptions, setSelectedOptions] = useState<{ [key: string]: number }>({});
     // สำหรับ multi-select (ironing, folding, other)
-    const [multiSelectedOptions, setMultiSelectedOptions] = useState<{ [key: string]: boolean }>({});
+    const [multiSelectedOptions, setMultiSelectedOptions] = useState<{ [key: string]: boolean }>(
+        {}
+    );
     const [additionalRequest, setAdditionalRequest] = useState('');
 
     useEffect(() => {
@@ -102,13 +104,11 @@ export default function ShopDetailScreen() {
 
     const fetchShopDetail = async () => {
         try {
-
             setLoading(true);
             if (!id) return;
             const data = await getShopById(id);
             // ✅ Cast ข้อมูลที่ได้มาให้เป็น ShopDetail
             setShop(data as unknown as ShopDetail);
-
         } catch (error) {
             console.error('Error fetching shop:', error);
             Alert.alert('Error', 'ไม่สามารถโหลดข้อมูลร้านค้าได้ กรุณาลองใหม่');
@@ -189,7 +189,13 @@ export default function ShopDetailScreen() {
 
     // สร้าง order items จาก selected options
     const getOrderItems = () => {
-        const items: { name: string; details: string; price: number; duration: number; additionalRequest?: string }[] = [];
+        const items: {
+            name: string;
+            details: string;
+            price: number;
+            duration: number;
+            additionalRequest?: string;
+        }[] = [];
 
         // จาก single select (wash, dry)
         Object.entries(selectedOptions).forEach(([key, optionIndex]) => {
@@ -272,7 +278,6 @@ export default function ShopDetailScreen() {
             items[0].additionalRequest = additionalRequest.trim();
         }
 
-
         return items;
     };
 
@@ -294,7 +299,7 @@ export default function ShopDetailScreen() {
 
         router.push({
             pathname: `/shop/order/${id}` as any,
-            params: { orderData: JSON.stringify(orderData) }
+            params: { orderData: JSON.stringify(orderData) },
         });
     };
 
@@ -397,21 +402,42 @@ export default function ShopDetailScreen() {
                     <View style={localStyles.servicesSection}>
                         {shop.washServices.map((service, serviceIndex) => (
                             <View key={`wash-${serviceIndex}`} style={localStyles.serviceGroup}>
-                                <Text style={localStyles.serviceTitle}>Wash {service.weight} kg</Text>
+                                <Text style={localStyles.serviceTitle}>
+                                    Wash {service.weight} kg
+                                </Text>
                                 {service.options.map((option, optionIndex) => {
-                                    const isSelected = selectedOptions[`wash-${serviceIndex}`] === optionIndex;
+                                    const isSelected =
+                                        selectedOptions[`wash-${serviceIndex}`] === optionIndex;
                                     return (
                                         <TouchableOpacity
                                             key={optionIndex}
                                             style={localStyles.optionRow}
-                                            onPress={() => handleSelectOption(`wash-${serviceIndex}`, optionIndex)}
+                                            onPress={() =>
+                                                handleSelectOption(
+                                                    `wash-${serviceIndex}`,
+                                                    optionIndex
+                                                )
+                                            }
                                         >
-                                            <View style={[localStyles.radio, isSelected && localStyles.radioSelected]}>
-                                                {isSelected && <View style={localStyles.radioInner} />}
+                                            <View
+                                                style={[
+                                                    localStyles.radio,
+                                                    isSelected && localStyles.radioSelected,
+                                                ]}
+                                            >
+                                                {isSelected && (
+                                                    <View style={localStyles.radioInner} />
+                                                )}
                                             </View>
-                                            <Text style={localStyles.optionSetting}>{option.setting}</Text>
-                                            <Text style={localStyles.optionDuration}>{option.duration} min</Text>
-                                            <Text style={localStyles.optionPrice}>฿ {option.price}</Text>
+                                            <Text style={localStyles.optionSetting}>
+                                                {option.setting}
+                                            </Text>
+                                            <Text style={localStyles.optionDuration}>
+                                                {option.duration} min
+                                            </Text>
+                                            <Text style={localStyles.optionPrice}>
+                                                ฿ {option.price}
+                                            </Text>
                                         </TouchableOpacity>
                                     );
                                 })}
@@ -425,21 +451,42 @@ export default function ShopDetailScreen() {
                     <View style={localStyles.servicesSection}>
                         {shop.dryServices.map((service, serviceIndex) => (
                             <View key={`dry-${serviceIndex}`} style={localStyles.serviceGroup}>
-                                <Text style={localStyles.serviceTitle}>Dry {service.weight} kg</Text>
+                                <Text style={localStyles.serviceTitle}>
+                                    Dry {service.weight} kg
+                                </Text>
                                 {service.options.map((option, optionIndex) => {
-                                    const isSelected = selectedOptions[`dry-${serviceIndex}`] === optionIndex;
+                                    const isSelected =
+                                        selectedOptions[`dry-${serviceIndex}`] === optionIndex;
                                     return (
                                         <TouchableOpacity
                                             key={optionIndex}
                                             style={localStyles.optionRow}
-                                            onPress={() => handleSelectOption(`dry-${serviceIndex}`, optionIndex)}
+                                            onPress={() =>
+                                                handleSelectOption(
+                                                    `dry-${serviceIndex}`,
+                                                    optionIndex
+                                                )
+                                            }
                                         >
-                                            <View style={[localStyles.radio, isSelected && localStyles.radioSelected]}>
-                                                {isSelected && <View style={localStyles.radioInner} />}
+                                            <View
+                                                style={[
+                                                    localStyles.radio,
+                                                    isSelected && localStyles.radioSelected,
+                                                ]}
+                                            >
+                                                {isSelected && (
+                                                    <View style={localStyles.radioInner} />
+                                                )}
                                             </View>
-                                            <Text style={localStyles.optionSetting}>{option.setting}</Text>
-                                            <Text style={localStyles.optionDuration}>{option.duration} min</Text>
-                                            <Text style={localStyles.optionPrice}>฿ {option.price}</Text>
+                                            <Text style={localStyles.optionSetting}>
+                                                {option.setting}
+                                            </Text>
+                                            <Text style={localStyles.optionDuration}>
+                                                {option.duration} min
+                                            </Text>
+                                            <Text style={localStyles.optionPrice}>
+                                                ฿ {option.price}
+                                            </Text>
                                         </TouchableOpacity>
                                     );
                                 })}
@@ -449,66 +496,112 @@ export default function ShopDetailScreen() {
                 )}
 
                 {/* Ironing Services - เฉพาะร้าน full service (Multi-select) */}
-                {shop.type === 'full' && shop.ironingServices && shop.ironingServices.length > 0 && (
-                    <View style={localStyles.servicesSection}>
-                        <Text style={localStyles.sectionHeader}>🔥 บริการรีดผ้า (Ironing) - เลือกได้หลายรายการ</Text>
-                        {shop.ironingServices.map((service, serviceIndex) => (
-                            <View key={`ironing-${serviceIndex}`} style={localStyles.serviceGroup}>
-                                <Text style={localStyles.serviceTitle}>{service.category}</Text>
-                                {service.options.map((option, optionIndex) => {
-                                    const key = `ironing-${serviceIndex}-${optionIndex}`;
-                                    const isSelected = multiSelectedOptions[key] === true;
-                                    return (
-                                        <TouchableOpacity
-                                            key={optionIndex}
-                                            style={localStyles.optionRow}
-                                            onPress={() => handleMultiSelectOption(key)}
-                                        >
-                                            <View style={[localStyles.checkbox, isSelected && localStyles.checkboxSelected]}>
-                                                {isSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
-                                            </View>
-                                            <Text style={localStyles.optionSetting}>{option.type}</Text>
-                                            <Text style={localStyles.optionPrice}>฿ {option.price}</Text>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </View>
-                        ))}
-                    </View>
-                )}
+                {shop.type === 'full' &&
+                    shop.ironingServices &&
+                    shop.ironingServices.length > 0 && (
+                        <View style={localStyles.servicesSection}>
+                            <Text style={localStyles.sectionHeader}>
+                                🔥 บริการรีดผ้า (Ironing) - เลือกได้หลายรายการ
+                            </Text>
+                            {shop.ironingServices.map((service, serviceIndex) => (
+                                <View
+                                    key={`ironing-${serviceIndex}`}
+                                    style={localStyles.serviceGroup}
+                                >
+                                    <Text style={localStyles.serviceTitle}>{service.category}</Text>
+                                    {service.options.map((option, optionIndex) => {
+                                        const key = `ironing-${serviceIndex}-${optionIndex}`;
+                                        const isSelected = multiSelectedOptions[key] === true;
+                                        return (
+                                            <TouchableOpacity
+                                                key={optionIndex}
+                                                style={localStyles.optionRow}
+                                                onPress={() => handleMultiSelectOption(key)}
+                                            >
+                                                <View
+                                                    style={[
+                                                        localStyles.checkbox,
+                                                        isSelected && localStyles.checkboxSelected,
+                                                    ]}
+                                                >
+                                                    {isSelected && (
+                                                        <Ionicons
+                                                            name="checkmark"
+                                                            size={16}
+                                                            color="#fff"
+                                                        />
+                                                    )}
+                                                </View>
+                                                <Text style={localStyles.optionSetting}>
+                                                    {option.type}
+                                                </Text>
+                                                <Text style={localStyles.optionPrice}>
+                                                    ฿ {option.price}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
+                            ))}
+                        </View>
+                    )}
 
                 {/* Folding Services - เฉพาะร้าน full service (Multi-select) */}
-                {shop.type === 'full' && shop.foldingServices && shop.foldingServices.length > 0 && (
-                    <View style={localStyles.servicesSection}>
-                        <Text style={localStyles.sectionHeader}>📦 บริการพับผ้า (Folding) - เลือกได้หลายรายการ</Text>
-                        {shop.foldingServices.map((service, serviceIndex) => (
-                            <View key={`folding-${serviceIndex}`} style={localStyles.serviceGroup}>
-                                {service.options.map((option, optionIndex) => {
-                                    const key = `folding-${serviceIndex}-${optionIndex}`;
-                                    const isSelected = multiSelectedOptions[key] === true;
-                                    return (
-                                        <TouchableOpacity
-                                            key={optionIndex}
-                                            style={localStyles.optionRow}
-                                            onPress={() => handleMultiSelectOption(key)}
-                                        >
-                                            <View style={[localStyles.checkbox, isSelected && localStyles.checkboxSelected]}>
-                                                {isSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
-                                            </View>
-                                            <Text style={localStyles.optionSetting}>{option.type}</Text>
-                                            <Text style={localStyles.optionPrice}>฿ {option.pricePerKg}/kg</Text>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </View>
-                        ))}
-                    </View>
-                )}
+                {shop.type === 'full' &&
+                    shop.foldingServices &&
+                    shop.foldingServices.length > 0 && (
+                        <View style={localStyles.servicesSection}>
+                            <Text style={localStyles.sectionHeader}>
+                                📦 บริการพับผ้า (Folding) - เลือกได้หลายรายการ
+                            </Text>
+                            {shop.foldingServices.map((service, serviceIndex) => (
+                                <View
+                                    key={`folding-${serviceIndex}`}
+                                    style={localStyles.serviceGroup}
+                                >
+                                    {service.options.map((option, optionIndex) => {
+                                        const key = `folding-${serviceIndex}-${optionIndex}`;
+                                        const isSelected = multiSelectedOptions[key] === true;
+                                        return (
+                                            <TouchableOpacity
+                                                key={optionIndex}
+                                                style={localStyles.optionRow}
+                                                onPress={() => handleMultiSelectOption(key)}
+                                            >
+                                                <View
+                                                    style={[
+                                                        localStyles.checkbox,
+                                                        isSelected && localStyles.checkboxSelected,
+                                                    ]}
+                                                >
+                                                    {isSelected && (
+                                                        <Ionicons
+                                                            name="checkmark"
+                                                            size={16}
+                                                            color="#fff"
+                                                        />
+                                                    )}
+                                                </View>
+                                                <Text style={localStyles.optionSetting}>
+                                                    {option.type}
+                                                </Text>
+                                                <Text style={localStyles.optionPrice}>
+                                                    ฿ {option.pricePerKg}/kg
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
+                            ))}
+                        </View>
+                    )}
 
                 {/* Other Services - เฉพาะร้าน full service (Multi-select) */}
                 {shop.type === 'full' && shop.otherServices && shop.otherServices.length > 0 && (
                     <View style={localStyles.servicesSection}>
-                        <Text style={localStyles.sectionHeader}>✨ บริการอื่นๆ - เลือกได้หลายรายการ</Text>
+                        <Text style={localStyles.sectionHeader}>
+                            ✨ บริการอื่นๆ - เลือกได้หลายรายการ
+                        </Text>
                         {shop.otherServices.map((service, serviceIndex) => (
                             <View key={`other-${serviceIndex}`} style={localStyles.serviceGroup}>
                                 <Text style={localStyles.serviceTitle}>{service.category}</Text>
@@ -521,11 +614,26 @@ export default function ShopDetailScreen() {
                                             style={localStyles.optionRow}
                                             onPress={() => handleMultiSelectOption(key)}
                                         >
-                                            <View style={[localStyles.checkbox, isSelected && localStyles.checkboxSelected]}>
-                                                {isSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
+                                            <View
+                                                style={[
+                                                    localStyles.checkbox,
+                                                    isSelected && localStyles.checkboxSelected,
+                                                ]}
+                                            >
+                                                {isSelected && (
+                                                    <Ionicons
+                                                        name="checkmark"
+                                                        size={16}
+                                                        color="#fff"
+                                                    />
+                                                )}
                                             </View>
-                                            <Text style={localStyles.optionSetting}>{option.name}</Text>
-                                            <Text style={localStyles.optionPrice}>฿ {option.price}/{option.unit}</Text>
+                                            <Text style={localStyles.optionSetting}>
+                                                {option.name}
+                                            </Text>
+                                            <Text style={localStyles.optionPrice}>
+                                                ฿ {option.price}/{option.unit}
+                                            </Text>
                                         </TouchableOpacity>
                                     );
                                 })}
@@ -553,10 +661,7 @@ export default function ShopDetailScreen() {
 
             {/* Add to Basket Button */}
             <View style={localStyles.bottomBar}>
-                <TouchableOpacity
-                    style={localStyles.addToBasketButton}
-                    onPress={handleAddToBasket}
-                >
+                <TouchableOpacity style={localStyles.addToBasketButton} onPress={handleAddToBasket}>
                     <Text style={localStyles.addToBasketText}>
                         Add to basket {calculateTotal() > 0 ? `(฿ ${calculateTotal()})` : ''}
                     </Text>
@@ -819,5 +924,5 @@ const localStyles = StyleSheet.create({
     retryText: {
         color: '#fff',
         fontWeight: 'bold',
-    }
+    },
 });

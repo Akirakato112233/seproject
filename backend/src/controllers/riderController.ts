@@ -31,11 +31,29 @@ export const registerRider = async (req: Request, res: Response) => {
   try {
     const {
       // Basic info
-      firstName, lastName, phone, countryCode, city, vehicleType,
+      firstName,
+      lastName,
+      phone,
+      countryCode,
+      city,
+      vehicleType,
       // National ID
-      nameTH, nameEN, idNumber, idIssueDate, idExpiryDate, dob, gender, address, idFrontUri,
+      nameTH,
+      nameEN,
+      idNumber,
+      idIssueDate,
+      idExpiryDate,
+      dob,
+      gender,
+      address,
+      idFrontUri,
       // Driver License
-      licenseNo, licenseType, licenseIssueDate, licenseExpiryDate, licenseProvince, licenseUri,
+      licenseNo,
+      licenseType,
+      licenseIssueDate,
+      licenseExpiryDate,
+      licenseProvince,
+      licenseUri,
       // Selfie
       selfieUri,
     } = req.body;
@@ -43,9 +61,26 @@ export const registerRider = async (req: Request, res: Response) => {
     // ── Validate all required fields ──────────────────────────────────────────
     const missing: string[] = [];
     const required: Record<string, unknown> = {
-      firstName, lastName, phone, city, vehicleType,
-      nameTH, nameEN, idNumber, idIssueDate, idExpiryDate, dob, gender, address, idFrontUri,
-      licenseNo, licenseType, licenseIssueDate, licenseExpiryDate, licenseProvince, licenseUri,
+      firstName,
+      lastName,
+      phone,
+      city,
+      vehicleType,
+      nameTH,
+      nameEN,
+      idNumber,
+      idIssueDate,
+      idExpiryDate,
+      dob,
+      gender,
+      address,
+      idFrontUri,
+      licenseNo,
+      licenseType,
+      licenseIssueDate,
+      licenseExpiryDate,
+      licenseProvince,
+      licenseUri,
       selfieUri,
     };
 
@@ -65,10 +100,28 @@ export const registerRider = async (req: Request, res: Response) => {
     const fullName = `${firstName} ${lastName}`.trim();
 
     const registration = await RiderRegistration.create({
-      firstName, lastName, fullName,
-      phone, countryCode: countryCode || '+66', city, vehicleType,
-      nameTH, nameEN, idNumber, idIssueDate, idExpiryDate, dob, gender, address, idFrontUri,
-      licenseNo, licenseType, licenseIssueDate, licenseExpiryDate, licenseProvince, licenseUri,
+      firstName,
+      lastName,
+      fullName,
+      phone,
+      countryCode: countryCode || '+66',
+      city,
+      vehicleType,
+      nameTH,
+      nameEN,
+      idNumber,
+      idIssueDate,
+      idExpiryDate,
+      dob,
+      gender,
+      address,
+      idFrontUri,
+      licenseNo,
+      licenseType,
+      licenseIssueDate,
+      licenseExpiryDate,
+      licenseProvince,
+      licenseUri,
       selfieUri,
       agreedToTerms: true,
       status: 'pending',
@@ -97,7 +150,13 @@ export const updateRegistrationBackgroundCheck = async (req: Request, res: Respo
       consentB,
     } = req.body;
 
-    if (!registrationId || !nationalId?.trim() || !addressOnId?.trim() || !fatherFullName?.trim() || !motherFullName?.trim()) {
+    if (
+      !registrationId ||
+      !nationalId?.trim() ||
+      !addressOnId?.trim() ||
+      !fatherFullName?.trim() ||
+      !motherFullName?.trim()
+    ) {
       return res.status(400).json({
         success: false,
         message: 'Missing required fields: nationalId, addressOnId, fatherFullName, motherFullName',
@@ -112,7 +171,8 @@ export const updateRegistrationBackgroundCheck = async (req: Request, res: Respo
         fatherFullName: fatherFullName.trim(),
         motherFullName: motherFullName.trim(),
         hasDocument: !!hasDocument,
-        documentUrl: documentUrl && String(documentUrl).trim() ? String(documentUrl).trim() : undefined,
+        documentUrl:
+          documentUrl && String(documentUrl).trim() ? String(documentUrl).trim() : undefined,
         consentA: !!consentA,
         consentB: !!consentB,
       },
@@ -338,7 +398,8 @@ export const updateRegistrationPlateColor = async (req: Request, res: Response) 
 export const updateRegistrationOwnership = async (req: Request, res: Response) => {
   try {
     const { registrationId } = req.params;
-    const { ownershipType, ownershipRelation, ownershipHolderName, ownershipConsentAgreed } = req.body;
+    const { ownershipType, ownershipRelation, ownershipHolderName, ownershipConsentAgreed } =
+      req.body;
 
     if (!registrationId) {
       return res.status(400).json({ success: false, message: 'Missing registrationId' });
@@ -367,7 +428,10 @@ export const updateRegistrationOwnership = async (req: Request, res: Response) =
       registrationId,
       {
         ownershipType,
-        ownershipRelation: ownershipRelation && String(ownershipRelation).trim() ? String(ownershipRelation).trim() : undefined,
+        ownershipRelation:
+          ownershipRelation && String(ownershipRelation).trim()
+            ? String(ownershipRelation).trim()
+            : undefined,
         ownershipHolderName: String(ownershipHolderName).trim(),
         ownershipConsentAgreed: !!ownershipConsentAgreed,
       },
@@ -395,7 +459,12 @@ export const updateRegistrationPackage = async (req: Request, res: Response) => 
     if (!registrationId) {
       return res.status(400).json({ success: false, message: 'Missing registrationId' });
     }
-    if (!packageProvince || !String(packageProvince).trim() || !packageDistrict || !String(packageDistrict).trim()) {
+    if (
+      !packageProvince ||
+      !String(packageProvince).trim() ||
+      !packageDistrict ||
+      !String(packageDistrict).trim()
+    ) {
       return res.status(400).json({
         success: false,
         message: 'packageProvince and packageDistrict are required',
@@ -471,19 +540,40 @@ export const updateRegistrationVehicleBook = async (req: Request, res: Response)
     const updated = await RiderRegistration.findByIdAndUpdate(
       registrationId,
       {
-        vehicleBookPhotoUri: vehicleBookPhotoUri && String(vehicleBookPhotoUri).trim() ? String(vehicleBookPhotoUri).trim() : undefined,
-        vehicleRegistrationNo: vehicleRegistrationNo && String(vehicleRegistrationNo).trim() ? String(vehicleRegistrationNo).trim() : undefined,
-        vehicleBrand: vehicleBrand && String(vehicleBrand).trim() ? String(vehicleBrand).trim() : undefined,
-        vehicleModel: vehicleModel && String(vehicleModel).trim() ? String(vehicleModel).trim() : undefined,
-        vehicleColor: vehicleColor && String(vehicleColor).trim() ? String(vehicleColor).trim() : undefined,
+        vehicleBookPhotoUri:
+          vehicleBookPhotoUri && String(vehicleBookPhotoUri).trim()
+            ? String(vehicleBookPhotoUri).trim()
+            : undefined,
+        vehicleRegistrationNo:
+          vehicleRegistrationNo && String(vehicleRegistrationNo).trim()
+            ? String(vehicleRegistrationNo).trim()
+            : undefined,
+        vehicleBrand:
+          vehicleBrand && String(vehicleBrand).trim() ? String(vehicleBrand).trim() : undefined,
+        vehicleModel:
+          vehicleModel && String(vehicleModel).trim() ? String(vehicleModel).trim() : undefined,
+        vehicleColor:
+          vehicleColor && String(vehicleColor).trim() ? String(vehicleColor).trim() : undefined,
         vehicleYear: vehicleYear != null ? String(vehicleYear).trim() : undefined,
-        vehicleRegistrationProvince: vehicleRegistrationProvince && String(vehicleRegistrationProvince).trim() ? String(vehicleRegistrationProvince).trim() : undefined,
-        vehicleFuel: vehicleFuel && String(vehicleFuel).trim() ? String(vehicleFuel).trim() : undefined,
+        vehicleRegistrationProvince:
+          vehicleRegistrationProvince && String(vehicleRegistrationProvince).trim()
+            ? String(vehicleRegistrationProvince).trim()
+            : undefined,
+        vehicleFuel:
+          vehicleFuel && String(vehicleFuel).trim() ? String(vehicleFuel).trim() : undefined,
         vehicleEngineCc: vehicleEngineCc != null ? String(vehicleEngineCc).trim() : undefined,
-        rightsHolderName: rightsHolderName && String(rightsHolderName).trim() ? String(rightsHolderName).trim() : undefined,
-        rightsHolderId: rightsHolderId && String(rightsHolderId).trim() ? String(rightsHolderId).trim() : undefined,
-        possessorName: possessorName && String(possessorName).trim() ? String(possessorName).trim() : undefined,
-        possessorId: possessorId && String(possessorId).trim() ? String(possessorId).trim() : undefined,
+        rightsHolderName:
+          rightsHolderName && String(rightsHolderName).trim()
+            ? String(rightsHolderName).trim()
+            : undefined,
+        rightsHolderId:
+          rightsHolderId && String(rightsHolderId).trim()
+            ? String(rightsHolderId).trim()
+            : undefined,
+        possessorName:
+          possessorName && String(possessorName).trim() ? String(possessorName).trim() : undefined,
+        possessorId:
+          possessorId && String(possessorId).trim() ? String(possessorId).trim() : undefined,
         vehicleBookDisclaimerAgreed: !!vehicleBookDisclaimerAgreed,
       },
       { new: true }
@@ -526,11 +616,9 @@ export const updateLinkedAccounts = async (req: Request, res: Response) => {
     const update: Record<string, boolean> = {};
     if (typeof linkedGoogle === 'boolean') update.linkedGoogle = linkedGoogle;
 
-    const updated = await RiderRegistration.findByIdAndUpdate(
-      registrationId,
-      update,
-      { new: true }
-    );
+    const updated = await RiderRegistration.findByIdAndUpdate(registrationId, update, {
+      new: true,
+    });
 
     if (!updated) {
       return res.status(404).json({ success: false, message: 'Registration not found' });
@@ -556,11 +644,9 @@ export const updateCommunications = async (req: Request, res: Response) => {
     if (typeof marketingEmail === 'boolean') update.marketingEmail = marketingEmail;
     if (typeof marketingPhone === 'boolean') update.marketingPhone = marketingPhone;
 
-    const updated = await RiderRegistration.findByIdAndUpdate(
-      registrationId,
-      update,
-      { new: true }
-    );
+    const updated = await RiderRegistration.findByIdAndUpdate(registrationId, update, {
+      new: true,
+    });
 
     if (!updated) {
       return res.status(404).json({ success: false, message: 'Registration not found' });
@@ -612,7 +698,9 @@ export const addEmergencyContact = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Registration not found' });
     }
     if ((existing.emergencyContacts?.length ?? 0) >= 3) {
-      return res.status(400).json({ success: false, message: 'Maximum 3 emergency contacts allowed' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Maximum 3 emergency contacts allowed' });
     }
 
     const updated = await RiderRegistration.findByIdAndUpdate(

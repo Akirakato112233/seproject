@@ -3,16 +3,7 @@ import { Shop, calculatePriceLevel } from '../models/Shop';
 
 export const getShops = async (req: Request, res: Response) => {
   try {
-    const {
-      type,
-      rating,
-      price,
-      delivery,
-      nearMe,
-      promo,
-      open,
-      merchantUserId,
-    } = req.query;
+    const { type, rating, price, delivery, nearMe, promo, open, merchantUserId } = req.query;
 
     // สร้าง query object
     const query: any = {};
@@ -48,7 +39,7 @@ export const getShops = async (req: Request, res: Response) => {
     // TODO: Filter by open (ต้องมี field openingHours)
 
     const shops = await Shop.find(query).sort({ rating: -1 });
-    
+
     res.json(shops);
   } catch (error) {
     console.error('Error fetching shops:', error);
@@ -59,11 +50,11 @@ export const getShops = async (req: Request, res: Response) => {
 export const getShopById = async (req: Request, res: Response) => {
   try {
     const shop = await Shop.findById(req.params.id);
-    
+
     if (!shop) {
       return res.status(404).json({ error: 'Shop not found' });
     }
-    
+
     res.json(shop);
   } catch (error) {
     console.error('Error fetching shop:', error);
@@ -113,11 +104,7 @@ export const depositBalance = async (req: Request, res: Response) => {
     if (amt <= 0) {
       return res.status(400).json({ error: 'Amount must be positive' });
     }
-    const shop = await Shop.findByIdAndUpdate(
-      id,
-      { $inc: { balance: amt } },
-      { new: true }
-    );
+    const shop = await Shop.findByIdAndUpdate(id, { $inc: { balance: amt } }, { new: true });
     if (!shop) {
       return res.status(404).json({ error: 'Shop not found' });
     }
@@ -145,11 +132,7 @@ export const withdrawBalance = async (req: Request, res: Response) => {
     if (amt > currentBalance) {
       return res.status(400).json({ error: 'Insufficient balance' });
     }
-    const updated = await Shop.findByIdAndUpdate(
-      id,
-      { $inc: { balance: -amt } },
-      { new: true }
-    );
+    const updated = await Shop.findByIdAndUpdate(id, { $inc: { balance: -amt } }, { new: true });
     res.json(updated);
   } catch (error) {
     console.error('Error withdrawing balance:', error);

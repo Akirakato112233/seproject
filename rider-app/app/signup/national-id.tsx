@@ -28,8 +28,18 @@ const THAI_REGEX = /^[\u0E00-\u0E7F\s]+$/;
 const EN_REGEX = /^[a-zA-Z\s.]+$/;
 
 const MONTHS = [
-    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
+    'มกราคม',
+    'กุมภาพันธ์',
+    'มีนาคม',
+    'เมษายน',
+    'พฤษภาคม',
+    'มิถุนายน',
+    'กรกฎาคม',
+    'สิงหาคม',
+    'กันยายน',
+    'ตุลาคม',
+    'พฤศจิกายน',
+    'ธันวาคม',
 ];
 const ITEM_H = 44;
 
@@ -57,17 +67,23 @@ function PickerColumn({ data, selectedIndex, onSelect }: PickerColumnProps) {
 
     const onLayout = useCallback(() => {
         if (!ready && selectedIndex > 0) {
-            flatListRef.current?.scrollToOffset({ offset: selectedIndex * ITEM_H, animated: false });
+            flatListRef.current?.scrollToOffset({
+                offset: selectedIndex * ITEM_H,
+                animated: false,
+            });
         }
         setReady(true);
     }, [ready, selectedIndex]);
 
-    const onMomentumEnd = useCallback((e: any) => {
-        const y = e.nativeEvent.contentOffset.y;
-        const idx = Math.round(y / ITEM_H);
-        const clamped = Math.max(0, Math.min(idx, data.length - 1));
-        onSelect(clamped);
-    }, [data.length, onSelect]);
+    const onMomentumEnd = useCallback(
+        (e: any) => {
+            const y = e.nativeEvent.contentOffset.y;
+            const idx = Math.round(y / ITEM_H);
+            const clamped = Math.max(0, Math.min(idx, data.length - 1));
+            onSelect(clamped);
+        },
+        [data.length, onSelect]
+    );
 
     return (
         <View style={ps.columnWrap}>
@@ -87,7 +103,9 @@ function PickerColumn({ data, selectedIndex, onSelect }: PickerColumnProps) {
                     const isSelected = index === selectedIndex;
                     return (
                         <View style={ps.item}>
-                            <Text style={[ps.itemText, isSelected && ps.itemTextSelected]}>{item}</Text>
+                            <Text style={[ps.itemText, isSelected && ps.itemTextSelected]}>
+                                {item}
+                            </Text>
                         </View>
                     );
                 }}
@@ -99,8 +117,14 @@ function PickerColumn({ data, selectedIndex, onSelect }: PickerColumnProps) {
 const ps = StyleSheet.create({
     columnWrap: { flex: 1, height: ITEM_H * 5, overflow: 'hidden' },
     highlight: {
-        position: 'absolute', top: ITEM_H * 2, left: 0, right: 0, height: ITEM_H,
-        backgroundColor: '#F1F5F9', borderRadius: 8, zIndex: -1,
+        position: 'absolute',
+        top: ITEM_H * 2,
+        left: 0,
+        right: 0,
+        height: ITEM_H,
+        backgroundColor: '#F1F5F9',
+        borderRadius: 8,
+        zIndex: -1,
     },
     item: { height: ITEM_H, justifyContent: 'center', alignItems: 'center' },
     itemText: { fontSize: 16, color: '#94A3B8' },
@@ -138,8 +162,10 @@ export default function NationalIdScreen() {
     const idError = idNumber.length > 0 && idDigits.length !== 13;
 
     const canContinue =
-        nameTH.trim().length > 0 && !nameTHError &&
-        nameEN.trim().length > 0 && !nameENError &&
+        nameTH.trim().length > 0 &&
+        !nameTHError &&
+        nameEN.trim().length > 0 &&
+        !nameENError &&
         idDigits.length === 13 &&
         issueDate.length > 0 &&
         expiryDate.length > 0 &&
@@ -148,11 +174,12 @@ export default function NationalIdScreen() {
         address.trim().length > 0 &&
         !!data.idFrontUri;
 
-    const yearRange = activeDateField === 'expiry'
-        ? range(currentYear - 10, currentYear + 20)
-        : activeDateField === 'dob'
-            ? range(1920, currentYear)
-            : range(1950, currentYear);
+    const yearRange =
+        activeDateField === 'expiry'
+            ? range(currentYear - 10, currentYear + 20)
+            : activeDateField === 'dob'
+              ? range(1920, currentYear)
+              : range(1950, currentYear);
 
     const dayCount = daysInMonth(pickerMonth, pickerYear);
     const days = range(1, dayCount);
@@ -160,9 +187,13 @@ export default function NationalIdScreen() {
     const openDatePicker = (field: DateField) => {
         setActiveDateField(field);
         if (field === 'dob') {
-            setPickerDay(1); setPickerMonth(1); setPickerYear(2000);
+            setPickerDay(1);
+            setPickerMonth(1);
+            setPickerYear(2000);
         } else {
-            setPickerDay(now.getDate()); setPickerMonth(now.getMonth() + 1); setPickerYear(currentYear);
+            setPickerDay(now.getDate());
+            setPickerMonth(now.getMonth() + 1);
+            setPickerYear(currentYear);
         }
         setShowDatePicker(true);
     };
@@ -174,25 +205,64 @@ export default function NationalIdScreen() {
         const formatted = `${dd}/${mm}/${pickerYear}`;
 
         switch (activeDateField) {
-            case 'issue': setIssueDate(formatted); break;
-            case 'expiry': setExpiryDate(formatted); break;
-            case 'dob': setDob(formatted); break;
+            case 'issue':
+                setIssueDate(formatted);
+                break;
+            case 'expiry':
+                setExpiryDate(formatted);
+                break;
+            case 'dob':
+                setDob(formatted);
+                break;
         }
         setShowDatePicker(false);
     };
 
     const handleContinue = () => {
-        if (!nameTH.trim()) { Alert.alert('กรุณากรอกข้อมูล', 'กรุณากรอกชื่อ-สกุล (ภาษาไทย)'); return; }
-        if (nameTHError) { Alert.alert('ข้อมูลไม่ถูกต้อง', 'ชื่อ-สกุล (ภาษาไทย) ต้องเป็นภาษาไทยเท่านั้น'); return; }
-        if (!nameEN.trim()) { Alert.alert('กรุณากรอกข้อมูล', 'กรุณากรอกชื่อ-สกุล (ภาษาอังกฤษ)'); return; }
-        if (nameENError) { Alert.alert('ข้อมูลไม่ถูกต้อง', 'ชื่อ-สกุล (ภาษาอังกฤษ) ต้องเป็นภาษาอังกฤษเท่านั้น'); return; }
-        if (idDigits.length !== 13) { Alert.alert('ข้อมูลไม่ถูกต้อง', 'หมายเลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก'); return; }
-        if (!issueDate) { Alert.alert('กรุณากรอกข้อมูล', 'กรุณาเลือกวันออกบัตร'); return; }
-        if (!expiryDate) { Alert.alert('กรุณากรอกข้อมูล', 'กรุณาเลือกวันบัตรหมดอายุ'); return; }
-        if (!dob) { Alert.alert('กรุณากรอกข้อมูล', 'กรุณาเลือกวันเกิด'); return; }
-        if (!gender) { Alert.alert('กรุณากรอกข้อมูล', 'กรุณาเลือกเพศ'); return; }
-        if (!address.trim()) { Alert.alert('กรุณากรอกข้อมูล', 'กรุณากรอกที่อยู่ตามบัตรประชาชน'); return; }
-        if (!data.idFrontUri) { Alert.alert('กรุณาอัปโหลดรูป', 'กรุณาถ่ายหรืออัปโหลดรูปบัตรประจำตัวประชาชน'); return; }
+        if (!nameTH.trim()) {
+            Alert.alert('กรุณากรอกข้อมูล', 'กรุณากรอกชื่อ-สกุล (ภาษาไทย)');
+            return;
+        }
+        if (nameTHError) {
+            Alert.alert('ข้อมูลไม่ถูกต้อง', 'ชื่อ-สกุล (ภาษาไทย) ต้องเป็นภาษาไทยเท่านั้น');
+            return;
+        }
+        if (!nameEN.trim()) {
+            Alert.alert('กรุณากรอกข้อมูล', 'กรุณากรอกชื่อ-สกุล (ภาษาอังกฤษ)');
+            return;
+        }
+        if (nameENError) {
+            Alert.alert('ข้อมูลไม่ถูกต้อง', 'ชื่อ-สกุล (ภาษาอังกฤษ) ต้องเป็นภาษาอังกฤษเท่านั้น');
+            return;
+        }
+        if (idDigits.length !== 13) {
+            Alert.alert('ข้อมูลไม่ถูกต้อง', 'หมายเลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก');
+            return;
+        }
+        if (!issueDate) {
+            Alert.alert('กรุณากรอกข้อมูล', 'กรุณาเลือกวันออกบัตร');
+            return;
+        }
+        if (!expiryDate) {
+            Alert.alert('กรุณากรอกข้อมูล', 'กรุณาเลือกวันบัตรหมดอายุ');
+            return;
+        }
+        if (!dob) {
+            Alert.alert('กรุณากรอกข้อมูล', 'กรุณาเลือกวันเกิด');
+            return;
+        }
+        if (!gender) {
+            Alert.alert('กรุณากรอกข้อมูล', 'กรุณาเลือกเพศ');
+            return;
+        }
+        if (!address.trim()) {
+            Alert.alert('กรุณากรอกข้อมูล', 'กรุณากรอกที่อยู่ตามบัตรประชาชน');
+            return;
+        }
+        if (!data.idFrontUri) {
+            Alert.alert('กรุณาอัปโหลดรูป', 'กรุณาถ่ายหรืออัปโหลดรูปบัตรประจำตัวประชาชน');
+            return;
+        }
 
         setField('nameTH', nameTH.trim());
         setField('nameEN', nameEN.trim());
@@ -208,13 +278,16 @@ export default function NationalIdScreen() {
 
     const profilePhoto = data.selfieUri;
 
-    const dayStrings = days.map(d => String(d));
+    const dayStrings = days.map((d) => String(d));
     const monthStrings = MONTHS;
-    const yearStrings = yearRange.map(y => String(y));
+    const yearStrings = yearRange.map((y) => String(y));
 
     return (
         <SafeAreaView style={s.safe} edges={['bottom']}>
-            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
                 {/* Banner */}
                 <View style={s.banner}>
                     <Image
@@ -236,7 +309,11 @@ export default function NationalIdScreen() {
                     </View>
                 </View>
 
-                <ScrollView style={s.scroll} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+                <ScrollView
+                    style={s.scroll}
+                    contentContainerStyle={s.content}
+                    keyboardShouldPersistTaps="handled"
+                >
                     <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
                         <Ionicons name="arrow-back" size={22} color="#111" />
                     </TouchableOpacity>
@@ -245,19 +322,29 @@ export default function NationalIdScreen() {
                         <View style={{ flex: 1 }}>
                             <Text style={s.title}>บัตรประจำตัวประชาชน</Text>
                             <Text style={s.subtitle}>
-                                รูปบัตรประจำตัวประชาชน{'\n'}(ด้านหน้า) <Text style={s.required}>*</Text>
+                                รูปบัตรประจำตัวประชาชน{'\n'}(ด้านหน้า){' '}
+                                <Text style={s.required}>*</Text>
                             </Text>
                             <Text style={s.desc} numberOfLines={showMore ? undefined : 1}>
                                 {showMore ? FULL_DESC : SHORT_DESC}
                             </Text>
                             <TouchableOpacity onPress={() => setShowMore(!showMore)}>
-                                <Text style={s.showMoreText}>{showMore ? 'Show less' : 'Show more'}</Text>
+                                <Text style={s.showMoreText}>
+                                    {showMore ? 'Show less' : 'Show more'}
+                                </Text>
                             </TouchableOpacity>
                         </View>
 
-                        <TouchableOpacity style={s.uploadBox} onPress={() => router.push('/signup/upload-doc-guide?type=id' as any)}>
+                        <TouchableOpacity
+                            style={s.uploadBox}
+                            onPress={() => router.push('/signup/upload-doc-guide?type=id' as any)}
+                        >
                             {data.idFrontUri ? (
-                                <Image source={{ uri: data.idFrontUri }} style={s.uploadPreview} resizeMode="cover" />
+                                <Image
+                                    source={{ uri: data.idFrontUri }}
+                                    style={s.uploadPreview}
+                                    resizeMode="cover"
+                                />
                             ) : (
                                 <>
                                     <Ionicons name="add" size={26} color="#64748B" />
@@ -286,7 +373,9 @@ export default function NationalIdScreen() {
                         onChangeText={setNameEN}
                         autoCapitalize="words"
                     />
-                    {nameENError && <Text style={s.errorHint}>กรุณากรอกเป็นภาษาอังกฤษเท่านั้น</Text>}
+                    {nameENError && (
+                        <Text style={s.errorHint}>กรุณากรอกเป็นภาษาอังกฤษเท่านั้น</Text>
+                    )}
 
                     {/* หมายเลขบัตรประชาชน */}
                     <TextInput
@@ -303,7 +392,11 @@ export default function NationalIdScreen() {
                     )}
 
                     {/* วันออกบัตร */}
-                    <TouchableOpacity style={s.dateBtn} onPress={() => openDatePicker('issue')} activeOpacity={0.7}>
+                    <TouchableOpacity
+                        style={s.dateBtn}
+                        onPress={() => openDatePicker('issue')}
+                        activeOpacity={0.7}
+                    >
                         <Text style={[s.dateBtnText, !issueDate && { color: '#aaa' }]}>
                             {issueDate || 'วันออกบัตร วัน/เดือน/ปี ค.ศ'}
                         </Text>
@@ -311,7 +404,11 @@ export default function NationalIdScreen() {
                     </TouchableOpacity>
 
                     {/* วันบัตรหมดอายุ */}
-                    <TouchableOpacity style={s.dateBtn} onPress={() => openDatePicker('expiry')} activeOpacity={0.7}>
+                    <TouchableOpacity
+                        style={s.dateBtn}
+                        onPress={() => openDatePicker('expiry')}
+                        activeOpacity={0.7}
+                    >
                         <Text style={[s.dateBtnText, !expiryDate && { color: '#aaa' }]}>
                             {expiryDate || 'วันบัตรหมดอายุ วัน/เดือน/ปี ค.ศ'}
                         </Text>
@@ -319,7 +416,11 @@ export default function NationalIdScreen() {
                     </TouchableOpacity>
 
                     {/* วันเกิด */}
-                    <TouchableOpacity style={s.dateBtn} onPress={() => openDatePicker('dob')} activeOpacity={0.7}>
+                    <TouchableOpacity
+                        style={s.dateBtn}
+                        onPress={() => openDatePicker('dob')}
+                        activeOpacity={0.7}
+                    >
                         <Text style={[s.dateBtnText, !dob && { color: '#aaa' }]}>
                             {dob || 'วันเกิด วัน/เดือน/ปี ค.ศ'}
                         </Text>
@@ -362,13 +463,19 @@ export default function NationalIdScreen() {
 
             {/* Gender Modal */}
             <Modal visible={showGenderModal} transparent animationType="slide">
-                <TouchableOpacity style={s.modalOverlay} onPress={() => setShowGenderModal(false)} />
+                <TouchableOpacity
+                    style={s.modalOverlay}
+                    onPress={() => setShowGenderModal(false)}
+                />
                 <View style={s.modalSheet}>
                     {GENDER_OPTIONS.map((g) => (
                         <TouchableOpacity
                             key={g}
                             style={s.genderRow}
-                            onPress={() => { setGender(g); setShowGenderModal(false); }}
+                            onPress={() => {
+                                setGender(g);
+                                setShowGenderModal(false);
+                            }}
                         >
                             <Text style={s.genderText}>{g}</Text>
                             <View style={[s.radio, gender === g && s.radioSelected]}>
@@ -389,8 +496,11 @@ export default function NationalIdScreen() {
                             <Text style={s.datePickerCancel}>ยกเลิก</Text>
                         </TouchableOpacity>
                         <Text style={s.datePickerTitle}>
-                            {activeDateField === 'issue' ? 'วันออกบัตร' :
-                             activeDateField === 'expiry' ? 'วันบัตรหมดอายุ' : 'วันเกิด'}
+                            {activeDateField === 'issue'
+                                ? 'วันออกบัตร'
+                                : activeDateField === 'expiry'
+                                  ? 'วันบัตรหมดอายุ'
+                                  : 'วันเกิด'}
                         </Text>
                         <TouchableOpacity onPress={confirmDate}>
                             <Text style={s.datePickerDone}>ตกลง</Text>
@@ -434,28 +544,52 @@ const s = StyleSheet.create({
     safe: { flex: 1, backgroundColor: '#fff' },
 
     banner: {
-        height: BANNER_H, alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+        height: BANNER_H,
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
     },
     phoneCard: {
-        width: 70, height: 105, backgroundColor: '#fff', borderRadius: 12,
-        alignItems: 'center', justifyContent: 'center', gap: 8,
-        shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, elevation: 4, padding: 10,
+        width: 70,
+        height: 105,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        shadowColor: '#000',
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 4,
+        padding: 10,
     },
     phoneFace: {
-        width: 44, height: 44, borderRadius: 22, backgroundColor: '#3B82F6',
-        alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#3B82F6',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
     },
     phonePhoto: { width: 44, height: 44, borderRadius: 22 },
     phoneCheck: {
-        backgroundColor: '#22C55E', borderRadius: 8,
-        paddingHorizontal: 12, paddingVertical: 5, alignItems: 'center',
+        backgroundColor: '#22C55E',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 5,
+        alignItems: 'center',
     },
 
     scroll: { flex: 1 },
     content: { paddingHorizontal: 20, paddingBottom: 20 },
     backBtn: {
-        marginTop: 12, marginBottom: 16, width: 36, height: 36,
-        alignItems: 'center', justifyContent: 'center',
+        marginTop: 12,
+        marginBottom: 16,
+        width: 36,
+        height: 36,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 
     titleRow: { flexDirection: 'row', gap: 12, marginBottom: 20, alignItems: 'flex-start' },
@@ -466,77 +600,138 @@ const s = StyleSheet.create({
     showMoreText: { color: '#2563EB', fontSize: 12, marginTop: 4 },
 
     uploadBox: {
-        width: 88, height: 88, borderRadius: 8,
-        borderWidth: 1.5, borderColor: '#CBD5E1', borderStyle: 'dashed',
-        alignItems: 'center', justifyContent: 'center', gap: 4, flexShrink: 0,
+        width: 88,
+        height: 88,
+        borderRadius: 8,
+        borderWidth: 1.5,
+        borderColor: '#CBD5E1',
+        borderStyle: 'dashed',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
+        flexShrink: 0,
     },
     uploadText: { fontSize: 11, color: '#64748B', textAlign: 'center' },
     uploadPreview: { width: 88, height: 88, borderRadius: 8 },
 
     input: {
-        borderWidth: 1.5, borderColor: '#CBD5E1', borderRadius: 10,
-        height: 52, paddingHorizontal: 16, fontSize: 15, color: '#0F172A', marginBottom: 12,
+        borderWidth: 1.5,
+        borderColor: '#CBD5E1',
+        borderRadius: 10,
+        height: 52,
+        paddingHorizontal: 16,
+        fontSize: 15,
+        color: '#0F172A',
+        marginBottom: 12,
     },
     inputError: { borderColor: '#EF4444' },
-    errorHint: { color: '#EF4444', fontSize: 13, fontWeight: '500', marginTop: -8, marginBottom: 12 },
-    warningHint: { color: '#F59E0B', fontSize: 13, fontWeight: '500', marginTop: -8, marginBottom: 12 },
+    errorHint: {
+        color: '#EF4444',
+        fontSize: 13,
+        fontWeight: '500',
+        marginTop: -8,
+        marginBottom: 12,
+    },
+    warningHint: {
+        color: '#F59E0B',
+        fontSize: 13,
+        fontWeight: '500',
+        marginTop: -8,
+        marginBottom: 12,
+    },
     textArea: { height: 80, paddingTop: 14 },
 
     dateBtn: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        borderWidth: 1.5, borderColor: '#CBD5E1', borderRadius: 10,
-        height: 52, paddingHorizontal: 16, marginBottom: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderWidth: 1.5,
+        borderColor: '#CBD5E1',
+        borderRadius: 10,
+        height: 52,
+        paddingHorizontal: 16,
+        marginBottom: 12,
     },
     dateBtnText: { fontSize: 15, color: '#0F172A' },
 
     pickerBtn: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        borderWidth: 1.5, borderColor: '#CBD5E1', borderRadius: 10,
-        height: 52, paddingHorizontal: 16, marginBottom: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderWidth: 1.5,
+        borderColor: '#CBD5E1',
+        borderRadius: 10,
+        height: 52,
+        paddingHorizontal: 16,
+        marginBottom: 12,
     },
     pickerText: { fontSize: 15, color: '#0F172A' },
 
     footer: { paddingHorizontal: 20, paddingBottom: 32, paddingTop: 12, backgroundColor: '#fff' },
     continueBtn: {
-        height: 54, borderRadius: 27, backgroundColor: '#0E3A78',
-        alignItems: 'center', justifyContent: 'center',
+        height: 54,
+        borderRadius: 27,
+        backgroundColor: '#0E3A78',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     continueBtnDisabled: { backgroundColor: '#94A3B8' },
     continueBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
 
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)' },
     modalSheet: {
-        backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
-        paddingHorizontal: 24, paddingTop: 24, paddingBottom: 48, gap: 8,
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        paddingHorizontal: 24,
+        paddingTop: 24,
+        paddingBottom: 48,
+        gap: 8,
     },
     genderRow: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 18,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
     },
     genderText: { fontSize: 17, color: '#0F172A' },
     radio: {
-        width: 24, height: 24, borderRadius: 12,
-        borderWidth: 2, borderColor: '#CBD5E1',
-        alignItems: 'center', justifyContent: 'center',
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        borderWidth: 2,
+        borderColor: '#CBD5E1',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     radioSelected: { borderColor: '#1E3A8A', backgroundColor: '#1E3A8A' },
     radioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' },
 
     datePickerSheet: {
-        backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
         paddingBottom: 40,
     },
     datePickerHeader: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: 20, paddingVertical: 16,
-        borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
     },
     datePickerTitle: { fontSize: 17, fontWeight: '600', color: '#0F172A' },
     datePickerCancel: { fontSize: 16, color: '#64748B' },
     datePickerDone: { fontSize: 16, fontWeight: '600', color: '#0E3A78' },
 
     colLabels: {
-        flexDirection: 'row', paddingHorizontal: 16, paddingTop: 12,
+        flexDirection: 'row',
+        paddingHorizontal: 16,
+        paddingTop: 12,
     },
     colLabel: { flex: 1, textAlign: 'center', fontSize: 13, fontWeight: '600', color: '#64748B' },
     columnsRow: { flexDirection: 'row', paddingHorizontal: 8 },

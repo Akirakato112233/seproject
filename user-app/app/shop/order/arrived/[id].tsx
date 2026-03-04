@@ -1,12 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View,
-    Text,
-    TouchableOpacity,
-    StyleSheet,
-    ActivityIndicator,
-    Image,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -107,7 +100,13 @@ export default function OrderArrivedScreen() {
                     <Text style={styles.shopName}>{order?.shopName || 'Shop'}</Text>
                     <View style={styles.totalRow}>
                         <Text style={styles.totalLabel}>Total Amount</Text>
-                        <View style={order?.paymentMethod === 'wallet' ? styles.paidBadge : styles.cashBadge}>
+                        <View
+                            style={
+                                order?.paymentMethod === 'wallet'
+                                    ? styles.paidBadge
+                                    : styles.cashBadge
+                            }
+                        >
                             <Text style={styles.badgeText}>
                                 {order?.paymentMethod === 'wallet' ? 'เงินสด' : 'เงินสด'}
                             </Text>
@@ -178,7 +177,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     logoText: { color: '#fff', fontSize: 22, fontWeight: 'bold' },
-    title: { fontSize: 22, fontWeight: 'bold', color: '#222', textAlign: 'center', marginBottom: 8 },
+    title: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#222',
+        textAlign: 'center',
+        marginBottom: 8,
+    },
     subtitle: { fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 24 },
     orderCard: {
         width: '100%',
@@ -190,14 +195,38 @@ const styles = StyleSheet.create({
     shopName: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 8 },
     totalRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     totalLabel: { fontSize: 14, color: '#666', flex: 1 },
-    paidBadge: { backgroundColor: '#4CAF50', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 2 },
-    cashBadge: { backgroundColor: '#FF9800', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 2 },
+    paidBadge: {
+        backgroundColor: '#4CAF50',
+        borderRadius: 12,
+        paddingHorizontal: 10,
+        paddingVertical: 2,
+    },
+    cashBadge: {
+        backgroundColor: '#FF9800',
+        borderRadius: 12,
+        paddingHorizontal: 10,
+        paddingVertical: 2,
+    },
     badgeText: { color: '#fff', fontSize: 12, fontWeight: '600' },
     totalAmount: { fontSize: 16, fontWeight: 'bold', color: '#222' },
     riderSection: { width: '100%' },
-    riderSectionTitle: { fontSize: 11, fontWeight: '700', color: '#999', letterSpacing: 1, marginBottom: 12 },
+    riderSectionTitle: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: '#999',
+        letterSpacing: 1,
+        marginBottom: 12,
+    },
     riderRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    riderAvatar: { width: 48, height: 48, borderRadius: 24, overflow: 'hidden', backgroundColor: '#eee', justifyContent: 'center', alignItems: 'center' },
+    riderAvatar: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        overflow: 'hidden',
+        backgroundColor: '#eee',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     riderName: { flex: 1, fontSize: 16, fontWeight: '600', color: '#333' },
     riderActions: { flexDirection: 'row', gap: 8 },
     actionBtn: {

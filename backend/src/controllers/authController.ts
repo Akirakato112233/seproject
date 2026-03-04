@@ -1,3 +1,7 @@
+/**
+ * Auth controller: email OTP (request, verify), signup, check user by email, register Google user.
+ * SMTP and OTP_SECRET come from env. Profile updates (name, phone, photo URL) are in routes/auth.ts.
+ */
 import crypto from 'crypto';
 import { Request, Response } from 'express';
 import nodemailer from 'nodemailer';
@@ -80,7 +84,8 @@ export const verifyOtp = async (req: Request, res: Response) => {
     const normalizedEmail = email.trim().toLowerCase();
     const doc = await EmailOtp.findOne({ email: normalizedEmail });
     if (!doc) return res.status(400).json({ message: 'OTP not found' });
-    if (doc.expiresAt.getTime() < Date.now()) return res.status(400).json({ message: 'OTP expired' });
+    if (doc.expiresAt.getTime() < Date.now())
+      return res.status(400).json({ message: 'OTP expired' });
 
     const expected = otpHash(normalizedEmail, code);
     if (expected !== doc.codeHash) return res.status(400).json({ message: 'OTP invalid' });

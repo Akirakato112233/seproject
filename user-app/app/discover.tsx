@@ -2,14 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import {
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DiscoverScreen() {
@@ -32,7 +25,7 @@ export default function DiscoverScreen() {
                 // ส่งค่าการเรียงลำดับ (ใกล้ฉัน หรือ เรตติ้ง)
                 nearMe: sortBy === 'nearMe' ? 'true' : undefined,
                 rating: sortBy === 'rating' ? '4' : undefined, // สมมติว่าถ้าเลือก rating คือเอา 4 ดาวขึ้นไป
-            }
+            },
         });
     };
 
@@ -49,7 +42,6 @@ export default function DiscoverScreen() {
             </View>
 
             <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-
                 {/* 1. เลือกประเภทบริการ (Main Choice) */}
                 <Text style={styles.sectionTitle}>ประเภทบริการ</Text>
                 <View style={styles.typeContainer}>
@@ -57,14 +49,33 @@ export default function DiscoverScreen() {
                         style={[styles.typeCard, serviceType === 'coin' && styles.typeCardSelected]}
                         onPress={() => setServiceType(serviceType === 'coin' ? 'all' : 'coin')}
                     >
-                        <View style={[styles.iconCircle, serviceType === 'coin' && styles.iconCircleSelected]}>
-                            <MaterialCommunityIcons name="washing-machine" size={32} color={serviceType === 'coin' ? '#fff' : '#1d4685'} />
+                        <View
+                            style={[
+                                styles.iconCircle,
+                                serviceType === 'coin' && styles.iconCircleSelected,
+                            ]}
+                        >
+                            <MaterialCommunityIcons
+                                name="washing-machine"
+                                size={32}
+                                color={serviceType === 'coin' ? '#fff' : '#1d4685'}
+                            />
                         </View>
-                        <Text style={[styles.typeText, serviceType === 'coin' && styles.typeTextSelected]}>
+                        <Text
+                            style={[
+                                styles.typeText,
+                                serviceType === 'coin' && styles.typeTextSelected,
+                            ]}
+                        >
                             ร้านสะดวกซัก{'\n'}(Coin Laundry)
                         </Text>
                         {serviceType === 'coin' && (
-                            <Ionicons name="checkmark-circle" size={24} color="#1d4685" style={styles.checkIcon} />
+                            <Ionicons
+                                name="checkmark-circle"
+                                size={24}
+                                color="#1d4685"
+                                style={styles.checkIcon}
+                            />
                         )}
                     </TouchableOpacity>
 
@@ -72,14 +83,33 @@ export default function DiscoverScreen() {
                         style={[styles.typeCard, serviceType === 'full' && styles.typeCardSelected]}
                         onPress={() => setServiceType(serviceType === 'full' ? 'all' : 'full')}
                     >
-                        <View style={[styles.iconCircle, serviceType === 'full' && styles.iconCircleSelected]}>
-                            <Ionicons name="shirt" size={32} color={serviceType === 'full' ? '#fff' : '#1d4685'} />
+                        <View
+                            style={[
+                                styles.iconCircle,
+                                serviceType === 'full' && styles.iconCircleSelected,
+                            ]}
+                        >
+                            <Ionicons
+                                name="shirt"
+                                size={32}
+                                color={serviceType === 'full' ? '#fff' : '#1d4685'}
+                            />
                         </View>
-                        <Text style={[styles.typeText, serviceType === 'full' && styles.typeTextSelected]}>
+                        <Text
+                            style={[
+                                styles.typeText,
+                                serviceType === 'full' && styles.typeTextSelected,
+                            ]}
+                        >
                             ซัก อบ รีด{'\n'}(Full Service)
                         </Text>
                         {serviceType === 'full' && (
-                            <Ionicons name="checkmark-circle" size={24} color="#1d4685" style={styles.checkIcon} />
+                            <Ionicons
+                                name="checkmark-circle"
+                                size={24}
+                                color="#1d4685"
+                                style={styles.checkIcon}
+                            />
                         )}
                     </TouchableOpacity>
                 </View>
@@ -91,8 +121,16 @@ export default function DiscoverScreen() {
                         style={[styles.optionChip, needsDelivery && styles.optionChipSelected]}
                         onPress={() => setNeedsDelivery(!needsDelivery)}
                     >
-                        <MaterialCommunityIcons name="moped" size={20} color={needsDelivery ? '#fff' : '#666'} />
-                        <Text style={[styles.optionText, needsDelivery && styles.optionTextSelected]}>รับ-ส่งถึงที่</Text>
+                        <MaterialCommunityIcons
+                            name="moped"
+                            size={20}
+                            color={needsDelivery ? '#fff' : '#666'}
+                        />
+                        <Text
+                            style={[styles.optionText, needsDelivery && styles.optionTextSelected]}
+                        >
+                            รับ-ส่งถึงที่
+                        </Text>
                     </TouchableOpacity>
                 </View>
 
@@ -103,19 +141,40 @@ export default function DiscoverScreen() {
                         style={[styles.sortCard, sortBy === 'nearMe' && styles.sortCardSelected]}
                         onPress={() => setSortBy(sortBy === 'nearMe' ? null : 'nearMe')}
                     >
-                        <Ionicons name="location" size={24} color={sortBy === 'nearMe' ? '#fff' : '#1d4685'} />
-                        <Text style={[styles.sortText, sortBy === 'nearMe' && styles.sortTextSelected]}>ใกล้ฉันที่สุด</Text>
+                        <Ionicons
+                            name="location"
+                            size={24}
+                            color={sortBy === 'nearMe' ? '#fff' : '#1d4685'}
+                        />
+                        <Text
+                            style={[
+                                styles.sortText,
+                                sortBy === 'nearMe' && styles.sortTextSelected,
+                            ]}
+                        >
+                            ใกล้ฉันที่สุด
+                        </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                         style={[styles.sortCard, sortBy === 'rating' && styles.sortCardSelected]}
                         onPress={() => setSortBy(sortBy === 'rating' ? null : 'rating')}
                     >
-                        <Ionicons name="star" size={24} color={sortBy === 'rating' ? '#fff' : '#FFD700'} />
-                        <Text style={[styles.sortText, sortBy === 'rating' && styles.sortTextSelected]}>คะแนนสูงสุด</Text>
+                        <Ionicons
+                            name="star"
+                            size={24}
+                            color={sortBy === 'rating' ? '#fff' : '#FFD700'}
+                        />
+                        <Text
+                            style={[
+                                styles.sortText,
+                                sortBy === 'rating' && styles.sortTextSelected,
+                            ]}
+                        >
+                            คะแนนสูงสุด
+                        </Text>
                     </TouchableOpacity>
                 </View>
-
             </ScrollView>
 
             {/* Bottom Button */}

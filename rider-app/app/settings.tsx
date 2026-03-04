@@ -1,11 +1,11 @@
-import React, { useState, useCallback } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Switch } from "react-native";
-import { useRouter, useFocusEffect } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useDelivery } from "../context/DeliveryContext";
-import { useAuth } from "../context/AuthContext";
-import { API } from "../config";
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Switch } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useDelivery } from '../context/DeliveryContext';
+import { useAuth } from '../context/AuthContext';
+import { API } from '../config';
 
 interface RegData {
     _id: string;
@@ -34,14 +34,14 @@ export default function SettingsScreen() {
     );
 
     const handleLogout = () => {
-        Alert.alert("Log Out", "Are you sure you want to log out?", [
-            { text: "Cancel", style: "cancel" },
+        Alert.alert('Log Out', 'Are you sure you want to log out?', [
+            { text: 'Cancel', style: 'cancel' },
             {
-                text: "Log Out",
-                style: "destructive",
+                text: 'Log Out',
+                style: 'destructive',
                 onPress: () => {
                     logout();
-                    router.replace("/");
+                    router.replace('/');
                 },
             },
         ]);
@@ -49,14 +49,14 @@ export default function SettingsScreen() {
 
     const handleToggleAutoAccept = () => {
         if (!isOnline) {
-            Alert.alert("Offline", "You must be online to change Auto Accept settings.");
+            Alert.alert('Offline', 'You must be online to change Auto Accept settings.');
             return;
         }
         toggleAutoAccept();
     };
 
     return (
-        <SafeAreaView style={s.container} edges={["top"]}>
+        <SafeAreaView style={s.container} edges={['top']}>
             {/* Header */}
             <View style={s.header}>
                 <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
@@ -70,16 +70,12 @@ export default function SettingsScreen() {
                 {/* Account Section */}
                 <View style={s.section}>
                     <Text style={s.sectionTitle}>Account</Text>
-                    <TouchableOpacity
-                        style={s.row}
-                        onPress={() => router.push("/(tabs)/account")}
-                    >
+                    <TouchableOpacity style={s.row} onPress={() => router.push('/(tabs)/account')}>
                         <View>
-                            <Text style={s.rowTitle}>
-                                {reg?.fullName || "—"}
-                            </Text>
+                            <Text style={s.rowTitle}>{reg?.fullName || '—'}</Text>
                             <Text style={s.rowSub}>
-                                {reg?.vehicleRegistrationNo || "—"} • {reg?.countryCode || "+66"} {reg?.phone?.replace(/^0/, "") || "—"}
+                                {reg?.vehicleRegistrationNo || '—'} • {reg?.countryCode || '+66'}{' '}
+                                {reg?.phone?.replace(/^0/, '') || '—'}
                             </Text>
                         </View>
                         <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
@@ -94,10 +90,10 @@ export default function SettingsScreen() {
                     onPress={() => {
                         if (reg?._id) {
                             router.push({
-                                pathname: "/communications",
+                                pathname: '/communications',
                                 params: {
                                     registrationId: reg._id,
-                                    hasEmail: "false",
+                                    hasEmail: 'false',
                                 },
                             });
                         }
@@ -115,7 +111,7 @@ export default function SettingsScreen() {
                     onPress={() => {
                         if (reg?._id) {
                             router.push({
-                                pathname: "/linked-accounts",
+                                pathname: '/linked-accounts',
                                 params: { registrationId: reg._id },
                             });
                         }
@@ -123,7 +119,9 @@ export default function SettingsScreen() {
                 >
                     <View style={{ flex: 1, paddingRight: 16 }}>
                         <Text style={s.rowTitle}>Linked accounts</Text>
-                        <Text style={s.rowSub}>Use your third-party accounts to sign in to yours WIT Driver app.</Text>
+                        <Text style={s.rowSub}>
+                            Use your third-party accounts to sign in to yours WIT Driver app.
+                        </Text>
                     </View>
                     <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
                 </TouchableOpacity>
@@ -141,8 +139,8 @@ export default function SettingsScreen() {
                         <Switch
                             value={isDevMode}
                             onValueChange={setDevMode}
-                            trackColor={{ false: "#E2E8F0", true: "#4ADE80" }}
-                            thumbColor={"#FFFFFF"}
+                            trackColor={{ false: '#E2E8F0', true: '#4ADE80' }}
+                            thumbColor={'#FFFFFF'}
                         />
                     </View>
                 </View>
@@ -158,8 +156,8 @@ export default function SettingsScreen() {
                         <Switch
                             value={autoAccept}
                             onValueChange={handleToggleAutoAccept}
-                            trackColor={{ false: "#E2E8F0", true: "#4ADE80" }} // Light gray / Green
-                            thumbColor={"#FFFFFF"}
+                            trackColor={{ false: '#E2E8F0', true: '#4ADE80' }} // Light gray / Green
+                            thumbColor={'#FFFFFF'}
                             disabled={!isOnline}
                             style={{ opacity: isOnline ? 1 : 0.5 }}
                         />
@@ -179,46 +177,46 @@ export default function SettingsScreen() {
 }
 
 const s = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#F8FAFC" },
+    container: { flex: 1, backgroundColor: '#F8FAFC' },
     header: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         paddingHorizontal: 16,
         paddingVertical: 12,
-        backgroundColor: "#FFFFFF",
+        backgroundColor: '#FFFFFF',
         borderBottomWidth: 1,
-        borderBottomColor: "#E2E8F0",
+        borderBottomColor: '#E2E8F0',
     },
-    headerTitle: { fontSize: 18, fontWeight: "700", color: "#0F172A" },
+    headerTitle: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
     backBtn: { padding: 4 },
     content: { flex: 1 },
     section: { marginTop: 24, paddingHorizontal: 16 },
-    sectionTitle: { fontSize: 16, fontWeight: "700", color: "#0F172A", marginBottom: 12 },
+    sectionTitle: { fontSize: 16, fontWeight: '700', color: '#0F172A', marginBottom: 12 },
     row: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         paddingVertical: 16,
         paddingHorizontal: 16,
-        backgroundColor: "#FFFFFF",
+        backgroundColor: '#FFFFFF',
         borderBottomWidth: 1,
-        borderBottomColor: "#F1F5F9",
+        borderBottomColor: '#F1F5F9',
     },
-    rowTitle: { fontSize: 16, fontWeight: "500", color: "#0F172A" },
-    rowSub: { fontSize: 14, color: "#64748B", marginTop: 4 },
-    divider: { height: 1, backgroundColor: "#E2E8F0", marginVertical: 8 },
+    rowTitle: { fontSize: 16, fontWeight: '500', color: '#0F172A' },
+    rowSub: { fontSize: 14, color: '#64748B', marginTop: 4 },
+    divider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 8 },
     card: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        backgroundColor: "#FFFFFF",
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#FFFFFF',
         padding: 16,
         borderRadius: 8,
         borderWidth: 1,
-        borderColor: "#E2E8F0",
+        borderColor: '#E2E8F0',
     },
-    cardTitle: { fontSize: 16, fontWeight: "500", color: "#0F172A" },
-    cardSub: { fontSize: 14, color: "#64748B", marginTop: 4 },
-    logoutText: { fontSize: 16, fontWeight: "500", color: "#EF4444", paddingVertical: 8 },
+    cardTitle: { fontSize: 16, fontWeight: '500', color: '#0F172A' },
+    cardSub: { fontSize: 14, color: '#64748B', marginTop: 4 },
+    logoutText: { fontSize: 16, fontWeight: '500', color: '#EF4444', paddingVertical: 8 },
 });

@@ -1,13 +1,5 @@
 import React, { useState } from 'react';
-import {
-    View,
-    Text,
-    TouchableOpacity,
-    StyleSheet,
-    Modal,
-    Alert,
-    Image,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -25,7 +17,7 @@ export default function ServicePreferenceScreen() {
     const [selected, setSelected] = useState<string | null>(null);
     const [showModal, setShowModal] = useState(false);
 
-    const selectedOption = SERVICE_OPTIONS.find(o => o.value === selected);
+    const selectedOption = SERVICE_OPTIONS.find((o) => o.value === selected);
 
     const handleContinue = () => {
         if (!selected) {
@@ -93,7 +85,10 @@ export default function ServicePreferenceScreen() {
                         <TouchableOpacity
                             key={opt.value}
                             style={s.modalItem}
-                            onPress={() => { setSelected(opt.value); setShowModal(false); }}
+                            onPress={() => {
+                                setSelected(opt.value);
+                                setShowModal(false);
+                            }}
                         >
                             <Text style={s.modalItemText}>{opt.label}</Text>
                             {/* Radio button */}

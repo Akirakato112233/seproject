@@ -32,7 +32,7 @@ const RiderSchema = new Schema<IRider>(
   },
   {
     timestamps: true,
-  },
+  }
 );
 
 // ใช้ชื่อ collection "ไรเดอร์" ให้ตรงกับใน MongoDB Atlas

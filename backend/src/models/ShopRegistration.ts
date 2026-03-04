@@ -170,14 +170,16 @@ const ShopRegistrationSchema = new Schema<IShopRegistration>(
       {
         id: String,
         name: String,
-        items: [{
-          id: String,
-          name: String,
-          price: Number,
-          weight_kg: String,
-          duration_minutes: String,
-          description: String,
-        }],
+        items: [
+          {
+            id: String,
+            name: String,
+            price: Number,
+            weight_kg: String,
+            duration_minutes: String,
+            description: String,
+          },
+        ],
       },
     ],
     businessType: { type: String, enum: ['full', 'coin'] },

@@ -67,20 +67,24 @@ const seedOrders = async () => {
     console.log('🗑️  ลบข้อมูล orders เก่าแล้ว');
 
     // สร้าง orders ใหม่
-    const orders = await Order.insertMany(sampleOrders.map(order => ({
-      ...order,
-      userId: 'dev-test-user',
-      shopId: 'dev-shop-id',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })));
+    const orders = await Order.insertMany(
+      sampleOrders.map((order) => ({
+        ...order,
+        userId: 'dev-test-user',
+        shopId: 'dev-shop-id',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }))
+    );
 
     console.log(`✅ เพิ่มข้อมูล ${orders.length} orders เรียบร้อยแล้ว!`);
 
     // แสดงข้อมูลที่เพิ่ม
     console.log('\n📋 รายการ orders ที่เพิ่ม:');
     orders.forEach((order: any, index: number) => {
-      console.log(`${index + 1}. ${order.shopName} - ${order.userDisplayName} - สถานะ: ${order.status} - ราคา: ฿${order.total}`);
+      console.log(
+        `${index + 1}. ${order.shopName} - ${order.userDisplayName} - สถานะ: ${order.status} - ราคา: ฿${order.total}`
+      );
     });
 
     console.log('\n🎉 สามารถทดสอบได้แล้ว!');

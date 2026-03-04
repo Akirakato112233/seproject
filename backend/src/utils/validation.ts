@@ -28,9 +28,7 @@
  * }
  * ```
  */
-export function getMissingFields(
-  fields: Record<string, unknown>
-): string[] {
+export function getMissingFields(fields: Record<string, unknown>): string[] {
   const missing: string[] = [];
 
   for (const [key, value] of Object.entries(fields)) {
@@ -38,7 +36,7 @@ export function getMissingFields(
       missing.push(key);
       continue;
     }
-    if (typeof value === "string" && value.trim() === "") {
+    if (typeof value === 'string' && value.trim() === '') {
       missing.push(key);
     }
   }
@@ -60,11 +58,8 @@ export function getMissingFields(
  * }
  * ```
  */
-export function isAllowedValue(
-  value: unknown,
-  allowed: string[]
-): boolean {
-  return typeof value === "string" && allowed.includes(value);
+export function isAllowedValue(value: unknown, allowed: string[]): boolean {
+  return typeof value === 'string' && allowed.includes(value);
 }
 
 /**
@@ -72,7 +67,7 @@ export function isAllowedValue(
  * Useful when a body field must be explicitly `true` or `false`.
  */
 export function isBoolean(value: unknown): value is boolean {
-  return typeof value === "boolean";
+  return typeof value === 'boolean';
 }
 
 /**

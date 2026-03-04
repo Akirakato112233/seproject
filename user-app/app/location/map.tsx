@@ -1,12 +1,12 @@
 import React, { useRef, useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  Platform,
-  Alert,
+    View,
+    Text,
+    TouchableOpacity,
+    StyleSheet,
+    ActivityIndicator,
+    Platform,
+    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,50 +16,53 @@ import { useLocation } from '../../context/LocationContext';
 import * as Location from 'expo-location';
 import Constants from 'expo-constants';
 
-const LONGDO_API_KEY = process.env.EXPO_PUBLIC_LONGDO_MAP_API_KEY || Constants.expoConfig?.extra?.longdoMapApiKey;
+const LONGDO_API_KEY =
+    process.env.EXPO_PUBLIC_LONGDO_MAP_API_KEY || Constants.expoConfig?.extra?.longdoMapApiKey;
 
 export default function MapSelectionScreen() {
-  const router = useRouter();
-  const { currentLocation, setLocation } = useLocation();
-  const webViewRef = useRef<WebView>(null);
+    const router = useRouter();
+    const { currentLocation, setLocation } = useLocation();
+    const webViewRef = useRef<WebView>(null);
 
-  const [loading, setLoading] = useState(true);
-  const [gettingLocation, setGettingLocation] = useState(true);
-  const [selectedLocation, setSelectedLocation] = useState<{
-    name: string;
-    address: string;
-    lat: number;
-    lon: number;
-  } | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [gettingLocation, setGettingLocation] = useState(true);
+    const [selectedLocation, setSelectedLocation] = useState<{
+        name: string;
+        address: string;
+        lat: number;
+        lon: number;
+    } | null>(null);
 
-  const [initialCoords, setInitialCoords] = useState({
-    lat: currentLocation?.lat ?? 13.7563,
-    lon: currentLocation?.lon ?? 100.5018
-  });
+    const [initialCoords, setInitialCoords] = useState({
+        lat: currentLocation?.lat ?? 13.7563,
+        lon: currentLocation?.lon ?? 100.5018,
+    });
 
-  useEffect(() => {
-    // Try to get actual GPS location first before rendering map
-    const fetchCurrentLocation = async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          setInitialCoords({
-            lat: location.coords.latitude,
-            lon: location.coords.longitude
-          });
-        }
-      } catch (error) {
-        console.log('Could not get GPS location, using default/saved location');
-      } finally {
-        setGettingLocation(false);
-      }
-    };
+    useEffect(() => {
+        // Try to get actual GPS location first before rendering map
+        const fetchCurrentLocation = async () => {
+            try {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status === 'granted') {
+                    const location = await Location.getCurrentPositionAsync({
+                        accuracy: Location.Accuracy.Balanced,
+                    });
+                    setInitialCoords({
+                        lat: location.coords.latitude,
+                        lon: location.coords.longitude,
+                    });
+                }
+            } catch (error) {
+                console.log('Could not get GPS location, using default/saved location');
+            } finally {
+                setGettingLocation(false);
+            }
+        };
 
-    fetchCurrentLocation();
-  }, []);
+        fetchCurrentLocation();
+    }, []);
 
-  const mapHTML = `
+    const mapHTML = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -158,239 +161,257 @@ export default function MapSelectionScreen() {
 </html>
   `;
 
-  const handleMessage = async (event: any) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'confirm') {
-        const { lat, lon } = data;
-        let name = 'Selected Location';
-        let address = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
-
-        // Reverse geocode using Longdo API
+    const handleMessage = async (event: any) => {
         try {
-          const res = await fetch(
-            `https://api.longdo.com/map/services/address?lat=${lat}&lon=${lon}&key=${LONGDO_API_KEY}`
-          );
-          if (res.ok) {
-            const geo = await res.json();
-            if (geo.subdistrict && geo.district && geo.province) {
-              name = `${geo.subdistrict}, ${geo.district}`;
-              address = [geo.road, geo.subdistrict, geo.district, geo.province, geo.postcode]
-                .filter(Boolean).join(', ');
+            const data = JSON.parse(event.nativeEvent.data);
+            if (data.type === 'confirm') {
+                const { lat, lon } = data;
+                let name = 'Selected Location';
+                let address = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+
+                // Reverse geocode using Longdo API
+                try {
+                    const res = await fetch(
+                        `https://api.longdo.com/map/services/address?lat=${lat}&lon=${lon}&key=${LONGDO_API_KEY}`
+                    );
+                    if (res.ok) {
+                        const geo = await res.json();
+                        if (geo.subdistrict && geo.district && geo.province) {
+                            name = `${geo.subdistrict}, ${geo.district}`;
+                            address = [
+                                geo.road,
+                                geo.subdistrict,
+                                geo.district,
+                                geo.province,
+                                geo.postcode,
+                            ]
+                                .filter(Boolean)
+                                .join(', ');
+                        }
+                    }
+                } catch (_) {}
+
+                const loc = { name, address, lat, lon };
+                setSelectedLocation(loc);
+                await setLocation(loc);
+                router.dismiss(2);
             }
-          }
-        } catch (_) {}
+        } catch (e) {
+            console.error('handleMessage error:', e);
+        }
+    };
 
-        const loc = { name, address, lat, lon };
-        setSelectedLocation(loc);
-        await setLocation(loc);
-        router.back();
-        router.back();
-      }
-    } catch (e) {
-      console.error('handleMessage error:', e);
-    }
-  };
+    const handleConfirm = () => {
+        webViewRef.current?.injectJavaScript('confirmLocation(); true;');
+    };
 
-  const handleConfirm = () => {
-    webViewRef.current?.injectJavaScript('confirmLocation(); true;');
-  };
+    const handleRecenterGPS = async () => {
+        try {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status === 'granted') {
+                const location = await Location.getCurrentPositionAsync({
+                    accuracy: Location.Accuracy.Balanced,
+                });
+                webViewRef.current?.injectJavaScript(
+                    `panToLocation(${location.coords.latitude}, ${location.coords.longitude}); true;`
+                );
+                setSelectedLocation(null); // Clear selection to prompt re-selection at new coords
+            } else {
+                Alert.alert(
+                    'Permission Denied',
+                    'Please allow location access to use this feature.'
+                );
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Could not get your current location.');
+        }
+    };
 
-  const handleRecenterGPS = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        webViewRef.current?.injectJavaScript(`panToLocation(${location.coords.latitude}, ${location.coords.longitude}); true;`);
-        setSelectedLocation(null); // Clear selection to prompt re-selection at new coords
-      } else {
-        Alert.alert('Permission Denied', 'Please allow location access to use this feature.');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Could not get your current location.');
-    }
-  };
-
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Choose on Map</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      {/* Map */}
-      <View style={styles.mapContainer}>
-        {!LONGDO_API_KEY ? (
-          <View style={styles.loadingOverlay}>
-            <Ionicons name="warning-outline" size={48} color="#E53935" />
-            <Text style={styles.loadingText}>Longdo Map API key ไม่พบ</Text>
-            <Text style={styles.loadingText}>ตรวจสอบ EXPO_PUBLIC_LONGDO_MAP_API_KEY ใน .env</Text>
-            <Text style={[styles.loadingText, { marginTop: 8, fontSize: 12 }]}>จากนั้น restart: npx expo start -c</Text>
-          </View>
-        ) : gettingLocation ? (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#0E3A78" />
-            <Text style={styles.loadingText}>Finding your location...</Text>
-          </View>
-        ) : (
-          <>
-            <WebView
-              ref={webViewRef}
-              source={{ html: mapHTML }}
-              style={styles.webview}
-              onLoadStart={() => setLoading(true)}
-              onLoadEnd={() => setLoading(false)}
-              onMessage={handleMessage}
-              javaScriptEnabled
-              domStorageEnabled
-              originWhitelist={['*']}
-              mixedContentMode="always"
-            />
-            
-            {/* GPS Recenter Button */}
-            {!loading && (
-              <TouchableOpacity style={styles.gpsButton} onPress={handleRecenterGPS}>
-                <Ionicons name="locate" size={24} color="#0E3A78" />
-              </TouchableOpacity>
-            )}
-
-            {loading && (
-              <View style={styles.loadingOverlay}>
-                <ActivityIndicator size="large" color="#0E3A78" />
-                <Text style={styles.loadingText}>Loading map...</Text>
-              </View>
-            )}
-          </>
-        )}
-      </View>
-
-      {/* Bottom confirm bar */}
-      <View style={styles.bottomBar}>
-        {selectedLocation ? (
-          <View style={styles.selectedInfo}>
-            <Ionicons name="location" size={20} color="#0E3A78" />
-            <View style={styles.selectedText}>
-              <Text style={styles.selectedName} numberOfLines={1}>{selectedLocation.name}</Text>
-              <Text style={styles.selectedAddress} numberOfLines={1}>{selectedLocation.address}</Text>
+    return (
+        <SafeAreaView style={styles.container} edges={['top']}>
+            {/* Header */}
+            <View style={styles.header}>
+                <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+                    <Ionicons name="arrow-back" size={24} color="#333" />
+                </TouchableOpacity>
+                <Text style={styles.title}>Choose on Map</Text>
+                <View style={{ width: 40 }} />
             </View>
-          </View>
-        ) : (
-          <Text style={styles.hintText}>Move the map to select a location</Text>
-        )}
 
-        <TouchableOpacity
-          style={styles.confirmButton}
-          onPress={handleConfirm}
-        >
-          <Text style={styles.confirmText}>
-            {selectedLocation ? 'Confirm' : 'Select Here'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
-  );
+            {/* Map */}
+            <View style={styles.mapContainer}>
+                {!LONGDO_API_KEY ? (
+                    <View style={styles.loadingOverlay}>
+                        <Ionicons name="warning-outline" size={48} color="#E53935" />
+                        <Text style={styles.loadingText}>Longdo Map API key ไม่พบ</Text>
+                        <Text style={styles.loadingText}>
+                            ตรวจสอบ EXPO_PUBLIC_LONGDO_MAP_API_KEY ใน .env
+                        </Text>
+                        <Text style={[styles.loadingText, { marginTop: 8, fontSize: 12 }]}>
+                            จากนั้น restart: npx expo start -c
+                        </Text>
+                    </View>
+                ) : gettingLocation ? (
+                    <View style={styles.loadingOverlay}>
+                        <ActivityIndicator size="large" color="#0E3A78" />
+                        <Text style={styles.loadingText}>Finding your location...</Text>
+                    </View>
+                ) : (
+                    <>
+                        <WebView
+                            ref={webViewRef}
+                            source={{ html: mapHTML }}
+                            style={styles.webview}
+                            onLoadStart={() => setLoading(true)}
+                            onLoadEnd={() => setLoading(false)}
+                            onMessage={handleMessage}
+                            javaScriptEnabled
+                            domStorageEnabled
+                            originWhitelist={['*']}
+                            mixedContentMode="always"
+                        />
+
+                        {/* GPS Recenter Button */}
+                        {!loading && (
+                            <TouchableOpacity style={styles.gpsButton} onPress={handleRecenterGPS}>
+                                <Ionicons name="locate" size={24} color="#0E3A78" />
+                            </TouchableOpacity>
+                        )}
+
+                        {loading && (
+                            <View style={styles.loadingOverlay}>
+                                <ActivityIndicator size="large" color="#0E3A78" />
+                                <Text style={styles.loadingText}>Loading map...</Text>
+                            </View>
+                        )}
+                    </>
+                )}
+            </View>
+
+            {/* Bottom confirm bar */}
+            <View style={styles.bottomBar}>
+                {selectedLocation ? (
+                    <View style={styles.selectedInfo}>
+                        <Ionicons name="location" size={20} color="#0E3A78" />
+                        <View style={styles.selectedText}>
+                            <Text style={styles.selectedName} numberOfLines={1}>
+                                {selectedLocation.name}
+                            </Text>
+                            <Text style={styles.selectedAddress} numberOfLines={1}>
+                                {selectedLocation.address}
+                            </Text>
+                        </View>
+                    </View>
+                ) : (
+                    <Text style={styles.hintText}>Move the map to select a location</Text>
+                )}
+
+                <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
+                    <Text style={styles.confirmText}>
+                        {selectedLocation ? 'Confirm' : 'Select Here'}
+                    </Text>
+                </TouchableOpacity>
+            </View>
+        </SafeAreaView>
+    );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  backButton: {
-    padding: 8,
-  },
-  title: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#333',
-  },
-  mapContainer: {
-    flex: 1,
-    position: 'relative',
-  },
-  webview: {
-    flex: 1,
-  },
-  gpsButton: {
-    position: 'absolute',
-    bottom: 24,
-    right: 16,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-  },
-  loadingText: {
-    color: '#666',
-    fontSize: 14,
-  },
-  bottomBar: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    gap: 12,
-  },
-  hintText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-  },
-  selectedInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  selectedText: {
-    flex: 1,
-  },
-  selectedName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
-  },
-  selectedAddress: {
-    fontSize: 13,
-    color: '#666',
-    marginTop: 2,
-  },
-  confirmButton: {
-    backgroundColor: '#0E3A78',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  confirmText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
+    container: {
+        flex: 1,
+        backgroundColor: '#fff',
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+    },
+    backButton: {
+        padding: 8,
+    },
+    title: {
+        fontSize: 17,
+        fontWeight: '600',
+        color: '#333',
+    },
+    mapContainer: {
+        flex: 1,
+        position: 'relative',
+    },
+    webview: {
+        flex: 1,
+    },
+    gpsButton: {
+        position: 'absolute',
+        bottom: 24,
+        right: 16,
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: '#fff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
+    },
+    loadingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: '#fff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 12,
+    },
+    loadingText: {
+        color: '#666',
+        fontSize: 14,
+    },
+    bottomBar: {
+        backgroundColor: '#fff',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderTopWidth: 1,
+        borderTopColor: '#f0f0f0',
+        gap: 12,
+    },
+    hintText: {
+        fontSize: 14,
+        color: '#666',
+        textAlign: 'center',
+    },
+    selectedInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    selectedText: {
+        flex: 1,
+    },
+    selectedName: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#333',
+    },
+    selectedAddress: {
+        fontSize: 13,
+        color: '#666',
+        marginTop: 2,
+    },
+    confirmButton: {
+        backgroundColor: '#0E3A78',
+        borderRadius: 12,
+        paddingVertical: 14,
+        alignItems: 'center',
+    },
+    confirmText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
+    },
 });

@@ -17,17 +17,20 @@ import { useSignup } from '../../context/SignupContext';
 import { uploadFileFromUri } from '../../services/uploadBackgroundDoc';
 
 // ── Config per doc type ─────────────────────────────────────────────────────
-const DOC_CONFIG: Record<string, {
-    sampleImage: number;
-    requirements: string[];
-    things: string[];
-    contextKey: 'idFrontUri' | 'licenseUri';
-}> = {
+const DOC_CONFIG: Record<
+    string,
+    {
+        sampleImage: number;
+        requirements: string[];
+        things: string[];
+        contextKey: 'idFrontUri' | 'licenseUri';
+    }
+> = {
     id: {
         sampleImage: require('../../assets/images/image copy 3.png'),
         contextKey: 'idFrontUri',
         requirements: [
-            'The name, photo, and national ID number must match the applicant\'s information',
+            "The name, photo, and national ID number must match the applicant's information",
             'The national ID card must be in good condition and not expired',
             'The photo must clearly show the ID photo, national ID number, address, date of issue, and date of expiry',
             'To comply with personal data protection laws, please cover or blur sensitive information such as religion or blood type shown on your national ID card (if applicable)',
@@ -44,7 +47,7 @@ const DOC_CONFIG: Record<string, {
         requirements: [
             'Please upload a public driving license, if available',
             'If you do not have a public driving license, you may upload a private driving license',
-            'The name, photo, and national ID number must match the applicant\'s national ID card',
+            "The name, photo, and national ID number must match the applicant's national ID card",
             'The driving license must be in good condition',
             'The photo must clearly show the license photo, 8-digit license number, date of issue, and date of expiry',
             'The license type must match the service type you are applying for',
@@ -170,8 +173,11 @@ const s = StyleSheet.create({
     itemText: { flex: 1, fontSize: 15, color: '#334155', lineHeight: 22 },
     footer: { paddingHorizontal: 24, paddingBottom: 36, paddingTop: 12 },
     uploadBtn: {
-        height: 54, borderRadius: 27, backgroundColor: '#1E3A8A',
-        alignItems: 'center', justifyContent: 'center',
+        height: 54,
+        borderRadius: 27,
+        backgroundColor: '#1E3A8A',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     uploadText: { color: '#fff', fontSize: 17, fontWeight: '700' },
 });

@@ -13,7 +13,7 @@ const TransactionSchema: Schema = new Schema({
   amount: { type: Number, required: true },
   sender: { type: String },
   status: { type: String, default: 'success' },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
 });
 
 export const Transaction = mongoose.model<ITransaction>('Transaction', TransactionSchema);

@@ -10,7 +10,7 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { API } from '../../config';
@@ -59,16 +59,16 @@ export default function RegisterScreen() {
             const apiUrl = params.tempToken ? API.GOOGLE_REGISTER : API.REGISTER_GOOGLE;
             const body = params.tempToken
                 ? {
-                    tempToken: params.tempToken,
-                    displayName: displayName.trim(),
-                    phone: phone.trim(),
-                }
+                      tempToken: params.tempToken,
+                      displayName: displayName.trim(),
+                      phone: phone.trim(),
+                  }
                 : {
-                    email: params.email,
-                    displayName: displayName.trim(),
-                    phone: phone.trim(),
-                    googleId: params.googleId,
-                };
+                      email: params.email,
+                      displayName: displayName.trim(),
+                      phone: phone.trim(),
+                      googleId: params.googleId,
+                  };
 
             const response = await fetch(apiUrl, {
                 method: 'POST',
@@ -108,9 +108,7 @@ export default function RegisterScreen() {
                 >
                     <View style={s.header}>
                         <Text style={s.title}>Complete Your Profile</Text>
-                        <Text style={s.subtitle}>
-                            Just a few more details to get you started
-                        </Text>
+                        <Text style={s.subtitle}>Just a few more details to get you started</Text>
                     </View>
 
                     <View style={s.form}>
@@ -145,7 +143,10 @@ export default function RegisterScreen() {
                                     const cleaned = text.replace(/[^0-9]/g, '');
                                     setPhone(cleaned);
                                     if (cleaned.length === 1 && cleaned !== '0') {
-                                        Alert.alert('รูปแบบไม่ถูกต้อง', 'เบอร์โทรศัพท์ต้องขึ้นต้นด้วย 0');
+                                        Alert.alert(
+                                            'รูปแบบไม่ถูกต้อง',
+                                            'เบอร์โทรศัพท์ต้องขึ้นต้นด้วย 0'
+                                        );
                                     }
                                 }}
                                 keyboardType="phone-pad"
@@ -251,6 +252,6 @@ const s = StyleSheet.create({
     ctaText: {
         color: '#fff',
         fontWeight: '700',
-        fontSize: 16
+        fontSize: 16,
     },
 });

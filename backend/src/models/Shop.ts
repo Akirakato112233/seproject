@@ -88,99 +88,135 @@ export interface IShop extends Document {
   otherServices?: IOtherService[];
 }
 
-const WashServiceOptionSchema = new Schema({
-  setting: { type: String, required: true },
-  duration: { type: Number, required: true },
-  price: { type: Number, required: true },
-}, { _id: false });
+const WashServiceOptionSchema = new Schema(
+  {
+    setting: { type: String, required: true },
+    duration: { type: Number, required: true },
+    price: { type: Number, required: true },
+  },
+  { _id: false }
+);
 
-const WashServiceSchema = new Schema({
-  machineId: { type: String },
-  weight: { type: Number, required: true },
-  status: { type: String, enum: ['available', 'busy', 'ready'], default: 'available' },
-  finishTime: { type: Date, default: null },
-  options: [WashServiceOptionSchema],
-}, { _id: false });
+const WashServiceSchema = new Schema(
+  {
+    machineId: { type: String },
+    weight: { type: Number, required: true },
+    status: { type: String, enum: ['available', 'busy', 'ready'], default: 'available' },
+    finishTime: { type: Date, default: null },
+    options: [WashServiceOptionSchema],
+  },
+  { _id: false }
+);
 
-const DryServiceOptionSchema = new Schema({
-  setting: { type: String, required: true },
-  duration: { type: Number, required: true },
-  price: { type: Number, required: true },
-}, { _id: false });
+const DryServiceOptionSchema = new Schema(
+  {
+    setting: { type: String, required: true },
+    duration: { type: Number, required: true },
+    price: { type: Number, required: true },
+  },
+  { _id: false }
+);
 
-const DryServiceSchema = new Schema({
-  machineId: { type: String },
-  weight: { type: Number, required: true },
-  status: { type: String, enum: ['available', 'busy', 'ready'], default: 'available' },
-  finishTime: { type: Date, default: null },
-  options: [DryServiceOptionSchema],
-}, { _id: false });
+const DryServiceSchema = new Schema(
+  {
+    machineId: { type: String },
+    weight: { type: Number, required: true },
+    status: { type: String, enum: ['available', 'busy', 'ready'], default: 'available' },
+    finishTime: { type: Date, default: null },
+    options: [DryServiceOptionSchema],
+  },
+  { _id: false }
+);
 
 // Ironing Service Schemas
-const IroningServiceOptionSchema = new Schema({
-  type: { type: String, required: true },
-  price: { type: Number, required: true },
-}, { _id: false });
+const IroningServiceOptionSchema = new Schema(
+  {
+    type: { type: String, required: true },
+    price: { type: Number, required: true },
+  },
+  { _id: false }
+);
 
-const IroningServiceSchema = new Schema({
-  category: { type: String, required: true },
-  options: [IroningServiceOptionSchema],
-}, { _id: false });
+const IroningServiceSchema = new Schema(
+  {
+    category: { type: String, required: true },
+    options: [IroningServiceOptionSchema],
+  },
+  { _id: false }
+);
 
 // Folding Service Schemas
-const FoldingServiceOptionSchema = new Schema({
-  type: { type: String, required: true },
-  pricePerKg: { type: Number, required: true },
-}, { _id: false });
+const FoldingServiceOptionSchema = new Schema(
+  {
+    type: { type: String, required: true },
+    pricePerKg: { type: Number, required: true },
+  },
+  { _id: false }
+);
 
-const FoldingServiceSchema = new Schema({
-  options: [FoldingServiceOptionSchema],
-}, { _id: false });
+const FoldingServiceSchema = new Schema(
+  {
+    options: [FoldingServiceOptionSchema],
+  },
+  { _id: false }
+);
 
 // Other Service Schemas
-const OtherServiceOptionSchema = new Schema({
-  name: { type: String, required: true },
-  price: { type: Number, required: true },
-  unit: { type: String, required: true },
-}, { _id: false });
-
-const OtherServiceSchema = new Schema({
-  category: { type: String, required: true },
-  defaultUnit: { type: String },
-  options: [OtherServiceOptionSchema],
-}, { _id: false });
-
-const OpeningHoursItemSchema = new Schema({
-  days: [String],
-  open: { type: String },
-  close: { type: String },
-}, { _id: false });
-
-const ShopSchema = new Schema<IShop>({
-  merchantUserId: { type: String },
-  name: { type: String, required: true },
-  rating: { type: Number, required: true, min: 0, max: 5 },
-  reviewCount: { type: Number, default: 0 },
-  priceLevel: { type: Number, required: true, min: 1, max: 4 },
-  type: { type: String, enum: ['coin', 'full'], required: true },
-  deliveryFee: { type: Number, required: true },
-  deliveryTime: { type: Number, required: true },
-  balance: { type: Number, default: 0 },
-  status: { type: Boolean, default: true },
-  openingHours: { type: [OpeningHoursItemSchema], default: [] },
-  imageUrl: { type: String },
-  location: {
-    lat: { type: Number },
-    lng: { type: Number },
+const OtherServiceOptionSchema = new Schema(
+  {
+    name: { type: String, required: true },
+    price: { type: Number, required: true },
+    unit: { type: String, required: true },
   },
-  washServices: [WashServiceSchema],
-  dryServices: [DryServiceSchema],
-  ironingServices: [IroningServiceSchema],
-  foldingServices: [FoldingServiceSchema],
-  otherServices: [OtherServiceSchema],
-}, {
-  timestamps: true, // เพิ่ม createdAt, updatedAt อัตโนมัติ
-});
+  { _id: false }
+);
+
+const OtherServiceSchema = new Schema(
+  {
+    category: { type: String, required: true },
+    defaultUnit: { type: String },
+    options: [OtherServiceOptionSchema],
+  },
+  { _id: false }
+);
+
+const OpeningHoursItemSchema = new Schema(
+  {
+    days: [String],
+    open: { type: String },
+    close: { type: String },
+  },
+  { _id: false }
+);
+
+const ShopSchema = new Schema<IShop>(
+  {
+    merchantUserId: { type: String },
+    name: { type: String, required: true },
+    rating: { type: Number, required: true, min: 0, max: 5 },
+    reviewCount: { type: Number, default: 0 },
+    priceLevel: { type: Number, required: true, min: 1, max: 4 },
+    type: { type: String, enum: ['coin', 'full'], required: true },
+    deliveryFee: { type: Number, required: true },
+    deliveryTime: { type: Number, required: true },
+    balance: { type: Number, default: 0 },
+    status: { type: Boolean, default: true },
+    openingHours: { type: [OpeningHoursItemSchema], default: [] },
+    imageUrl: { type: String },
+    location: {
+      lat: { type: Number },
+      lng: { type: Number },
+    },
+    washServices: [WashServiceSchema],
+    dryServices: [DryServiceSchema],
+    ironingServices: [IroningServiceSchema],
+    foldingServices: [FoldingServiceSchema],
+    otherServices: [OtherServiceSchema],
+  },
+  {
+    timestamps: true, // เพิ่ม createdAt, updatedAt อัตโนมัติ
+  }
+);
 
 // ใช้ collection name "ร้านซักผ้า" ที่มีอยู่ใน MongoDB Atlas
 // ถ้าต้องการใช้ชื่ออื่น แก้ไข parameter ที่ 3

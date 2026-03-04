@@ -61,26 +61,28 @@ const seedUsers = async () => {
     console.log('🗑️  ลบข้อมูล users เก่าแล้ว');
 
     // สร้าง users ใหม่
-    const users = await User.insertMany(sampleUsers.map(user => {
-      const userData: any = {
-        username: user.username,
-        email: user.email,
-        displayName: user.displayName,
-        phone: user.phone,
-        address: user.address,
-        balance: user.balance,
-        isOnboarded: user.isOnboarded,
-        createdAt: user.createdAt || new Date(),
-        updatedAt: user.updatedAt || new Date(),
-      };
+    const users = await User.insertMany(
+      sampleUsers.map((user) => {
+        const userData: any = {
+          username: user.username,
+          email: user.email,
+          displayName: user.displayName,
+          phone: user.phone,
+          address: user.address,
+          balance: user.balance,
+          isOnboarded: user.isOnboarded,
+          createdAt: user.createdAt || new Date(),
+          updatedAt: user.updatedAt || new Date(),
+        };
 
-      // เพิ่ม field พิเศษถ้ามี
-      if (user.googleSub) userData.googleSub = user.googleSub;
-      if (user.role) userData.role = user.role;
-      if (user._id) userData._id = user._id;
+        // เพิ่ม field พิเศษถ้ามี
+        if (user.googleSub) userData.googleSub = user.googleSub;
+        if (user.role) userData.role = user.role;
+        if (user._id) userData._id = user._id;
 
-      return userData;
-    }));
+        return userData;
+      })
+    );
 
     console.log(`✅ เพิ่มข้อมูล ${users.length} users เรียบร้อยแล้ว!`);
 

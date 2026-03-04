@@ -38,7 +38,10 @@ export default function PhotoPreviewScreen() {
         if (!photoUri) return;
         setUploading(true);
         try {
-            const url = await uploadFileFromUri(photoUri, { mimeType: 'image/jpeg', prefix: 'selfie' });
+            const url = await uploadFileFromUri(photoUri, {
+                mimeType: 'image/jpeg',
+                prefix: 'selfie',
+            });
             setField('selfieUri', url);
             router.push('/signup/selfie-guide' as any);
         } catch (e) {
@@ -58,7 +61,10 @@ export default function PhotoPreviewScreen() {
             <ScrollView contentContainerStyle={s.content}>
                 {/* Instructions */}
                 <Text style={s.notice}>
-                    <Text style={s.noticeBold}>To avoid rejection, please take a photo of yourself.{'\n'}Make sure your photo:</Text>
+                    <Text style={s.noticeBold}>
+                        To avoid rejection, please take a photo of yourself.{'\n'}Make sure your
+                        photo:
+                    </Text>
                 </Text>
                 <View style={s.list}>
                     {[
@@ -116,7 +122,13 @@ const s = StyleSheet.create({
 
     content: { paddingHorizontal: 20, paddingBottom: 24, alignItems: 'center' },
 
-    notice: { fontSize: 15, color: '#0F172A', lineHeight: 22, marginBottom: 12, alignSelf: 'flex-start' },
+    notice: {
+        fontSize: 15,
+        color: '#0F172A',
+        lineHeight: 22,
+        marginBottom: 12,
+        alignSelf: 'flex-start',
+    },
     noticeBold: { fontWeight: '700' },
 
     list: { alignSelf: 'stretch', marginBottom: 32, gap: 6 },

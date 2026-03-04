@@ -20,4 +20,3 @@ const EmailOtpSchema = new Schema<IEmailOtp>(
 EmailOtpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export const EmailOtp = mongoose.model<IEmailOtp>('EmailOtp', EmailOtpSchema);
-

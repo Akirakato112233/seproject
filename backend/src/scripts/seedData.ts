@@ -1,7 +1,13 @@
 import dotenv from 'dotenv';
 import { connectDB } from '../config/database';
 import { Shop } from '../models/Shop';
-import { defaultDryServices, defaultWashServices, defaultIroningServices, defaultFoldingServices, defaultOtherServices } from './defaultServices';
+import {
+  defaultDryServices,
+  defaultWashServices,
+  defaultIroningServices,
+  defaultFoldingServices,
+  defaultOtherServices,
+} from './defaultServices';
 
 dotenv.config();
 

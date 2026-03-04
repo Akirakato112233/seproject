@@ -80,7 +80,7 @@ export default function TakeSelfieScreen() {
                     if (faces.length === 0) {
                         Alert.alert(
                             'No face detected',
-                            'Please make sure your face is clearly visible and try again.',
+                            'Please make sure your face is clearly visible and try again.'
                         );
                         setScanState('ready');
                         return;
@@ -90,7 +90,7 @@ export default function TakeSelfieScreen() {
                 }
             }
 
-            router.push((`/signup/photo-preview?uri=${encodeURIComponent(photo.uri)}`) as any);
+            router.push(`/signup/photo-preview?uri=${encodeURIComponent(photo.uri)}` as any);
         } catch (e) {
             Alert.alert('Error', 'Failed to take photo. Please try again.');
             setScanState('ready');
@@ -110,11 +110,7 @@ export default function TakeSelfieScreen() {
     return (
         <View style={s.fill}>
             {/* Full-screen front camera */}
-            <CameraView
-                ref={cameraRef}
-                style={StyleSheet.absoluteFillObject}
-                facing="front"
-            />
+            <CameraView ref={cameraRef} style={StyleSheet.absoluteFillObject} facing="front" />
 
             {/* Dark overlay — oval is transparent */}
             <View style={s.overlay} pointerEvents="none">
@@ -159,14 +155,32 @@ const s = StyleSheet.create({
 
     // Permission screen
     permScreen: {
-        flex: 1, backgroundColor: '#fff',
-        alignItems: 'center', justifyContent: 'center', padding: 32,
+        flex: 1,
+        backgroundColor: '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 32,
     },
-    permTitle: { fontSize: 22, fontWeight: '700', color: '#0F172A', marginTop: 20, marginBottom: 10 },
-    permSub: { fontSize: 15, color: '#475569', textAlign: 'center', lineHeight: 22, marginBottom: 32 },
+    permTitle: {
+        fontSize: 22,
+        fontWeight: '700',
+        color: '#0F172A',
+        marginTop: 20,
+        marginBottom: 10,
+    },
+    permSub: {
+        fontSize: 15,
+        color: '#475569',
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: 32,
+    },
     permBtn: {
-        backgroundColor: '#1E3A8A', borderRadius: 27,
-        paddingHorizontal: 40, paddingVertical: 14, marginBottom: 16,
+        backgroundColor: '#1E3A8A',
+        borderRadius: 27,
+        paddingHorizontal: 40,
+        paddingVertical: 14,
+        marginBottom: 16,
     },
     permBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
     backLink: { padding: 8 },
@@ -205,28 +219,38 @@ const s = StyleSheet.create({
         paddingHorizontal: 24,
     },
     backBtn: {
-        width: 40, height: 40,
-        alignItems: 'center', justifyContent: 'center',
+        width: 40,
+        height: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
         marginTop: 8,
     },
     hudTitle: {
-        fontSize: 22, fontWeight: '700', color: '#fff',
-        marginTop: 8, textShadowColor: 'rgba(0,0,0,0.5)',
-        textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
+        fontSize: 22,
+        fontWeight: '700',
+        color: '#fff',
+        marginTop: 8,
+        textShadowColor: 'rgba(0,0,0,0.5)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 4,
     },
     hint: {
-        color: '#fff', fontSize: 14, textAlign: 'center',
+        color: '#fff',
+        fontSize: 14,
+        textAlign: 'center',
         marginBottom: 20,
         textShadowColor: 'rgba(0,0,0,0.6)',
-        textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 4,
     },
     shutterBtn: {
-        height: 54, borderRadius: 27,
+        height: 54,
+        borderRadius: 27,
         backgroundColor: '#1E3A8A',
-        alignItems: 'center', justifyContent: 'center',
+        alignItems: 'center',
+        justifyContent: 'center',
         marginBottom: 16,
     },
     shutterDisabled: { opacity: 0.5 },
     shutterText: { color: '#fff', fontSize: 17, fontWeight: '700' },
-
 });

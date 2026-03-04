@@ -1,11 +1,5 @@
 import React, { useState } from 'react';
-import {
-    View,
-    Text,
-    TouchableOpacity,
-    StyleSheet,
-    ScrollView,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
@@ -26,9 +20,7 @@ const STEPS = [
     },
     {
         title: 'Does your vehicle meet the required criteria?',
-        requirements: [
-            'The vehicle used for registration must be less than 10 years old.',
-        ],
+        requirements: ['The vehicle used for registration must be less than 10 years old.'],
     },
 ];
 
@@ -53,7 +45,7 @@ export default function CarQualificationScreen() {
 
         if (isLast) {
             // ตอบครบแล้ว — ตรวจสอบว่ามี No ไหม
-            const firstNo = newAnswers.findIndex(a => a === false);
+            const firstNo = newAnswers.findIndex((a) => a === false);
             if (firstNo !== -1) {
                 // มี No อย่างน้อย 1 ข้อ → แสดงหน้า Before you sign up
                 setFirstNoStep(firstNo);
@@ -61,7 +53,10 @@ export default function CarQualificationScreen() {
             } else {
                 // ทุกข้อ Yes → บันทึก vehicleType แล้วไปหน้า selfie guide
                 setField('vehicleType', 'car');
-                router.push({ pathname: '/signup/selfie-guide' as any, params: { vehicleType: 'car' } });
+                router.push({
+                    pathname: '/signup/selfie-guide' as any,
+                    params: { vehicleType: 'car' },
+                });
             }
         } else {
             setStep(step + 1);
@@ -82,7 +77,8 @@ export default function CarQualificationScreen() {
                 <ScrollView style={s.body} contentContainerStyle={{ paddingBottom: 16 }}>
                     <Text style={s.infoTitle}>Before you sign up</Text>
                     <Text style={s.infoSubtitle}>
-                        For everyone's safety, you need to meet all of our requirements and have the relevant documents
+                        For everyone's safety, you need to meet all of our requirements and have the
+                        relevant documents
                     </Text>
 
                     <View style={s.divider} />
@@ -90,7 +86,8 @@ export default function CarQualificationScreen() {
                     <View style={s.infoSection}>
                         <Text style={s.sectionTitle}>Steps to register as a driver partner</Text>
                         <Text style={s.sectionBody}>
-                            Thank you for your interest. If you would like to register, you can sign up through the Wit Driver application
+                            Thank you for your interest. If you would like to register, you can sign
+                            up through the Wit Driver application
                         </Text>
                     </View>
 
@@ -99,7 +96,8 @@ export default function CarQualificationScreen() {
                     <View style={s.infoSection}>
                         <Text style={s.sectionTitle}>Applicant qualifications</Text>
                         <Text style={s.sectionBody}>
-                            If you are under 18 years old, you are currently not eligible to register as a driver partner.
+                            If you are under 18 years old, you are currently not eligible to
+                            register as a driver partner.
                         </Text>
                     </View>
 
@@ -108,7 +106,8 @@ export default function CarQualificationScreen() {
                     <View style={s.infoSection}>
                         <Text style={s.sectionTitle}>Vehicle age requirement</Text>
                         <Text style={s.sectionBody}>
-                            The vehicle used for registration must be less than 10 years old, in accordance with regulations for ride-hailing vehicles.
+                            The vehicle used for registration must be less than 10 years old, in
+                            accordance with regulations for ride-hailing vehicles.
                         </Text>
                     </View>
                 </ScrollView>
@@ -118,7 +117,9 @@ export default function CarQualificationScreen() {
                         <Text style={{ fontSize: 22 }}>✅</Text>
                     </View>
                     <View style={{ flex: 1 }}>
-                        <Text style={s.proceedQuestion}>Do you have all the requirements above?</Text>
+                        <Text style={s.proceedQuestion}>
+                            Do you have all the requirements above?
+                        </Text>
                         <Text style={s.proceedLink}>Click here to proceed</Text>
                     </View>
                 </TouchableOpacity>
@@ -174,8 +175,21 @@ const s = StyleSheet.create({
     reqRow: { flexDirection: 'row', gap: 8 },
     bullet: { fontSize: 14, color: '#334155', lineHeight: 22 },
     reqText: { flex: 1, fontSize: 14, color: '#334155', lineHeight: 22 },
-    footer: { flexDirection: 'row', gap: 16, paddingHorizontal: 24, paddingBottom: 36, paddingTop: 12 },
-    btn: { flex: 1, height: 52, borderRadius: 26, backgroundColor: '#506B8F', alignItems: 'center', justifyContent: 'center' },
+    footer: {
+        flexDirection: 'row',
+        gap: 16,
+        paddingHorizontal: 24,
+        paddingBottom: 36,
+        paddingTop: 12,
+    },
+    btn: {
+        flex: 1,
+        height: 52,
+        borderRadius: 26,
+        backgroundColor: '#506B8F',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 
     // Before you sign up

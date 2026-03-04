@@ -4,20 +4,20 @@
  * or other code triggers loading of PushNotificationIOS.
  */
 module.exports = {
-  default: {
-    addEventListener: () => ({ remove: () => {} }),
-    removeEventListener: () => {},
-    requestPermissions: () => Promise.resolve({}),
-    abandonPermissions: () => {},
-    checkPermissions: () => Promise.resolve({}),
-    getDeliveredNotifications: () => Promise.resolve([]),
-    removeDeliveredNotifications: () => {},
-    removeAllDeliveredNotifications: () => {},
-    getSuggestedNotificationId: () => Promise.resolve(null),
-    presentLocalNotification: () => {},
-    scheduleLocalNotification: () => {},
-    cancelAllLocalNotifications: () => {},
-    removeListeners: () => {},
-    getInitialNotification: () => Promise.resolve(null),
-  },
+    default: {
+        addEventListener: () => ({ remove: () => {} }),
+        removeEventListener: () => {},
+        requestPermissions: () => Promise.resolve({}),
+        abandonPermissions: () => {},
+        checkPermissions: () => Promise.resolve({}),
+        getDeliveredNotifications: () => Promise.resolve([]),
+        removeDeliveredNotifications: () => {},
+        removeAllDeliveredNotifications: () => {},
+        getSuggestedNotificationId: () => Promise.resolve(null),
+        presentLocalNotification: () => {},
+        scheduleLocalNotification: () => {},
+        cancelAllLocalNotifications: () => {},
+        removeListeners: () => {},
+        getInitialNotification: () => Promise.resolve(null),
+    },
 };

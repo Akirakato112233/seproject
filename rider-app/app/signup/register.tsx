@@ -28,9 +28,7 @@ const CITIES = [
     { label: 'ขอนแก่น | Khon Kaen', value: 'khonkaen' },
 ];
 
-const COUNTRIES = [
-    { label: '+66', flag: '🇹🇭', value: '+66' },
-];
+const COUNTRIES = [{ label: '+66', flag: '🇹🇭', value: '+66' }];
 
 export default function RegisterScreen() {
     const router = useRouter();
@@ -67,7 +65,10 @@ export default function RegisterScreen() {
             return;
         }
         if (!isPhoneValid) {
-            Alert.alert('เบอร์ไม่ถูกต้อง', 'กรุณากรอกเบอร์โทรศัพท์ที่ขึ้นต้นด้วย 0 จำนวน 9-10 หลัก (เช่น 0812345678)');
+            Alert.alert(
+                'เบอร์ไม่ถูกต้อง',
+                'กรุณากรอกเบอร์โทรศัพท์ที่ขึ้นต้นด้วย 0 จำนวน 9-10 หลัก (เช่น 0812345678)'
+            );
             return;
         }
         if (!city) {
@@ -89,8 +90,15 @@ export default function RegisterScreen() {
 
     return (
         <SafeAreaView style={s.safe}>
-            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-                <ScrollView style={s.scroll} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
+                <ScrollView
+                    style={s.scroll}
+                    contentContainerStyle={s.content}
+                    keyboardShouldPersistTaps="handled"
+                >
                     {/* Header */}
                     <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
                         <Ionicons name="arrow-back" size={22} color="#111" />
@@ -119,7 +127,10 @@ export default function RegisterScreen() {
 
                     {/* Phone Row */}
                     <View style={s.phoneRow}>
-                        <TouchableOpacity style={s.countryBtn} onPress={() => setShowCountryModal(true)}>
+                        <TouchableOpacity
+                            style={s.countryBtn}
+                            onPress={() => setShowCountryModal(true)}
+                        >
                             <Text style={s.flag}>🇹🇭</Text>
                             <Text style={s.countryCode}>{country.label}</Text>
                             <Ionicons name="chevron-down" size={16} color="#555" />
@@ -135,9 +146,7 @@ export default function RegisterScreen() {
                             onChangeText={(t) => setPhone(t.replace(/\D/g, ''))}
                         />
                     </View>
-                    {phoneHasError && (
-                        <Text style={s.errorHint}>เบอร์โทรต้องขึ้นต้นด้วย 0</Text>
-                    )}
+                    {phoneHasError && <Text style={s.errorHint}>เบอร์โทรต้องขึ้นต้นด้วย 0</Text>}
                     {phoneLengthError && (
                         <Text style={s.warningHint}>กรอกให้ครบ 9-10 หลัก ({phone.length}/10)</Text>
                     )}
@@ -160,11 +169,11 @@ export default function RegisterScreen() {
                             {agreed && <Ionicons name="checkmark" size={16} color="#fff" />}
                         </TouchableOpacity>
                         <Text style={s.checkText}>
-                            By proceeding, I agree that Wit can collect, use and disclose the information provided by me in accordance with the{' '}
-                            <Text style={s.link}>Privacy Notice</Text>
-                            {' '}and I fully comply with the{' '}
-                            <Text style={s.link}>Terms & Conditions</Text>
-                            {' '}which I have read and understand.
+                            By proceeding, I agree that Wit can collect, use and disclose the
+                            information provided by me in accordance with the{' '}
+                            <Text style={s.link}>Privacy Notice</Text> and I fully comply with the{' '}
+                            <Text style={s.link}>Terms & Conditions</Text> which I have read and
+                            understand.
                         </Text>
                     </View>
                 </ScrollView>
@@ -183,19 +192,30 @@ export default function RegisterScreen() {
 
             {/* Country Modal */}
             <Modal visible={showCountryModal} transparent animationType="slide">
-                <TouchableOpacity style={s.modalOverlay} onPress={() => setShowCountryModal(false)} />
+                <TouchableOpacity
+                    style={s.modalOverlay}
+                    onPress={() => setShowCountryModal(false)}
+                />
                 <View style={s.modalSheet}>
                     <Text style={s.modalTitle}>Select country</Text>
                     {COUNTRIES.map((c) => (
                         <TouchableOpacity
                             key={c.value}
                             style={s.modalItem}
-                            onPress={() => { setCountry(c); setShowCountryModal(false); }}
+                            onPress={() => {
+                                setCountry(c);
+                                setShowCountryModal(false);
+                            }}
                         >
                             <Text style={s.modalFlag}>{c.flag}</Text>
                             <Text style={[s.modalItemText, { color: '#0E3A78' }]}>{c.label}</Text>
                             {country.value === c.value && (
-                                <Ionicons name="checkmark" size={20} color="#0E3A78" style={{ marginLeft: 'auto' }} />
+                                <Ionicons
+                                    name="checkmark"
+                                    size={20}
+                                    color="#0E3A78"
+                                    style={{ marginLeft: 'auto' }}
+                                />
                             )}
                         </TouchableOpacity>
                     ))}
@@ -213,11 +233,21 @@ export default function RegisterScreen() {
                         renderItem={({ item }) => (
                             <TouchableOpacity
                                 style={s.modalItem}
-                                onPress={() => { setCity(item); setShowCityModal(false); }}
+                                onPress={() => {
+                                    setCity(item);
+                                    setShowCityModal(false);
+                                }}
                             >
-                                <Text style={[s.modalItemText, { color: '#0E3A78' }]}>{item.label}</Text>
+                                <Text style={[s.modalItemText, { color: '#0E3A78' }]}>
+                                    {item.label}
+                                </Text>
                                 {city?.value === item.value && (
-                                    <Ionicons name="checkmark" size={20} color="#0E3A78" style={{ marginLeft: 'auto' }} />
+                                    <Ionicons
+                                        name="checkmark"
+                                        size={20}
+                                        color="#0E3A78"
+                                        style={{ marginLeft: 'auto' }}
+                                    />
                                 )}
                             </TouchableOpacity>
                         )}

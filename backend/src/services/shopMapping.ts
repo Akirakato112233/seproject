@@ -191,7 +191,8 @@ export function buildShopFromRegistration(reg: IShopRegistration): Partial<IShop
         if (!items.length) continue;
 
         if (cat.id === 'wash' || /wash/i.test(cat.name)) {
-          const byWeight: Record<number, { setting: string; duration: number; price: number }[]> = {};
+          const byWeight: Record<number, { setting: string; duration: number; price: number }[]> =
+            {};
           for (const item of items) {
             const w = item.weight_kg ? parseFloat(item.weight_kg) : 9;
             const d = item.duration_minutes ? parseInt(item.duration_minutes, 10) || 30 : 30;
@@ -207,7 +208,8 @@ export function buildShopFromRegistration(reg: IShopRegistration): Partial<IShop
             (washServices as any).push({ weight: Number(w), options: opts });
           });
         } else if (cat.id === 'dry' || /dry/i.test(cat.name)) {
-          const byWeight: Record<number, { setting: string; duration: number; price: number }[]> = {};
+          const byWeight: Record<number, { setting: string; duration: number; price: number }[]> =
+            {};
           for (const item of items) {
             const w = item.weight_kg ? parseFloat(item.weight_kg) : 15;
             const d = item.duration_minutes ? parseInt(item.duration_minutes, 10) || 30 : 30;
@@ -270,4 +272,3 @@ export function buildShopFromRegistration(reg: IShopRegistration): Partial<IShop
 
   return shop;
 }
-

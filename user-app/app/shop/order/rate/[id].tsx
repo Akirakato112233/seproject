@@ -1,11 +1,5 @@
 import React, { useState } from 'react';
-import {
-    View,
-    Text,
-    TouchableOpacity,
-    StyleSheet,
-    ActivityIndicator,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -50,7 +44,8 @@ export default function RateExperienceScreen() {
                 {/* Title */}
                 <Text style={styles.title}>Rate your experience</Text>
                 <Text style={styles.subtitle}>
-                    How was the service from <Text style={styles.riderName}>{riderName || 'Rider'}</Text> ?
+                    How was the service from{' '}
+                    <Text style={styles.riderName}>{riderName || 'Rider'}</Text> ?
                 </Text>
 
                 {/* Stars */}

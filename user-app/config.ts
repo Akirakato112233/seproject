@@ -1,9 +1,12 @@
-// config.ts
+/**
+ * App config: base API URL and named endpoints.
+ * For local dev, use ngrok (run `ngrok http 3000`) and set BASE_URL to the ngrok URL.
+ */
 
 // ใช้ ngrok (ต้องรัน ngrok http 3000 ก่อน)
-export const BASE_URL = 'https://judith-cottony-cami.ngrok-free.dev';
+export const BASE_URL = 'https://nonheritably-panpsychistic-joannie.ngrok-free.dev';
 
-// ลิ้งค์ย่อยต่างๆ (Optional: จะได้ไม่ต้องพิมพ์ยาวๆ ในหน้าอื่น)
+/** Named API paths; all use BASE_URL as prefix. */
 export const API = {
     REDEEM: `${BASE_URL}/api/redeem`,
     BALANCE: `${BASE_URL}/api/redeem/balance`,

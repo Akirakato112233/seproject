@@ -18,8 +18,7 @@ const ChatMessageSchema = new Schema<IChatMessage>(
   },
   {
     timestamps: false,
-  },
+  }
 );
 
 export const ChatMessage = mongoose.model<IChatMessage>('ChatMessage', ChatMessageSchema, 'chats');
-

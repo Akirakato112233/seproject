@@ -36,7 +36,9 @@ export interface SignupData {
 interface SignupContextType {
     data: SignupData;
     setField: <K extends keyof SignupData>(key: K, value: SignupData[K]) => void;
-    submit: (overrides?: Partial<SignupData>) => Promise<{ success: boolean; message?: string; registrationId?: string }>;
+    submit: (
+        overrides?: Partial<SignupData>
+    ) => Promise<{ success: boolean; message?: string; registrationId?: string }>;
     reset: () => void;
 }
 
@@ -67,20 +69,22 @@ const defaultData: SignupData = {
 
 const SignupContext = createContext<SignupContextType>({
     data: defaultData,
-    setField: () => { },
+    setField: () => {},
     submit: async () => ({ success: false }),
-    reset: () => { },
+    reset: () => {},
 });
 
 export function SignupProvider({ children }: { children: ReactNode }) {
     const [data, setData] = useState<SignupData>(defaultData);
 
     const setField = <K extends keyof SignupData>(key: K, value: SignupData[K]) => {
-        setData(prev => ({ ...prev, [key]: value }));
+        setData((prev) => ({ ...prev, [key]: value }));
     };
 
     // overrides: pass any fields that were just set but haven't flushed to state yet
-    const submit = async (overrides?: Partial<SignupData>): Promise<{ success: boolean; message?: string; registrationId?: string }> => {
+    const submit = async (
+        overrides?: Partial<SignupData>
+    ): Promise<{ success: boolean; message?: string; registrationId?: string }> => {
         try {
             const d = { ...data, ...overrides };
 
@@ -131,7 +135,10 @@ export function SignupProvider({ children }: { children: ReactNode }) {
             }
         } catch (err: any) {
             console.error('SignupContext.submit error:', err);
-            return { success: false, message: 'Cannot connect to server. Please check your connection.' };
+            return {
+                success: false,
+                message: 'Cannot connect to server. Please check your connection.',
+            };
         }
     };
 

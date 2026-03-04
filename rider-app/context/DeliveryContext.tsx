@@ -1,46 +1,50 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // 4 ขั้น: ไปรับผ้าที่ลูกค้า → ไปร้าน(ส่งผ้า) → [ปล่อยไรเดอร์] → ไปร้าน(รับผ้าซักเสร็จ) → ไปส่งลูกค้า
-export type DeliveryStatus = "going_to_customer" | "going_to_shop" | "going_to_shop_pickup" | "delivering";
+export type DeliveryStatus =
+    | 'going_to_customer'
+    | 'going_to_shop'
+    | 'going_to_shop_pickup'
+    | 'delivering';
 
 export type LatLng = { latitude: number; longitude: number };
-export type PaymentMethod = "cash" | "card";
+export type PaymentMethod = 'cash' | 'card';
 
 export type Order = {
-  id: string;
+    id: string;
 
-  // UI fields
-  shopName: string;
-  shopAddress: string;
-  customerName: string;
-  customerAddress: string;
-  distance: string;
-  fee: number;
-  items: number;
+    // UI fields
+    shopName: string;
+    shopAddress: string;
+    customerName: string;
+    customerAddress: string;
+    distance: string;
+    fee: number;
+    items: number;
 
-  // map: ที่อยู่ลูกค้า (รับผ้า/ส่งผ้า), ร้าน
-  pickup: LatLng;   // ที่รับผ้า = ลูกค้า (หรือร้านเมื่อ stage = going_to_shop_pickup)
-  dropoff: LatLng;  // ที่ส่งผ้า = ลูกค้า (จุดเดียวกัน)
-  shop: LatLng;     // พิกัดร้าน
+    // map: ที่อยู่ลูกค้า (รับผ้า/ส่งผ้า), ร้าน
+    pickup: LatLng; // ที่รับผ้า = ลูกค้า (หรือร้านเมื่อ stage = going_to_shop_pickup)
+    dropoff: LatLng; // ที่ส่งผ้า = ลูกค้า (จุดเดียวกัน)
+    shop: LatLng; // พิกัดร้าน
 
-  // optional extras
-  note?: string;
-  timeWindow?: string;
-  paymentMethod?: PaymentMethod;
-  customerPhone?: string;
-  shopPhone?: string;
+    // optional extras
+    note?: string;
+    timeWindow?: string;
+    paymentMethod?: PaymentMethod;
+    customerPhone?: string;
+    shopPhone?: string;
 
-  // order status from backend
-  status?: string;
+    // order status from backend
+    status?: string;
 
-  // Coin shop popups
-  shopType?: 'coin' | 'full';
-  hasWashItem?: boolean;
-  hasDryItem?: boolean;
-  coinWashDone?: boolean;
-  coinDryDone?: boolean;
-  itemsList?: { name: string; details?: string; price: number }[];
+    // Coin shop popups
+    shopType?: 'coin' | 'full';
+    hasWashItem?: boolean;
+    hasDryItem?: boolean;
+    coinWashDone?: boolean;
+    coinDryDone?: boolean;
+    itemsList?: { name: string; details?: string; price: number }[];
 };
 
 export type ActiveOrder = Order & { status: DeliveryStatus };
@@ -48,61 +52,61 @@ export type CompletedOrder = Order & { completedAt: string };
 
 /** ออเดอร์จาก API Ready for Pickup (ผ้าซักเสร็จ รอไรเดอร์มารับ) */
 export type ReadyForPickupOrder = Order & {
-  orderId?: string;
-  total?: number;
-  paymentLabel?: string;
-  itemsList?: { name: string; details?: string; price: number }[];
-  note?: string;
-  shopPhone?: string;
-  customerPhone?: string;
+    orderId?: string;
+    total?: number;
+    paymentLabel?: string;
+    itemsList?: { name: string; details?: string; price: number }[];
+    note?: string;
+    shopPhone?: string;
+    customerPhone?: string;
 };
 
 type DeliveryContextType = {
-  available: Order[];
-  active: ActiveOrder | null;
-  history: CompletedOrder[];
-  readyForPickup: ReadyForPickupOrder[];
-  /** ออเดอร์ที่ส่งผ้าให้ร้านแล้ว กำลังซัก (at_shop) — ตรงกับ In progress ฝั่งร้าน */
-  atShopOrders: ReadyForPickupOrder[];
+    available: Order[];
+    active: ActiveOrder | null;
+    history: CompletedOrder[];
+    readyForPickup: ReadyForPickupOrder[];
+    /** ออเดอร์ที่ส่งผ้าให้ร้านแล้ว กำลังซัก (at_shop) — ตรงกับ In progress ฝั่งร้าน */
+    atShopOrders: ReadyForPickupOrder[];
 
-  // ✅ ใช้ตัวนี้เวลาเรา "เริ่มงาน" (รับจากรายการหรือ demo ก็ได้)
-  startOrder: (order: Order) => Promise<{ success: boolean; message?: string }>;
+    // ✅ ใช้ตัวนี้เวลาเรา "เริ่มงาน" (รับจากรายการหรือ demo ก็ได้)
+    startOrder: (order: Order) => Promise<{ success: boolean; message?: string }>;
 
-  acceptOrder: (id: string) => void;
-  declineOrder: (id: string) => void;
+    acceptOrder: (id: string) => void;
+    declineOrder: (id: string) => void;
 
-  // รับผ้าจากลูกค้าแล้ว → ไปร้าน
-  markPickedUp: () => void;
-  // ถึงร้านแล้ว (วางผ้า) → ปล่อยไรเดอร์ รอร้านซักเสร็จ
-  markAtShop: () => void;
-  /** อัปเดต order เป็น at_shop (ใช้ก่อน start-coin-wash) */
-  updateOrderStatusToAtShop: (orderId: string) => Promise<{ success: boolean; message?: string }>;
-  // เริ่มไปรับผ้าที่ร้าน (จาก Ready for Pickup)
-  startPickupFromShop: (order: ReadyForPickupOrder) => void;
-  // รับผ้าที่ร้านแล้ว (ซักเสร็จ) → ไปส่งลูกค้า
-  markPickedUpFromShop: () => void;
-  /** ปล่อยไรเดอร์หลังเริ่มอบ (coin dry) — order จะกลับไป Ready for Pickup เมื่ออบเสร็จ */
-  clearActive: () => void;
-  markDelivered: () => void;
+    // รับผ้าจากลูกค้าแล้ว → ไปร้าน
+    markPickedUp: () => void;
+    // ถึงร้านแล้ว (วางผ้า) → ปล่อยไรเดอร์ รอร้านซักเสร็จ
+    markAtShop: () => void;
+    /** อัปเดต order เป็น at_shop (ใช้ก่อน start-coin-wash) */
+    updateOrderStatusToAtShop: (orderId: string) => Promise<{ success: boolean; message?: string }>;
+    // เริ่มไปรับผ้าที่ร้าน (จาก Ready for Pickup)
+    startPickupFromShop: (order: ReadyForPickupOrder) => void;
+    // รับผ้าที่ร้านแล้ว (ซักเสร็จ) → ไปส่งลูกค้า
+    markPickedUpFromShop: () => void;
+    /** ปล่อยไรเดอร์หลังเริ่มอบ (coin dry) — order จะกลับไป Ready for Pickup เมื่ออบเสร็จ */
+    clearActive: () => void;
+    markDelivered: () => void;
 
-  refreshReadyForPickup: () => Promise<void>;
-  refreshAtShopOrders: () => Promise<void>;
-  /** ดึงรายการ order รอรับใหม่ (เรียกเมื่อไรเดอร์ต้องการดูออเดอร์ล่าสุด) */
-  refreshAvailableOrders: () => Promise<void>;
+    refreshReadyForPickup: () => Promise<void>;
+    refreshAtShopOrders: () => Promise<void>;
+    /** ดึงรายการ order รอรับใหม่ (เรียกเมื่อไรเดอร์ต้องการดูออเดอร์ล่าสุด) */
+    refreshAvailableOrders: () => Promise<void>;
 
-  clearHistory: () => void;
-  totals: { totalOrders: number; totalEarnings: number };
+    clearHistory: () => void;
+    totals: { totalOrders: number; totalEarnings: number };
 
-  isOnline: boolean;
-  toggleOnline: () => void;
-  /** เมื่อเคยปิด offline แล้ว เปิด online ใหม่ จะไม่แสดง Completed บนหน้า Earning (ไปดูใน View detail history แทน) */
-  hideCompletedOnEarningPage: boolean;
+    isOnline: boolean;
+    toggleOnline: () => void;
+    /** เมื่อเคยปิด offline แล้ว เปิด online ใหม่ จะไม่แสดง Completed บนหน้า Earning (ไปดูใน View detail history แทน) */
+    hideCompletedOnEarningPage: boolean;
 
-  autoAccept: boolean;
-  toggleAutoAccept: () => void;
+    autoAccept: boolean;
+    toggleAutoAccept: () => void;
 };
 
-const STORAGE_KEY = "rider_delivery_state_v1";
+const STORAGE_KEY = 'rider_delivery_state_v1';
 const DeliveryContext = createContext<DeliveryContextType>(null as any);
 
 // NOTE: ปลายทางล็อคที่มหาวิทยาลัยเกษตรศาสตร์ วิทยาเขตศรีราชา
@@ -111,8 +115,8 @@ const DeliveryContext = createContext<DeliveryContextType>(null as any);
 import { API, BASE_URL } from '../config';
 
 const NGROK_HEADERS: Record<string, string> = BASE_URL.includes('ngrok')
-  ? { 'ngrok-skip-browser-warning': '1' }
-  : {};
+    ? { 'ngrok-skip-browser-warning': '1' }
+    : {};
 
 // ... types ...
 
@@ -126,366 +130,371 @@ import { useAuth } from './AuthContext';
 const DEV_RIDER_ID = '698e27ff93d8fdbda13bb05c';
 
 export function DeliveryProvider({ children }: { children: React.ReactNode }) {
-  const [available, setAvailable] = useState<Order[]>([]);
-  const [active, setActive] = useState<ActiveOrder | null>(null);
-  const [history, setHistory] = useState<CompletedOrder[]>([]);
+    const [available, setAvailable] = useState<Order[]>([]);
+    const [active, setActive] = useState<ActiveOrder | null>(null);
+    const [history, setHistory] = useState<CompletedOrder[]>([]);
 
-  const [isOnline, setIsOnline] = useState(false);
-  const [hideCompletedOnEarningPage, setHideCompletedOnEarningPage] = useState(false);
-  const [autoAccept, setAutoAccept] = useState(false);
+    const [isOnline, setIsOnline] = useState(false);
+    const [hideCompletedOnEarningPage, setHideCompletedOnEarningPage] = useState(false);
+    const [autoAccept, setAutoAccept] = useState(false);
 
-  // Auth; โหมด dev ไม่ login ใช้ DEV_RIDER_ID แทน user._id
-  const { token, user, isDevMode } = useAuth();
-  const effectiveRiderId = (user?._id ?? user?.id) ?? (isDevMode ? DEV_RIDER_ID : undefined);
-  const [readyForPickup, setReadyForPickup] = useState<ReadyForPickupOrder[]>([]);
-  const [atShopOrders, setAtShopOrders] = useState<ReadyForPickupOrder[]>([]);
+    // Auth; โหมด dev ไม่ login ใช้ DEV_RIDER_ID แทน user._id
+    const { token, user, isDevMode } = useAuth();
+    const effectiveRiderId = user?._id ?? user?.id ?? (isDevMode ? DEV_RIDER_ID : undefined);
+    const [readyForPickup, setReadyForPickup] = useState<ReadyForPickupOrder[]>([]);
+    const [atShopOrders, setAtShopOrders] = useState<ReadyForPickupOrder[]>([]);
 
-  const toggleOnline = () => {
-    setIsOnline((v) => {
-      const next = !v;
-      if (!next) {
-        setAutoAccept(false);
-        setHideCompletedOnEarningPage(true);
-      }
-      return next;
-    });
-  };
-
-  const toggleAutoAccept = () => {
-    if (!isOnline) return;
-    setAutoAccept((v) => !v);
-  };
-
-  // Fetch pending orders from API
-  const fetchAvailableOrders = async () => {
-    try {
-      const headers: Record<string, string> = { ...NGROK_HEADERS };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      const response = await fetch(API.ORDERS_PENDING, { headers });
-      const data = await response.json();
-      if (data.success) {
-        // Filter out active order if exists
-        const pending = data.orders.filter((o: any) => o.id !== active?.id);
-        setAvailable(pending);
-      }
-    } catch (error) {
-      console.log('Error fetching orders:', error);
-    }
-  };
-
-  // โพล์รายการ order ทุก 5 วินาที เมื่อออนไลน์
-  useEffect(() => {
-    if (!isOnline) {
-      setAvailable([]);
-      return;
-    }
-    fetchAvailableOrders();
-    const interval = setInterval(fetchAvailableOrders, 5000);
-    return () => clearInterval(interval);
-  }, [isOnline, active]);
-
-  // Load state from storage
-  useEffect(() => {
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (!raw) return;
-
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed.history)) setHistory(parsed.history);
-
-        // Don't load available/active from storage to avoid stale data
-      } catch {
-        // ignore
-      }
-    })();
-  }, []);
-
-  // save
-  useEffect(() => {
-    AsyncStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ available, active, history, isOnline, autoAccept })
-    ).catch(() => { });
-  }, [available, active, history, isOnline, autoAccept]);
-
-  const updateBackendStatus = async (
-    orderId: string,
-    status: string,
-    riderId?: string
-  ): Promise<{ success: boolean; message?: string }> => {
-    try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...NGROK_HEADERS,
-      };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const body: { status: string; riderId?: string } = { status };
-      if (riderId) body.riderId = riderId;
-      const response = await fetch(`${API.ORDERS}/${orderId}/status`, {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify(body),
-      });
-      const data = await response.json();
-
-      if (response.status === 409 || !data.success) {
-        const msg = data.message || 'ออเดอร์นี้ถูกรับไปแล้ว';
-        console.log('Backend status update failed:', msg);
-        return { success: false, message: msg };
-      }
-      return { success: true };
-    } catch (error) {
-      console.log('Error updating backend status:', error);
-      return { success: false, message: 'เกิดข้อผิดพลาดของเครือข่าย กรุณาลองใหม่' };
-    }
-  };
-
-  const startOrder = async (order: Order): Promise<{ success: boolean; message?: string }> => {
-    if (active) return { success: false, message: 'คุณมีงานที่กำลังดำเนินการอยู่แล้ว' };
-    const riderId = effectiveRiderId;
-    if (!riderId) {
-      return { success: false, message: 'กรุณาเข้าสู่ระบบหรือเปิดโหมด Dev เพื่อรับงาน' };
-    }
-
-    const result = await updateBackendStatus(order.id, 'rider_coming', riderId);
-    if (!result.success) {
-      setAvailable((prev) => prev.filter((o) => o.id !== order.id));
-      return result;
-    }
-
-    const shop = (order as any).shop ?? order.pickup;
-    setActive({ ...order, shop, status: "going_to_customer" });
-    setAvailable((prev) => prev.filter((o) => o.id !== order.id));
-    return { success: true };
-  };
-
-  // สำหรับโค้ดเก่า
-  const acceptOrder = (id: string) => {
-    if (active) return;
-    const order = available.find((o) => o.id === id);
-    if (!order) return;
-    startOrder(order);
-  };
-
-  const declineOrder = (id: string) => {
-    setAvailable((prev) => prev.filter((o) => o.id !== id));
-  };
-
-  // NOTE: Auto-accept logic moved to HomeScreen (index.tsx)
-  // เพื่อให้แสดง popup ก่อนรับงานอัตโนมัติ
-
-  const markPickedUp = () => {
-    if (!active) return;
-    setActive({ ...active, status: "going_to_shop" });
-    // ไม่อัปเดต backend ตอนนี้ — จะอัปเดตเป็น at_shop เมื่อกด "ถึงร้านแล้ว"
-  };
-
-  const markAtShop = () => {
-    if (!active) return;
-    // อัปเดต backend: ถึงร้านแล้ว ส่งผ้าให้ร้านแล้ว (ร้านจะซัก) → ปล่อยไรเดอร์
-    updateBackendStatus(active.id, 'at_shop');
-    setActive(null);
-  };
-
-  const updateOrderStatusToAtShop = (orderId: string) =>
-    updateBackendStatus(orderId, 'at_shop');
-
-  const fetchReadyForPickup = async () => {
-    const riderId = effectiveRiderId;
-    if (!riderId) {
-      setReadyForPickup([]);
-      return;
-    }
-    try {
-      const headers: Record<string, string> = { ...NGROK_HEADERS };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(`${API.ORDERS}/rider/ready-for-pickup?riderId=${encodeURIComponent(riderId)}`, { headers });
-      const data = await res.json();
-      if (data.success && Array.isArray(data.orders)) {
-        const mapped: ReadyForPickupOrder[] = data.orders.map((o: any) => ({
-          id: o.id,
-          orderId: o.orderId,
-          shopName: o.shopName,
-          shopAddress: o.shopAddress,
-          customerName: o.customerName,
-          customerAddress: o.customerAddress,
-          distance: '1.5 km',
-          fee: o.fee ?? o.total ?? 0,
-          items: Array.isArray(o.items) ? o.items.length : 0,
-          pickup: o.pickup ?? o.shop,
-          dropoff: o.dropoff,
-          shop: o.shop ?? o.pickup,
-          paymentMethod: o.paymentMethod === 'wallet' ? 'card' : 'cash',
-          paymentLabel: o.paymentLabel,
-          status: o.status,
-          total: o.total,
-          note: o.note,
-          shopPhone: o.shopPhone,
-          customerPhone: o.customerPhone,
-          ...(Array.isArray(o.items) && { itemsList: o.items }),
-          shopType: o.shopType ?? 'full',
-          hasWashItem: o.hasWashItem ?? false,
-          hasDryItem: o.hasDryItem ?? false,
-          coinWashDone: o.coinWashDone ?? false,
-          coinDryDone: o.coinDryDone ?? false,
-        }));
-        setReadyForPickup(mapped);
-      } else {
-        setReadyForPickup([]);
-      }
-    } catch (e) {
-      console.log('Fetch ready-for-pickup error:', e);
-      setReadyForPickup([]);
-    }
-  };
-
-  const refreshReadyForPickup = () => fetchReadyForPickup();
-
-  const fetchAtShopOrders = async () => {
-    const riderId = effectiveRiderId;
-    if (!riderId) {
-      setAtShopOrders([]);
-      return;
-    }
-    try {
-      const headers: Record<string, string> = { ...NGROK_HEADERS };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(`${API.ORDERS}/rider/at-shop?riderId=${encodeURIComponent(riderId)}`, { headers });
-      const data = await res.json();
-      if (data.success && Array.isArray(data.orders)) {
-        const mapped: ReadyForPickupOrder[] = data.orders.map((o: any) => ({
-          id: o.id,
-          orderId: o.orderId,
-          shopName: o.shopName,
-          shopAddress: o.shopAddress,
-          customerName: o.customerName,
-          customerAddress: o.customerAddress,
-          distance: '1.5 km',
-          fee: o.fee ?? o.total ?? 0,
-          items: Array.isArray(o.items) ? o.items.length : 0,
-          pickup: o.pickup ?? o.shop,
-          dropoff: o.dropoff,
-          shop: o.shop ?? o.pickup,
-          paymentMethod: o.paymentMethod === 'wallet' ? 'card' : 'cash',
-          paymentLabel: o.paymentLabel,
-          status: o.status,
-          total: o.total,
-          note: o.note,
-          shopPhone: o.shopPhone,
-          customerPhone: o.customerPhone,
-          updatedAt: o.updatedAt,
-          createdAt: o.createdAt,
-          ...(Array.isArray(o.items) && { itemsList: o.items }),
-          shopType: o.shopType ?? 'full',
-          hasWashItem: o.hasWashItem ?? false,
-          hasDryItem: o.hasDryItem ?? false,
-          coinWashDone: o.coinWashDone ?? false,
-          coinDryDone: o.coinDryDone ?? false,
-        }));
-        setAtShopOrders(mapped);
-      } else {
-        setAtShopOrders([]);
-      }
-    } catch (e) {
-      console.log('Fetch at-shop orders error:', e);
-      setAtShopOrders([]);
-    }
-  };
-
-  const refreshAtShopOrders = () => fetchAtShopOrders();
-
-  // ดึง Ready for Pickup + At Shop (In progress) เมื่อ login หรือโหมด dev
-  useEffect(() => {
-    if (!effectiveRiderId) return;
-    fetchReadyForPickup();
-    fetchAtShopOrders();
-    const t = setInterval(() => {
-      fetchReadyForPickup();
-      fetchAtShopOrders();
-    }, 8000);
-    return () => clearInterval(t);
-  }, [effectiveRiderId]);
-
-  const startPickupFromShop = (order: ReadyForPickupOrder) => {
-    if (active) return;
-    const shop = (order as any).shop ?? order.pickup;
-    setActive({
-      ...order,
-      shop,
-      status: "going_to_shop_pickup",
-    });
-    setReadyForPickup((prev) => prev.filter((o) => o.id !== order.id));
-  };
-
-  const markPickedUpFromShop = () => {
-    if (!active || active.status !== "going_to_shop_pickup") return;
-    updateBackendStatus(active.id, 'deliverying');
-    setActive({ ...active, status: "delivering" });
-  };
-
-  const clearActive = () => setActive(null);
-
-  const markDelivered = () => {
-    if (!active) return;
-
-    const done: CompletedOrder = {
-      ...active,
-      completedAt: new Date().toISOString(),
+    const toggleOnline = () => {
+        setIsOnline((v) => {
+            const next = !v;
+            if (!next) {
+                setAutoAccept(false);
+                setHideCompletedOnEarningPage(true);
+            }
+            return next;
+        });
     };
 
-    // อัปเดต backend: ส่งผ้าเสร็จแล้ว
-    updateBackendStatus(active.id, 'completed');
-    setHistory((prev) => [done, ...prev]);
-    setActive(null);
-    setHideCompletedOnEarningPage(false);
-  };
+    const toggleAutoAccept = () => {
+        if (!isOnline) return;
+        setAutoAccept((v) => !v);
+    };
 
-  const clearHistory = () => setHistory([]);
+    // Fetch pending orders from API
+    const fetchAvailableOrders = async () => {
+        try {
+            const headers: Record<string, string> = { ...NGROK_HEADERS };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            const response = await fetch(API.ORDERS_PENDING, { headers });
+            const data = await response.json();
+            if (data.success) {
+                // Filter out active order if exists
+                const pending = data.orders.filter((o: any) => o.id !== active?.id);
+                setAvailable(pending);
+            }
+        } catch (error) {
+            console.log('Error fetching orders:', error);
+        }
+    };
 
-  const totals = useMemo(() => {
-    const totalOrders = history.length;
-    const totalEarnings = history.reduce((sum, o) => sum + o.fee, 0);
-    return { totalOrders, totalEarnings };
-  }, [history]);
+    // โพล์รายการ order ทุก 5 วินาที เมื่อออนไลน์
+    useEffect(() => {
+        if (!isOnline) {
+            setAvailable([]);
+            return;
+        }
+        fetchAvailableOrders();
+        const interval = setInterval(fetchAvailableOrders, 5000);
+        return () => clearInterval(interval);
+    }, [isOnline, active]);
 
-  return (
-    <DeliveryContext.Provider
-      value={{
-        available,
-        active,
-        history,
-        readyForPickup,
-        atShopOrders,
-        startOrder,
-        acceptOrder,
-        declineOrder,
-        markPickedUp,
-        markAtShop,
-        updateOrderStatusToAtShop,
-        startPickupFromShop,
-        markPickedUpFromShop,
-        clearActive,
-        markDelivered,
-        refreshReadyForPickup,
-        refreshAtShopOrders,
-        refreshAvailableOrders: fetchAvailableOrders,
-        clearHistory,
-        totals,
-        isOnline,
-        toggleOnline,
-        hideCompletedOnEarningPage,
-        autoAccept,
-        toggleAutoAccept,
-      }}
-    >
-      {children}
-    </DeliveryContext.Provider>
-  );
+    // Load state from storage
+    useEffect(() => {
+        (async () => {
+            try {
+                const raw = await AsyncStorage.getItem(STORAGE_KEY);
+                if (!raw) return;
+
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed.history)) setHistory(parsed.history);
+
+                // Don't load available/active from storage to avoid stale data
+            } catch {
+                // ignore
+            }
+        })();
+    }, []);
+
+    // save
+    useEffect(() => {
+        AsyncStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify({ available, active, history, isOnline, autoAccept })
+        ).catch(() => {});
+    }, [available, active, history, isOnline, autoAccept]);
+
+    const updateBackendStatus = async (
+        orderId: string,
+        status: string,
+        riderId?: string
+    ): Promise<{ success: boolean; message?: string }> => {
+        try {
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                ...NGROK_HEADERS,
+            };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const body: { status: string; riderId?: string } = { status };
+            if (riderId) body.riderId = riderId;
+            const response = await fetch(`${API.ORDERS}/${orderId}/status`, {
+                method: 'PATCH',
+                headers,
+                body: JSON.stringify(body),
+            });
+            const data = await response.json();
+
+            if (response.status === 409 || !data.success) {
+                const msg = data.message || 'ออเดอร์นี้ถูกรับไปแล้ว';
+                console.log('Backend status update failed:', msg);
+                return { success: false, message: msg };
+            }
+            return { success: true };
+        } catch (error) {
+            console.log('Error updating backend status:', error);
+            return { success: false, message: 'เกิดข้อผิดพลาดของเครือข่าย กรุณาลองใหม่' };
+        }
+    };
+
+    const startOrder = async (order: Order): Promise<{ success: boolean; message?: string }> => {
+        if (active) return { success: false, message: 'คุณมีงานที่กำลังดำเนินการอยู่แล้ว' };
+        const riderId = effectiveRiderId;
+        if (!riderId) {
+            return { success: false, message: 'กรุณาเข้าสู่ระบบหรือเปิดโหมด Dev เพื่อรับงาน' };
+        }
+
+        const result = await updateBackendStatus(order.id, 'rider_coming', riderId);
+        if (!result.success) {
+            setAvailable((prev) => prev.filter((o) => o.id !== order.id));
+            return result;
+        }
+
+        const shop = (order as any).shop ?? order.pickup;
+        setActive({ ...order, shop, status: 'going_to_customer' });
+        setAvailable((prev) => prev.filter((o) => o.id !== order.id));
+        return { success: true };
+    };
+
+    // สำหรับโค้ดเก่า
+    const acceptOrder = (id: string) => {
+        if (active) return;
+        const order = available.find((o) => o.id === id);
+        if (!order) return;
+        startOrder(order);
+    };
+
+    const declineOrder = (id: string) => {
+        setAvailable((prev) => prev.filter((o) => o.id !== id));
+    };
+
+    // NOTE: Auto-accept logic moved to HomeScreen (index.tsx)
+    // เพื่อให้แสดง popup ก่อนรับงานอัตโนมัติ
+
+    const markPickedUp = () => {
+        if (!active) return;
+        setActive({ ...active, status: 'going_to_shop' });
+        // ไม่อัปเดต backend ตอนนี้ — จะอัปเดตเป็น at_shop เมื่อกด "ถึงร้านแล้ว"
+    };
+
+    const markAtShop = () => {
+        if (!active) return;
+        // อัปเดต backend: ถึงร้านแล้ว ส่งผ้าให้ร้านแล้ว (ร้านจะซัก) → ปล่อยไรเดอร์
+        updateBackendStatus(active.id, 'at_shop');
+        setActive(null);
+    };
+
+    const updateOrderStatusToAtShop = (orderId: string) => updateBackendStatus(orderId, 'at_shop');
+
+    const fetchReadyForPickup = async () => {
+        const riderId = effectiveRiderId;
+        if (!riderId) {
+            setReadyForPickup([]);
+            return;
+        }
+        try {
+            const headers: Record<string, string> = { ...NGROK_HEADERS };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const res = await fetch(
+                `${API.ORDERS}/rider/ready-for-pickup?riderId=${encodeURIComponent(riderId)}`,
+                { headers }
+            );
+            const data = await res.json();
+            if (data.success && Array.isArray(data.orders)) {
+                const mapped: ReadyForPickupOrder[] = data.orders.map((o: any) => ({
+                    id: o.id,
+                    orderId: o.orderId,
+                    shopName: o.shopName,
+                    shopAddress: o.shopAddress,
+                    customerName: o.customerName,
+                    customerAddress: o.customerAddress,
+                    distance: '1.5 km',
+                    fee: o.fee ?? o.total ?? 0,
+                    items: Array.isArray(o.items) ? o.items.length : 0,
+                    pickup: o.pickup ?? o.shop,
+                    dropoff: o.dropoff,
+                    shop: o.shop ?? o.pickup,
+                    paymentMethod: o.paymentMethod === 'wallet' ? 'card' : 'cash',
+                    paymentLabel: o.paymentLabel,
+                    status: o.status,
+                    total: o.total,
+                    note: o.note,
+                    shopPhone: o.shopPhone,
+                    customerPhone: o.customerPhone,
+                    ...(Array.isArray(o.items) && { itemsList: o.items }),
+                    shopType: o.shopType ?? 'full',
+                    hasWashItem: o.hasWashItem ?? false,
+                    hasDryItem: o.hasDryItem ?? false,
+                    coinWashDone: o.coinWashDone ?? false,
+                    coinDryDone: o.coinDryDone ?? false,
+                }));
+                setReadyForPickup(mapped);
+            } else {
+                setReadyForPickup([]);
+            }
+        } catch (e) {
+            console.log('Fetch ready-for-pickup error:', e);
+            setReadyForPickup([]);
+        }
+    };
+
+    const refreshReadyForPickup = () => fetchReadyForPickup();
+
+    const fetchAtShopOrders = async () => {
+        const riderId = effectiveRiderId;
+        if (!riderId) {
+            setAtShopOrders([]);
+            return;
+        }
+        try {
+            const headers: Record<string, string> = { ...NGROK_HEADERS };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const res = await fetch(
+                `${API.ORDERS}/rider/at-shop?riderId=${encodeURIComponent(riderId)}`,
+                { headers }
+            );
+            const data = await res.json();
+            if (data.success && Array.isArray(data.orders)) {
+                const mapped: ReadyForPickupOrder[] = data.orders.map((o: any) => ({
+                    id: o.id,
+                    orderId: o.orderId,
+                    shopName: o.shopName,
+                    shopAddress: o.shopAddress,
+                    customerName: o.customerName,
+                    customerAddress: o.customerAddress,
+                    distance: '1.5 km',
+                    fee: o.fee ?? o.total ?? 0,
+                    items: Array.isArray(o.items) ? o.items.length : 0,
+                    pickup: o.pickup ?? o.shop,
+                    dropoff: o.dropoff,
+                    shop: o.shop ?? o.pickup,
+                    paymentMethod: o.paymentMethod === 'wallet' ? 'card' : 'cash',
+                    paymentLabel: o.paymentLabel,
+                    status: o.status,
+                    total: o.total,
+                    note: o.note,
+                    shopPhone: o.shopPhone,
+                    customerPhone: o.customerPhone,
+                    updatedAt: o.updatedAt,
+                    createdAt: o.createdAt,
+                    ...(Array.isArray(o.items) && { itemsList: o.items }),
+                    shopType: o.shopType ?? 'full',
+                    hasWashItem: o.hasWashItem ?? false,
+                    hasDryItem: o.hasDryItem ?? false,
+                    coinWashDone: o.coinWashDone ?? false,
+                    coinDryDone: o.coinDryDone ?? false,
+                }));
+                setAtShopOrders(mapped);
+            } else {
+                setAtShopOrders([]);
+            }
+        } catch (e) {
+            console.log('Fetch at-shop orders error:', e);
+            setAtShopOrders([]);
+        }
+    };
+
+    const refreshAtShopOrders = () => fetchAtShopOrders();
+
+    // ดึง Ready for Pickup + At Shop (In progress) เมื่อ login หรือโหมด dev
+    useEffect(() => {
+        if (!effectiveRiderId) return;
+        fetchReadyForPickup();
+        fetchAtShopOrders();
+        const t = setInterval(() => {
+            fetchReadyForPickup();
+            fetchAtShopOrders();
+        }, 8000);
+        return () => clearInterval(t);
+    }, [effectiveRiderId]);
+
+    const startPickupFromShop = (order: ReadyForPickupOrder) => {
+        if (active) return;
+        const shop = (order as any).shop ?? order.pickup;
+        setActive({
+            ...order,
+            shop,
+            status: 'going_to_shop_pickup',
+        });
+        setReadyForPickup((prev) => prev.filter((o) => o.id !== order.id));
+    };
+
+    const markPickedUpFromShop = () => {
+        if (!active || active.status !== 'going_to_shop_pickup') return;
+        updateBackendStatus(active.id, 'deliverying');
+        setActive({ ...active, status: 'delivering' });
+    };
+
+    const clearActive = () => setActive(null);
+
+    const markDelivered = () => {
+        if (!active) return;
+
+        const done: CompletedOrder = {
+            ...active,
+            completedAt: new Date().toISOString(),
+        };
+
+        // อัปเดต backend: ส่งผ้าเสร็จแล้ว
+        updateBackendStatus(active.id, 'completed');
+        setHistory((prev) => [done, ...prev]);
+        setActive(null);
+        setHideCompletedOnEarningPage(false);
+    };
+
+    const clearHistory = () => setHistory([]);
+
+    const totals = useMemo(() => {
+        const totalOrders = history.length;
+        const totalEarnings = history.reduce((sum, o) => sum + o.fee, 0);
+        return { totalOrders, totalEarnings };
+    }, [history]);
+
+    return (
+        <DeliveryContext.Provider
+            value={{
+                available,
+                active,
+                history,
+                readyForPickup,
+                atShopOrders,
+                startOrder,
+                acceptOrder,
+                declineOrder,
+                markPickedUp,
+                markAtShop,
+                updateOrderStatusToAtShop,
+                startPickupFromShop,
+                markPickedUpFromShop,
+                clearActive,
+                markDelivered,
+                refreshReadyForPickup,
+                refreshAtShopOrders,
+                refreshAvailableOrders: fetchAvailableOrders,
+                clearHistory,
+                totals,
+                isOnline,
+                toggleOnline,
+                hideCompletedOnEarningPage,
+                autoAccept,
+                toggleAutoAccept,
+            }}
+        >
+            {children}
+        </DeliveryContext.Provider>
+    );
 }
 
 export function useDelivery() {
-  return useContext(DeliveryContext);
+    return useContext(DeliveryContext);
 }

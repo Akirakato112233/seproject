@@ -47,7 +47,10 @@ interface Shop {
 }
 
 export default function OrderScreen() {
-    const { id, orderData: orderDataParam } = useLocalSearchParams<{ id: string; orderData?: string }>();
+    const { id, orderData: orderDataParam } = useLocalSearchParams<{
+        id: string;
+        orderData?: string;
+    }>();
     const [shop, setShop] = useState<Shop | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedDelivery, setSelectedDelivery] = useState<string>('priority');
@@ -76,9 +79,19 @@ export default function OrderScreen() {
         const baseFee = orderData?.deliveryFee || shop?.deliveryFee || 30;
 
         return [
-            { id: 'priority', name: 'Priority', time: `${baseTime} mins`, price: Math.round(baseFee * 1.4) },
+            {
+                id: 'priority',
+                name: 'Priority',
+                time: `${baseTime} mins`,
+                price: Math.round(baseFee * 1.4),
+            },
             { id: 'standard', name: 'Standard', time: `${baseTime + 7} mins`, price: baseFee },
-            { id: 'saver', name: 'Saver', time: `${baseTime + 20} mins`, price: Math.round(baseFee * 0.85) },
+            {
+                id: 'saver',
+                name: 'Saver',
+                time: `${baseTime + 20} mins`,
+                price: Math.round(baseFee * 0.85),
+            },
         ];
     }, [orderData, shop]);
 
@@ -115,7 +128,7 @@ export default function OrderScreen() {
     const fetchShopDetail = async () => {
         try {
             const response = await fetch(`${BASE_URL}/api/shops/${id}`, {
-              headers: { 'ngrok-skip-browser-warning': '1' },
+                headers: { 'ngrok-skip-browser-warning': '1' },
             });
             const data = await response.json();
             if (data && data._id) {
@@ -129,7 +142,7 @@ export default function OrderScreen() {
     };
 
     const getSelectedDeliveryOption = () => {
-        return deliveryOptions.find(opt => opt.id === selectedDelivery);
+        return deliveryOptions.find((opt) => opt.id === selectedDelivery);
     };
 
     const calculateServiceTotal = () => {
@@ -153,8 +166,8 @@ export default function OrderScreen() {
         if (orderItems.length === 0) return '';
 
         const durations = orderItems
-            .filter(item => item.duration && item.duration > 0)
-            .map(item => `${item.duration}min`);
+            .filter((item) => item.duration && item.duration > 0)
+            .map((item) => `${item.duration}min`);
 
         if (durations.length === 0) return '';
         return durations.join(' and ');
@@ -231,7 +244,9 @@ export default function OrderScreen() {
                                 {currentLocation ? currentLocation.name : 'Select location'}
                             </Text>
                             {currentLocation?.address && (
-                                <Text style={styles.locationAddress}>{currentLocation.address}</Text>
+                                <Text style={styles.locationAddress}>
+                                    {currentLocation.address}
+                                </Text>
                             )}
                         </View>
                     </View>
@@ -252,10 +267,13 @@ export default function OrderScreen() {
                             onPress={() => setSelectedDelivery(option.id)}
                         >
                             <View style={styles.deliveryOptionContent}>
-                                <Text style={[
-                                    styles.deliveryOptionName,
-                                    selectedDelivery === option.id && styles.deliveryOptionNameSelected,
-                                ]}>
+                                <Text
+                                    style={[
+                                        styles.deliveryOptionName,
+                                        selectedDelivery === option.id &&
+                                            styles.deliveryOptionNameSelected,
+                                    ]}
+                                >
                                     {option.name}
                                 </Text>
                                 <Text style={styles.deliveryOptionTime}>{option.time}</Text>
@@ -322,10 +340,12 @@ export default function OrderScreen() {
                                 <Ionicons name={method.icon} size={20} color="#666" />
                                 <Text style={styles.paymentOptionName}>{method.name}</Text>
                             </View>
-                            <View style={[
-                                styles.radio,
-                                selectedPayment === method.id && styles.radioSelected,
-                            ]}>
+                            <View
+                                style={[
+                                    styles.radio,
+                                    selectedPayment === method.id && styles.radioSelected,
+                                ]}
+                            >
                                 {selectedPayment === method.id && (
                                     <View style={styles.radioInner} />
                                 )}
@@ -340,99 +360,107 @@ export default function OrderScreen() {
 
             {/* Order Now Button */}
             <View style={styles.bottomBar}>
-                <TouchableOpacity style={styles.orderButton} onPress={async () => {
-                    // Check if user has location set
-                    if (!currentLocation || !currentLocation.address) {
-                        Alert.alert(
-                            'ไม่สามารถสั่งซื้อได้',
-                            'กรุณาเลือกที่อยู่จัดส่งก่อน',
-                            [
+                <TouchableOpacity
+                    style={styles.orderButton}
+                    onPress={async () => {
+                        // Check if user has location set
+                        if (!currentLocation || !currentLocation.address) {
+                            Alert.alert('ไม่สามารถสั่งซื้อได้', 'กรุณาเลือกที่อยู่จัดส่งก่อน', [
                                 { text: 'ยกเลิก', style: 'cancel' },
-                                { text: 'เลือกที่อยู่', onPress: () => router.push('/location/search') }
-                            ]
-                        );
-                        return;
-                    }
-
-                    const total = calculateTotal();
-                    const serviceTotal = calculateServiceTotal();
-                    const deliveryFee = calculateDeliveryFee();
-
-                    // ถ้าเลือก WIT wallet ต้องเช็คยอดเงิน
-                    if (selectedPayment === 'wallet') {
-                        if (walletBalance < total) {
-                            const shortage = total - walletBalance;
-                            const message = `💰 ยอดเงินไม่เพียงพอ!\n\nยอดเงินในกระเป๋า: ฿${walletBalance.toFixed(2)}\nยอดที่ต้องชำระ: ฿${total.toFixed(2)}\n\n⚠️ กรุณาเติมเงินอีก ฿${shortage.toFixed(2)}\n\nกด OK เพื่อไปเติมเงิน`;
-
-                            const goToTopUp = confirm(message);
-                            if (goToTopUp) {
-                                router.push('/wallet/transfer');
-                            }
+                                {
+                                    text: 'เลือกที่อยู่',
+                                    onPress: () => router.push('/location/search'),
+                                },
+                            ]);
                             return;
                         }
-                    }
 
-                    try {
-                        let response;
-                        const orderBody = {
-                            shopId: id,
-                            shopName: shop?.name || 'Unknown Shop',
-                            items: orderItems.map(item => ({
-                                name: item.name,
-                                details: item.details,
-                                price: item.price
-                            })),
-                            serviceTotal,
-                            deliveryFee,
-                            total,
-                            paymentMethod: selectedPayment,
-                        };
+                        const total = calculateTotal();
+                        const serviceTotal = calculateServiceTotal();
+                        const deliveryFee = calculateDeliveryFee();
 
-                        // ลอง auth API ก่อน ถ้า fail ให้ fallback ไปใช้ dev-create
-                        if (token) {
-                            response = await authPost(API.ORDERS, orderBody);
-                            const checkData = await response.clone().json();
-                            if (!checkData.success && checkData.message?.includes('token')) {
-                                console.log('Token invalid, falling back to dev-create...');
-                                response = await fetch(`${BASE_URL}/api/orders/pending/dev-create`, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        ...orderBody,
-                                        userDisplayName: user?.displayName || 'Dev User',
-                                        userAddress: 'Dev Address',
-                                    }),
-                                });
+                        // ถ้าเลือก WIT wallet ต้องเช็คยอดเงิน
+                        if (selectedPayment === 'wallet') {
+                            if (walletBalance < total) {
+                                const shortage = total - walletBalance;
+                                const message = `💰 ยอดเงินไม่เพียงพอ!\n\nยอดเงินในกระเป๋า: ฿${walletBalance.toFixed(2)}\nยอดที่ต้องชำระ: ฿${total.toFixed(2)}\n\n⚠️ กรุณาเติมเงินอีก ฿${shortage.toFixed(2)}\n\nกด OK เพื่อไปเติมเงิน`;
+
+                                const goToTopUp = confirm(message);
+                                if (goToTopUp) {
+                                    router.push('/wallet/transfer');
+                                }
+                                return;
                             }
-                        } else {
-                            // ไม่มี token → ใช้ dev-create ตรงๆ
-                            response = await fetch(`${BASE_URL}/api/orders/pending/dev-create`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    ...orderBody,
-                                    userDisplayName: user?.displayName || 'Dev User',
-                                    userAddress: 'Dev Address',
-                                }),
-                            });
                         }
 
-                        const data = await response.json();
+                        try {
+                            let response;
+                            const orderBody = {
+                                shopId: id,
+                                shopName: shop?.name || 'Unknown Shop',
+                                items: orderItems.map((item) => ({
+                                    name: item.name,
+                                    details: item.details,
+                                    price: item.price,
+                                })),
+                                serviceTotal,
+                                deliveryFee,
+                                total,
+                                paymentMethod: selectedPayment,
+                            };
 
-                        if (data.success) {
-                            // ไป Order Status page พร้อม orderId
-                            router.replace({
-                                pathname: `/shop/order/status/${data.order._id}` as any,
-                                params: { step: '0' },
-                            });
-                        } else {
-                            alert('❌ สร้าง Order ไม่สำเร็จ: ' + data.message);
+                            // ลอง auth API ก่อน ถ้า fail ให้ fallback ไปใช้ dev-create
+                            if (token) {
+                                response = await authPost(API.ORDERS, orderBody);
+                                const checkData = await response.clone().json();
+                                if (!checkData.success && checkData.message?.includes('token')) {
+                                    console.log('Token invalid, falling back to dev-create...');
+                                    response = await fetch(
+                                        `${BASE_URL}/api/orders/pending/dev-create`,
+                                        {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                                ...orderBody,
+                                                userDisplayName: user?.displayName || 'Dev User',
+                                                userAddress: 'Dev Address',
+                                            }),
+                                        }
+                                    );
+                                }
+                            } else {
+                                // ไม่มี token → ใช้ dev-create ตรงๆ
+                                response = await fetch(
+                                    `${BASE_URL}/api/orders/pending/dev-create`,
+                                    {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            ...orderBody,
+                                            userDisplayName: user?.displayName || 'Dev User',
+                                            userAddress: 'Dev Address',
+                                        }),
+                                    }
+                                );
+                            }
+
+                            const data = await response.json();
+
+                            if (data.success) {
+                                // ไป Order Status page พร้อม orderId
+                                router.replace({
+                                    pathname: `/shop/order/status/${data.order._id}` as any,
+                                    params: { step: '0' },
+                                });
+                            } else {
+                                alert('❌ สร้าง Order ไม่สำเร็จ: ' + data.message);
+                            }
+                        } catch (error) {
+                            console.error('Create Order Error:', error);
+                            alert('❌ เกิดข้อผิดพลาดในการสร้าง Order');
                         }
-                    } catch (error) {
-                        console.error('Create Order Error:', error);
-                        alert('❌ เกิดข้อผิดพลาดในการสร้าง Order');
-                    }
-                }}>
+                    }}
+                >
                     <Text style={styles.orderButtonText}>Order Now</Text>
                 </TouchableOpacity>
             </View>

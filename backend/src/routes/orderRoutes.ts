@@ -1,20 +1,20 @@
 import { Router } from 'express';
 import {
-    createOrder,
-    getOrderById,
-    getActiveOrder,
-    updateOrderStatus,
-    getOrderHistory,
-    getPendingOrders,
-    getRiderReadyForPickup,
-    getRiderAtShopOrders,
-    getMerchantPendingOrders,
-    getMerchantCurrentOrders,
-    getMerchantOrderHistory,
-    merchantAcceptOrder,
-    merchantUpdateOrderStatus,
-    startCoinWash,
-    startCoinDry
+  createOrder,
+  getOrderById,
+  getActiveOrder,
+  updateOrderStatus,
+  getOrderHistory,
+  getPendingOrders,
+  getRiderReadyForPickup,
+  getRiderAtShopOrders,
+  getMerchantPendingOrders,
+  getMerchantCurrentOrders,
+  getMerchantOrderHistory,
+  merchantAcceptOrder,
+  merchantUpdateOrderStatus,
+  startCoinWash,
+  startCoinDry,
 } from '../controllers/orderController';
 import { authenticateToken } from '../middleware/auth';
 

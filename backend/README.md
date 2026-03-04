@@ -37,6 +37,12 @@ backend-example/
 
 ## 🔗 API Endpoints
 
+### Shops (example)
 - `GET /api/shops` - ดึงรายการร้านทั้งหมด
 - `GET /api/shops/:id` - ดึงข้อมูลร้านตาม ID
 - `GET /api/shops?type=coin&rating=4` - ดึงร้านพร้อม filter
+
+### Auth / user profile
+- `GET /api/auth/user/:userId` - ดึงข้อมูล user รวม profilePhoto
+- `PUT /api/auth/update-profile/:userId` - แก้ displayName และ/หรือ phone (body: `{ displayName?, phone? }`). เบอร์โทรต้อง 10 หลัก ขึ้นต้นด้วย 0
+- `PUT /api/auth/update-photo/:userId` - เก็บ URL รูปโปรไฟล์ (body: `{ profilePhoto: string }`) ใช้คู่กับ Supabase Storage

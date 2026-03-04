@@ -7,4 +7,3 @@ router.get('/messages', getMessages);
 router.post('/messages', createMessage);
 
 export default router;
-

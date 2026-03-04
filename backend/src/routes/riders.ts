@@ -1,5 +1,26 @@
 import { Router } from 'express';
-import { getRiderById, getRandomRiderId, getLatestRegistration, registerRider, deleteRegistration, updateRegistrationBackgroundCheck, updateRegistrationConsent, updateRegistrationTermsAndInfo, updateRegistrationQuestionnaire, updateRegistrationVehicleDetails, updateRegistrationVehicleBook, updateRegistrationPlateColor, updateRegistrationOwnership, updateRegistrationPackage, getEmergencyContacts, addEmergencyContact, updateEmergencyContact, deleteEmergencyContact, updateCommunications, updateLinkedAccounts } from '../controllers/riderController';
+import {
+  getRiderById,
+  getRandomRiderId,
+  getLatestRegistration,
+  registerRider,
+  deleteRegistration,
+  updateRegistrationBackgroundCheck,
+  updateRegistrationConsent,
+  updateRegistrationTermsAndInfo,
+  updateRegistrationQuestionnaire,
+  updateRegistrationVehicleDetails,
+  updateRegistrationVehicleBook,
+  updateRegistrationPlateColor,
+  updateRegistrationOwnership,
+  updateRegistrationPackage,
+  getEmergencyContacts,
+  addEmergencyContact,
+  updateEmergencyContact,
+  deleteEmergencyContact,
+  updateCommunications,
+  updateLinkedAccounts,
+} from '../controllers/riderController';
 
 const router = Router();
 
@@ -48,8 +69,14 @@ router.patch('/registrations/:registrationId/communications', updateCommunicatio
 // Emergency Contacts
 router.get('/registrations/:registrationId/emergency-contacts', getEmergencyContacts);
 router.post('/registrations/:registrationId/emergency-contacts', addEmergencyContact);
-router.patch('/registrations/:registrationId/emergency-contacts/:contactId', updateEmergencyContact);
-router.delete('/registrations/:registrationId/emergency-contacts/:contactId', deleteEmergencyContact);
+router.patch(
+  '/registrations/:registrationId/emergency-contacts/:contactId',
+  updateEmergencyContact
+);
+router.delete(
+  '/registrations/:registrationId/emergency-contacts/:contactId',
+  deleteEmergencyContact
+);
 
 router.get('/random/id', getRandomRiderId);
 router.get('/:id', getRiderById);

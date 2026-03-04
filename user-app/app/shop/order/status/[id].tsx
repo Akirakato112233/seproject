@@ -14,7 +14,6 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { API, BASE_URL } from '../../../../config';
 import { authGet, authPatch } from '../../../../services/apiClient';
 
-
 type OrderStep = 0 | 1 | 2 | 3;
 
 interface OrderData {
@@ -39,17 +38,17 @@ const STEP_CONFIG: Record<OrderStep, { title: string; description: string; icon:
     },
     1: {
         title: 'Rider on the way',
-        description: "Rider is heading to your location to pick up laundry",
+        description: 'Rider is heading to your location to pick up laundry',
         icon: 'bicycle',
     },
     2: {
         title: 'Laundry at shop',
-        description: "Your laundry is being processed at the shop",
+        description: 'Your laundry is being processed at the shop',
         icon: 'shirt-outline',
     },
     3: {
         title: 'Out for delivery',
-        description: "Your laundry is on the way back to you!",
+        description: 'Your laundry is on the way back to you!',
         icon: 'checkmark-circle-outline',
     },
 };
@@ -61,7 +60,7 @@ export default function OrderStatusScreen() {
     const [riderName, setRiderName] = useState<string | null>(null);
 
     // Parse step จาก params (default = 1)
-    const currentStep: OrderStep = (parseInt(stepParam ?? '0') as OrderStep);
+    const currentStep: OrderStep = parseInt(stepParam ?? '0') as OrderStep;
     const stepInfo = STEP_CONFIG[currentStep] || STEP_CONFIG[1];
 
     // คำนวณเวลาจริง
@@ -157,7 +156,10 @@ export default function OrderStatusScreen() {
                         pathname: '/shop/order/status/[id]' as any,
                         params: { id, step: '1' },
                     });
-                } else if ((status === 'at_shop' || status === 'in_progress' || status === 'delivering') && currentStep !== 2) {
+                } else if (
+                    (status === 'at_shop' || status === 'in_progress' || status === 'delivering') &&
+                    currentStep !== 2
+                ) {
                     // at_shop, in_progress, delivering ทั้งหมดอยู่ step 2 (Laundry at shop)
                     router.replace({
                         pathname: '/shop/order/status/[id]' as any,
@@ -176,7 +178,6 @@ export default function OrderStatusScreen() {
             setLoading(false);
         }
     };
-    
 
     const handleCall = () => {
         Linking.openURL('tel:+66649525694');
@@ -186,7 +187,11 @@ export default function OrderStatusScreen() {
         const nameToPass = riderName || order?.riderDisplayName || '';
         router.push({
             pathname: '/shop/chat' as any,
-            params: { id, riderId: order?.riderId, riderName: nameToPass ? String(nameToPass) : undefined },
+            params: {
+                id,
+                riderId: order?.riderId,
+                riderName: nameToPass ? String(nameToPass) : undefined,
+            },
         });
     };
 
@@ -222,7 +227,10 @@ export default function OrderStatusScreen() {
                     <Ionicons name="arrow-back" size={24} color="#333" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Order Status</Text>
-                <TouchableOpacity style={styles.closeButton} onPress={() => router.replace('/(tabs)')}>
+                <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={() => router.replace('/(tabs)')}
+                >
                     <Ionicons name="close" size={24} color="#333" />
                 </TouchableOpacity>
             </View>
@@ -258,10 +266,12 @@ export default function OrderStatusScreen() {
                                     />
                                 </View>
                                 {index < 3 && (
-                                    <View style={[
-                                        styles.stepLine,
-                                        currentStep > step && styles.stepLineActive,
-                                    ]} />
+                                    <View
+                                        style={[
+                                            styles.stepLine,
+                                            currentStep > step && styles.stepLineActive,
+                                        ]}
+                                    />
                                 )}
                             </React.Fragment>
                         ))}
@@ -276,7 +286,13 @@ export default function OrderStatusScreen() {
                     </View>
                     <View style={styles.totalRow}>
                         <Text style={styles.totalLabel}>Total Amount</Text>
-                        <View style={order?.paymentMethod === 'wallet' ? styles.paidBadge : styles.cashBadge}>
+                        <View
+                            style={
+                                order?.paymentMethod === 'wallet'
+                                    ? styles.paidBadge
+                                    : styles.cashBadge
+                            }
+                        >
                             <Text style={styles.paidText}>
                                 {order?.paymentMethod === 'wallet' ? 'PAID' : 'CASH'}
                             </Text>
@@ -335,10 +351,14 @@ export default function OrderStatusScreen() {
                         </View>
                         <View style={styles.infoContent}>
                             <Text style={styles.infoLabel}>
-                                {currentStep === 2 ? order?.shopName || 'Shop' : order?.userDisplayName || 'Customer'}
+                                {currentStep === 2
+                                    ? order?.shopName || 'Shop'
+                                    : order?.userDisplayName || 'Customer'}
                             </Text>
                             <Text style={styles.infoName}>
-                                {currentStep === 2 ? order?.shopName || 'Shop' : order?.userAddress || 'ที่อยู่ลูกค้า'}
+                                {currentStep === 2
+                                    ? order?.shopName || 'Shop'
+                                    : order?.userAddress || 'ที่อยู่ลูกค้า'}
                             </Text>
                         </View>
                     </View>
@@ -351,7 +371,6 @@ export default function OrderStatusScreen() {
                         <Ionicons name="chevron-forward" size={20} color="#333" />
                     </TouchableOpacity>
                 )}
-
 
                 <View style={{ height: 50 }} />
             </ScrollView>

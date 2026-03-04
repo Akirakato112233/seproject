@@ -10,17 +10,17 @@
    (ตัวที่ลงท้าย `...o6geb9.apps.googleusercontent.com`)
 
 3. ใน **Authorized redirect URIs** ให้เพิ่ม URI ที่แอปใช้:
-   - ถ้ารันบน **Expo Go / development** มักได้รูปแบบ:
-     - `https://auth.expo.io/@0822189639/WIT-Rider`
-   - ดูค่า redirect URI จริงได้จาก log ในเทอร์มินัลเมื่อเปิดหน้า Login (มี `[Google OAuth] redirectUri: ...`)
-   - **สำคัญ:** ต้องใส่ให้ตรงตัวอักษรทุกตัว (รวม slash ท้ายหรือไม่)
+    - ถ้ารันบน **Expo Go / development** มักได้รูปแบบ:
+        - `https://auth.expo.io/@0822189639/WIT-Rider`
+    - ดูค่า redirect URI จริงได้จาก log ในเทอร์มินัลเมื่อเปิดหน้า Login (มี `[Google OAuth] redirectUri: ...`)
+    - **สำคัญ:** ต้องใส่ให้ตรงตัวอักษรทุกตัว (รวม slash ท้ายหรือไม่)
 
 4. ใน **Authorized JavaScript origins** (ถ้ามี) ให้เพิ่ม:
-   - `https://auth.expo.io`
+    - `https://auth.expo.io`
 
 5. ไปที่ **OAuth consent screen**:
-   - ถ้าเป็น **Testing** ให้เพิ่มอีเมลที่ใช้ทดสอบลงใน "Test users"
-   - ใส่ **Authorized domains**: `expo.io` (และ `auth.expo.io` ถ้ามีช่อง)
+    - ถ้าเป็น **Testing** ให้เพิ่มอีเมลที่ใช้ทดสอบลงใน "Test users"
+    - ใส่ **Authorized domains**: `expo.io` (และ `auth.expo.io` ถ้ามีช่อง)
 
 6. บันทึก (Save) แล้วรอสักครู่ก่อนลองลงชื่อเข้าใช้ใหม่
 

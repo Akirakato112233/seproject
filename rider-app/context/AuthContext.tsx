@@ -31,9 +31,9 @@ const AuthContext = createContext<AuthContextType>({
     token: null,
     loading: true,
     isDevMode: false,
-    setDevMode: () => { },
-    login: async () => { },
-    logout: async () => { },
+    setDevMode: () => {},
+    login: async () => {},
+    logout: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -108,7 +108,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ user, token, loading, isDevMode, setDevMode, login, logout }}>
+        <AuthContext.Provider
+            value={{ user, token, loading, isDevMode, setDevMode, login, logout }}
+        >
             {children}
         </AuthContext.Provider>
     );
@@ -122,4 +124,3 @@ export function useAuth() {
     }
     return context;
 }
-

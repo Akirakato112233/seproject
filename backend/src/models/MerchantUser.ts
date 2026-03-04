@@ -7,7 +7,7 @@ export interface IMerchantUser extends Document {
   phone: string;
   address?: string;
   picture?: string;
-  businessType?: 'full' | 'coin';  // full service หรือ coin-operated
+  businessType?: 'full' | 'coin'; // full service หรือ coin-operated
   isOnboarded: boolean;
   createdAt: Date;
   updatedAt: Date;

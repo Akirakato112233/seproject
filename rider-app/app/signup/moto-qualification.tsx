@@ -1,11 +1,5 @@
 import React, { useState } from 'react';
-import {
-    View,
-    Text,
-    TouchableOpacity,
-    StyleSheet,
-    ScrollView,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useSignup } from '../../context/SignupContext';
@@ -44,7 +38,7 @@ export default function MotoQualificationScreen() {
         setAnswers(newAnswers);
 
         if (isLast) {
-            const firstNo = newAnswers.findIndex(a => a === false);
+            const firstNo = newAnswers.findIndex((a) => a === false);
             if (firstNo !== -1) {
                 setFirstNoStep(firstNo);
                 setShowInfo(true);
@@ -71,7 +65,8 @@ export default function MotoQualificationScreen() {
                 <ScrollView style={s.body} contentContainerStyle={{ paddingBottom: 16 }}>
                     <Text style={s.infoTitle}>Before you sign up</Text>
                     <Text style={s.infoSubtitle}>
-                        For everyone's safety, you need to meet all of our requirements and have the relevant documents
+                        For everyone's safety, you need to meet all of our requirements and have the
+                        relevant documents
                     </Text>
 
                     <View style={s.divider} />
@@ -79,7 +74,8 @@ export default function MotoQualificationScreen() {
                     <View style={s.infoSection}>
                         <Text style={s.sectionTitle}>Steps to register as a driver partner</Text>
                         <Text style={s.sectionBody}>
-                            Thank you for your interest. If you would like to register, you can sign up through the Wit Driver application
+                            Thank you for your interest. If you would like to register, you can sign
+                            up through the Wit Driver application
                         </Text>
                     </View>
 
@@ -88,7 +84,8 @@ export default function MotoQualificationScreen() {
                     <View style={s.infoSection}>
                         <Text style={s.sectionTitle}>Applicant qualifications</Text>
                         <Text style={s.sectionBody}>
-                            If you are under 18 years old, you are currently not eligible to register as a driver partner.
+                            If you are under 18 years old, you are currently not eligible to
+                            register as a driver partner.
                         </Text>
                     </View>
                 </ScrollView>
@@ -98,7 +95,9 @@ export default function MotoQualificationScreen() {
                         <Text style={{ fontSize: 22 }}>✅</Text>
                     </View>
                     <View style={{ flex: 1 }}>
-                        <Text style={s.proceedQuestion}>Do you have all the requirements above?</Text>
+                        <Text style={s.proceedQuestion}>
+                            Do you have all the requirements above?
+                        </Text>
                         <Text style={s.proceedLink}>Click here to proceed</Text>
                     </View>
                 </TouchableOpacity>
@@ -153,8 +152,21 @@ const s = StyleSheet.create({
     reqRow: { flexDirection: 'row', gap: 8 },
     bullet: { fontSize: 14, color: '#334155', lineHeight: 22 },
     reqText: { flex: 1, fontSize: 14, color: '#334155', lineHeight: 22 },
-    footer: { flexDirection: 'row', gap: 16, paddingHorizontal: 24, paddingBottom: 36, paddingTop: 12 },
-    btn: { flex: 1, height: 52, borderRadius: 26, backgroundColor: '#506B8F', alignItems: 'center', justifyContent: 'center' },
+    footer: {
+        flexDirection: 'row',
+        gap: 16,
+        paddingHorizontal: 24,
+        paddingBottom: 36,
+        paddingTop: 12,
+    },
+    btn: {
+        flex: 1,
+        height: 52,
+        borderRadius: 26,
+        backgroundColor: '#506B8F',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 
     infoTitle: { fontSize: 24, fontWeight: '900', color: '#0F172A', marginBottom: 8 },
