@@ -4,7 +4,7 @@
  */
 
 // ใช้ ngrok (ต้องรัน ngrok http 3000 ก่อน)
-export const BASE_URL = 'https://judith-cottony-cami.ngrok-free.dev';
+export const BASE_URL = 'https://putative-renea-whisperingly.ngrok-free.dev';
 
 /** Named API paths; all use BASE_URL as prefix. */
 export const API = {

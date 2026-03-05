@@ -16,9 +16,11 @@ import {
     SearchBar,
 } from '../components';
 import { useShops } from '../hooks/useShops';
+import { useLocation } from '../context/LocationContext';
 
 export default function SearchScreen() {
     const params = useLocalSearchParams(); // ดึงค่า params ที่ส่งมาจากหน้า Discover
+    const { currentLocation } = useLocation();
 
     const [activeModal, setActiveModal] = useState<string | null>(null);
     const [isMainModalVisible, setMainModalVisible] = useState(false);
@@ -69,6 +71,8 @@ export default function SearchScreen() {
             price: filters.price > 0 ? filters.price : undefined,
             delivery: filters.delivery !== 'Any' ? filters.delivery : undefined,
             nearMe: filters.nearMe,
+            lat: filters.nearMe && currentLocation ? currentLocation.lat : undefined,
+            lon: filters.nearMe && currentLocation ? currentLocation.lon : undefined,
         },
         useMockData: false, // เปลี่ยนเป็น false เมื่อ backend พร้อม
     });

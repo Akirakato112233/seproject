@@ -133,6 +133,22 @@ export default function ShopDetailScreen() {
         }));
     };
 
+    // คำนวณ min duration จาก washServices
+    const getMinServiceTime = () => {
+        if (!shop?.washServices || shop.washServices.length === 0) {
+            return shop?.deliveryTime || 30;
+        }
+        let minDuration = Infinity;
+        shop.washServices.forEach((service) => {
+            service.options?.forEach((option) => {
+                if (option.duration < minDuration) {
+                    minDuration = option.duration;
+                }
+            });
+        });
+        return minDuration !== Infinity ? minDuration : (shop?.deliveryTime || 30);
+    };
+
     const calculateTotal = () => {
         let total = 0;
         if (!shop) return 0;
@@ -374,10 +390,6 @@ export default function ShopDetailScreen() {
                     <TouchableOpacity style={localStyles.backButton} onPress={() => router.back()}>
                         <Ionicons name="arrow-back" size={24} color="#333" />
                     </TouchableOpacity>
-                    {/* Chat Button (feature จากเพื่อน) */}
-                    <TouchableOpacity style={localStyles.chatButton} onPress={handleGoToChat}>
-                        <Ionicons name="chatbubble-ellipses-outline" size={24} color="#333" />
-                    </TouchableOpacity>
                 </View>
 
                 {/* Shop Info */}
@@ -391,7 +403,7 @@ export default function ShopDetailScreen() {
                         <View style={localStyles.deliveryInfo}>
                             <Ionicons name="bicycle" size={16} color="#666" />
                             <Text style={localStyles.deliveryText}>
-                                ฿ {shop.deliveryFee} · From {shop.deliveryTime} mins
+                                ฿ {shop.deliveryFee} · From {getMinServiceTime()} mins
                             </Text>
                         </View>
                     </View>

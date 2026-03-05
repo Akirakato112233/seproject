@@ -14,7 +14,7 @@ WebBrowser.maybeCompleteAuthSession();
 
 const GOOGLE_WEB_CLIENT_ID =
     '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
-const BACKEND_URL = 'https://judith-cottony-cami.ngrok-free.dev';
+const BACKEND_URL = 'https://putative-renea-whisperingly.ngrok-free.dev';
 
 /**
  * Create Account Screen – Google Sign-In.
@@ -124,39 +124,6 @@ export default function CreateAccountScreen() {
         }
     };
 
-    // DEV: ข้ามหน้า login ไปหน้า Home เลย
-    const devSkipLogin = async () => {
-        try {
-            // ดึงข้อมูล dev user จาก backend
-            const response = await fetch(`${BACKEND_URL}/api/auth/dev-user`, {
-                headers: { 'ngrok-skip-browser-warning': '1' },
-            });
-            const data = await response.json();
-
-            if (data.success && data.user) {
-                await login('dev_token', data.user);
-            } else {
-                // Fallback ถ้าไม่สามารถดึงข้อมูลจาก backend ได้
-                await login('dev_token', {
-                    _id: '698e27ff93d8fdbda13bb05c',
-                    displayName: 'Dev user',
-                    email: 'dev-user@example.com',
-                    balance: 9999,
-                } as any);
-            }
-        } catch (error) {
-            // Fallback ถ้าเกิด error
-            await login('dev_token', {
-                _id: '698e27ff93d8fdbda13bb05c',
-                displayName: 'Dev user',
-                email: 'dev-user@example.com',
-                balance: 10000,
-            } as any);
-        }
-
-        router.replace('/(tabs)');
-    };
-
     return (
         <SafeAreaView style={s.safe}>
             <View style={s.container}>
@@ -180,17 +147,6 @@ export default function CreateAccountScreen() {
                         </View>
                         <Text style={s.btnText}>Continue with Google</Text>
                     </TouchableOpacity>
-
-                    {/* DEV: Skip Login Button */}
-                    {__DEV__ && (
-                        <TouchableOpacity
-                            style={[s.btn, { backgroundColor: '#FF6B00' }]}
-                            activeOpacity={0.85}
-                            onPress={devSkipLogin}
-                        >
-                            <Text style={s.btnText}>DEV: Skip Login</Text>
-                        </TouchableOpacity>
-                    )}
 
                     <Text style={s.terms}>
                         By continuing, you agree to our Terms of Service and Privacy Policy

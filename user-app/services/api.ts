@@ -15,6 +15,8 @@ export interface FilterParams {
     nearMe?: boolean;
     promo?: boolean;
     open?: boolean;
+    lat?: number;
+    lon?: number;
 }
 
 /**
@@ -30,6 +32,8 @@ export const getShops = async (filters?: FilterParams): Promise<LaundryShop[]> =
             if (filters.price) queryParams.append('price', filters.price.toString());
             if (filters.delivery) queryParams.append('delivery', filters.delivery);
             if (filters.nearMe) queryParams.append('nearMe', 'true');
+            if (filters.lat) queryParams.append('lat', filters.lat.toString());
+            if (filters.lon) queryParams.append('lon', filters.lon.toString());
             if (filters.promo) queryParams.append('promo', 'true');
             if (filters.open) queryParams.append('open', 'true');
         }

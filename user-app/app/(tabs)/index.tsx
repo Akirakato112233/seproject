@@ -269,20 +269,6 @@ export default function HomeScreen() {
                     <View style={[s.action, { opacity: 0 }]} />
                 </View>
             </View>
-
-            {/* DEV MODE BUTTON */}
-            {__DEV__ && (
-                <TouchableOpacity
-                    style={s.devBtn}
-                    activeOpacity={0.8}
-                    onPress={devCreateTestOrder}
-                    disabled={devLoading}
-                >
-                    <Text style={s.devBtnText}>
-                        {devLoading ? 'Creating...' : 'DEV: Create Test Order'}
-                    </Text>
-                </TouchableOpacity>
-            )}
         </SafeAreaView>
     );
 }

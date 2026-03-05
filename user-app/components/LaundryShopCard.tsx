@@ -4,6 +4,17 @@ import React from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
 import { styles } from '../style/myStyle';
 
+interface WashServiceOption {
+    setting: string;
+    duration: number;
+    price: number;
+}
+
+interface WashService {
+    weight: number;
+    options: WashServiceOption[];
+}
+
 export interface LaundryShop {
     _id: string;
     id?: string;
@@ -17,6 +28,7 @@ export interface LaundryShop {
     imageUrl?: string;
     status?: boolean; // true = เปิด, false = ปิด (default true)
     openingHours?: { days: string[]; open: string; close: string }[];
+    washServices?: WashService[];
 }
 
 interface LaundryShopCardProps {
@@ -35,6 +47,23 @@ export const LaundryShopCard: React.FC<LaundryShopCardProps> = ({ shop, onPress 
     const priceLevelText = '$'.repeat(shop.priceLevel);
     const typeText = shop.type === 'coin' ? 'Coin Laundry' : 'Full-service Laundry';
     const isClosed = shop.status === false;
+
+    // คำนวณ min duration จาก washServices
+    const getMinDuration = () => {
+        if (shop.washServices && shop.washServices.length > 0) {
+            let minDuration = Infinity;
+            shop.washServices.forEach((service) => {
+                service.options?.forEach((option) => {
+                    if (option.duration < minDuration) {
+                        minDuration = option.duration;
+                    }
+                });
+            });
+            return minDuration !== Infinity ? minDuration : shop.deliveryTime;
+        }
+        return shop.deliveryTime;
+    };
+    const minServiceTime = getMinDuration();
 
     return (
         <TouchableOpacity
@@ -114,7 +143,7 @@ export const LaundryShopCard: React.FC<LaundryShopCardProps> = ({ shop, onPress 
 
                 {/* ค่าจัดส่งและเวลา */}
                 <Text style={styles.deliveryInfo}>
-                    ฿ {shop.deliveryFee} · From {shop.deliveryTime} mins
+                    ฿ {shop.deliveryFee} · From {minServiceTime} mins
                 </Text>
             </View>
         </TouchableOpacity>
