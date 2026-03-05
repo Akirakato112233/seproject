@@ -4,6 +4,8 @@ import { API } from '../config';
 export interface SignupData {
     // จาก Google ตอนเริ่ม signup (ส่งไป backend เพื่อให้ login ครั้งถัดไปเข้าได้เลย)
     email?: string;
+    /** token ชั่วคราวจาก backend ตอนได้ next: REGISTER ใช้ตอนสมัครครบแล้วเรียก complete-login */
+    tempToken?: string;
     // Basic (register.tsx)
     firstName: string;
     lastName: string;
@@ -46,6 +48,7 @@ interface SignupContextType {
 
 const defaultData: SignupData = {
     email: undefined,
+    tempToken: undefined,
     firstName: '',
     lastName: '',
     phone: '',

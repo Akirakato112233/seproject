@@ -3,8 +3,12 @@
  * For local dev, use ngrok (run `ngrok http 3000`) and set BASE_URL to the ngrok URL.
  */
 
-// ใช้ ngrok (ต้องรัน ngrok http 3000 ก่อน)
-export const BASE_URL = 'https://putative-renea-whisperingly.ngrok-free.dev';
+// ใช้ ngrok (ต้องรัน ngrok http 3000 ก่อน) — ใส่ใน .env ได้: EXPO_PUBLIC_BASE_URL=https://xxx.ngrok-free.dev
+const _envUrl = process.env.EXPO_PUBLIC_BASE_URL?.trim();
+export const BASE_URL =
+    _envUrl && _envUrl.startsWith('http')
+        ? _envUrl
+        : 'https://nonheritably-panpsychistic-joannie.ngrok-free.dev';
 
 /** Named API paths; all use BASE_URL as prefix. */
 export const API = {

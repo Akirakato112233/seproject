@@ -13,9 +13,11 @@
  */
 
 import { Request, Response } from 'express';
+import { AuthRequest } from '../middleware/auth';
 import { Rider } from '../models/Rider';
 import { RiderRegistration } from '../models/RiderRegistration';
 import { User } from '../models/User';
+import { signAppToken, verifyToken } from '../utils/tokens';
 
 /**
  * POST /api/riders/register
@@ -129,11 +131,79 @@ export const registerRider = async (req: Request, res: Response) => {
       status: 'pending',
     });
 
-    console.log('✅ New Rider Registration:', registration._id, fullName, '—', vehicleType);
     return res.status(201).json({ success: true, registrationId: registration._id });
   } catch (error) {
     console.error('❌ Register Rider Error:', error);
     return res.status(500).json({ success: false, message: 'Failed to register rider' });
+  }
+};
+
+function isRiderRegistrationComplete(reg: { packageChoice?: string; agreedCodeOfConduct?: boolean } | null): boolean {
+  return !!(reg && reg.packageChoice && String(reg.packageChoice).trim() && reg.agreedCodeOfConduct === true);
+}
+
+// POST /api/riders/registrations/complete-login — หลังสมัครครบ (กดส่งที่แพ็กเกจ) ใช้ tempToken + registrationId ขอ APP token เพื่อเข้าแอปเลย
+export const completeLoginRider = async (req: Request, res: Response) => {
+  try {
+    const { tempToken, registrationId } = req.body;
+    if (!tempToken || !registrationId) {
+      return res.status(400).json({ success: false, message: 'tempToken and registrationId required' });
+    }
+    let decoded: { email?: string; googleSub?: string; name?: string };
+    try {
+      decoded = verifyToken(tempToken);
+    } catch {
+      return res.status(401).json({ success: false, message: 'Invalid or expired temp token' });
+    }
+    const emailLower = (decoded.email && String(decoded.email).trim().toLowerCase()) || '';
+    if (!emailLower) {
+      return res.status(400).json({ success: false, message: 'Token missing email' });
+    }
+    const reg = await RiderRegistration.findById(registrationId).lean();
+    if (!reg) {
+      return res.status(404).json({ success: false, message: 'Registration not found' });
+    }
+    const regEmail = (reg as any).email ? String((reg as any).email).trim().toLowerCase() : '';
+    const emailRegex = new RegExp(`^${emailLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+    if (!regEmail || !emailRegex.test(regEmail)) {
+      return res.status(403).json({ success: false, message: 'Registration email does not match' });
+    }
+    if (!isRiderRegistrationComplete(reg)) {
+      return res.status(400).json({ success: false, message: 'Registration not complete' });
+    }
+    let user = await User.findOne({ email: new RegExp(`^${emailLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'), role: 'rider' }).lean();
+    if (!user) {
+      const username = `${emailLower}_rider`;
+      const newUser = await User.create({
+        googleSub: decoded.googleSub || undefined,
+        email: emailLower,
+        username,
+        displayName: (reg as any).fullName || decoded.name || '',
+        phone: (reg as any).phone || '',
+        address: (reg as any).address || '',
+        balance: 0,
+        role: 'rider',
+        isOnboarded: true,
+      });
+      user = newUser.toObject();
+    }
+    const token = signAppToken({ userId: (user as any)._id.toString() });
+    return res.json({
+      success: true,
+      token,
+      user: {
+        id: (user as any)._id,
+        email: (user as any).email,
+        displayName: (user as any).displayName,
+        phone: (user as any).phone,
+        address: (user as any).address,
+        balance: (user as any).balance ?? 0,
+        role: (user as any).role,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Complete Login Rider Error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
@@ -788,10 +858,34 @@ export const deleteEmergencyContact = async (req: Request, res: Response) => {
   }
 };
 
-// GET /api/riders/registrations/latest
-export const getLatestRegistration = async (req: Request, res: Response) => {
+// GET /api/riders/registrations/latest - ดึง registration ของ user ที่ล็อกอิน (กรองตาม email จาก JWT, fallback ตาม phone)
+export const getLatestRegistration = async (req: AuthRequest, res: Response) => {
   try {
-    const registration = await RiderRegistration.findOne().sort({ createdAt: -1 }).lean();
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+    const user = await User.findById(userId).lean();
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'No registrations found' });
+    }
+    let registration = null;
+    const emailStr = user.email ? String(user.email).trim() : '';
+    const emailLower = emailStr.toLowerCase();
+    if (emailLower) {
+      const emailRegex = new RegExp(`^${emailLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+      registration = await RiderRegistration.findOne({ email: emailRegex })
+        .sort({ createdAt: -1 })
+        .lean();
+    }
+    if (!registration && user.phone) {
+      const phoneStr = String(user.phone).trim();
+      registration = await RiderRegistration.findOne({
+        $or: [{ phone: phoneStr }, { phone: phoneStr.replace(/^0/, '') }, { phone: '0' + phoneStr.replace(/^0/, '') }],
+      })
+        .sort({ createdAt: -1 })
+        .lean();
+    }
     if (!registration) {
       return res.status(404).json({ success: false, message: 'No registrations found' });
     }

@@ -5,7 +5,7 @@
  * RiderRegistration document (max 3 entries).
  */
 
-import { API } from '../config';
+import { API, NGROK_HEADERS } from '../config';
 import type { EmergencyContact, ApiResponse } from '../types';
 
 const MAX_CONTACTS = 3;
@@ -18,7 +18,7 @@ const MAX_CONTACTS = 3;
  */
 export async function fetchEmergencyContacts(registrationId: string): Promise<EmergencyContact[]> {
     try {
-        const res = await fetch(`${API.RIDERS}/registrations/${registrationId}/emergency-contacts`);
+        const res = await fetch(`${API.RIDERS}/registrations/${registrationId}/emergency-contacts`, { headers: NGROK_HEADERS });
         const json: ApiResponse<EmergencyContact[]> = await res.json();
         return json.success && json.data ? json.data : [];
     } catch (err) {
@@ -42,7 +42,7 @@ export async function addEmergencyContact(
             `${API.RIDERS}/registrations/${registrationId}/emergency-contacts`,
             {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
                 body: JSON.stringify({
                     name: payload.name.trim(),
                     phone: payload.phone.trim(),
@@ -75,7 +75,7 @@ export async function updateEmergencyContact(
             `${API.RIDERS}/registrations/${registrationId}/emergency-contacts/${contactId}`,
             {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
                 body: JSON.stringify({
                     name: payload.name.trim(),
                     phone: payload.phone.trim(),
@@ -102,7 +102,7 @@ export async function deleteEmergencyContact(
     try {
         const res = await fetch(
             `${API.RIDERS}/registrations/${registrationId}/emergency-contacts/${contactId}`,
-            { method: 'DELETE' }
+            { method: 'DELETE', headers: NGROK_HEADERS }
         );
         return await res.json();
     } catch (err) {

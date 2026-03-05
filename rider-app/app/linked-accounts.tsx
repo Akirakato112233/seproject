@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
-import { API } from '../config';
+import { API, NGROK_HEADERS } from '../config';
 
 function GoogleIcon({ dimmed }: { dimmed?: boolean }) {
     return (
@@ -21,7 +21,7 @@ export default function LinkedAccountsScreen() {
     const { registrationId } = useLocalSearchParams<{
         registrationId: string;
     }>();
-    const { user } = useAuth();
+    const { user, token } = useAuth();
 
     const isLoggedInWithGoogle = !!user?.email;
 
@@ -29,10 +29,11 @@ export default function LinkedAccountsScreen() {
 
     useFocusEffect(
         useCallback(() => {
-            if (!registrationId) return;
+            if (!registrationId || !token) return;
             (async () => {
                 try {
-                    const res = await fetch(`${API.RIDERS}/registrations/latest`);
+                    const headers: HeadersInit = { ...NGROK_HEADERS, Authorization: `Bearer ${token}` };
+                    const res = await fetch(`${API.RIDERS}/registrations/latest`, { headers });
                     const json = await res.json();
                     if (json.success && json.data) {
                         const fromApi = json.data.linkedGoogle;
@@ -41,14 +42,14 @@ export default function LinkedAccountsScreen() {
                         if (isLoggedInWithGoogle && fromApi !== true) {
                             fetch(`${API.RIDERS}/registrations/${registrationId}/linked-accounts`, {
                                 method: 'PATCH',
-                                headers: { 'Content-Type': 'application/json' },
+                                headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
                                 body: JSON.stringify({ linkedGoogle: true }),
                             }).catch(() => {});
                         }
                     }
                 } catch (_) {}
             })();
-        }, [registrationId, isLoggedInWithGoogle])
+        }, [registrationId, isLoggedInWithGoogle, token])
     );
 
     const handleToggle = async (val: boolean) => {
@@ -60,7 +61,7 @@ export default function LinkedAccountsScreen() {
         try {
             await fetch(`${API.RIDERS}/registrations/${registrationId}/linked-accounts`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
                 body: JSON.stringify({ linkedGoogle: val }),
             });
         } catch (_) {}

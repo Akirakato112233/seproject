@@ -18,6 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { uploadDocument } from '../../services/uploadBackgroundDoc';
 import { Config } from '../../constants/config';
+import { NGROK_HEADERS } from '../../config';
 
 // เปลี่ยน path นี้ให้เป็นไฟล์รูปใหม่ที่เซฟไว้ใน assets/images
 const VERIFY_HERO = require('../../assets/images/verify-doc-hero.png');
@@ -182,7 +183,7 @@ export default function VerifyDocumentsScreen() {
                 `${Config.API_URL}/riders/registrations/${encodeURIComponent(regId)}/background-check`,
                 {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
                     body: JSON.stringify({
                         nationalId: nationalId.trim(),
                         addressOnId: addressOnId.trim(),

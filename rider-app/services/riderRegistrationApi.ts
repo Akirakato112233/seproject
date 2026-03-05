@@ -5,7 +5,7 @@
  * collection so that screen components never import `fetch` directly.
  */
 
-import { API } from '../config';
+import { API, NGROK_HEADERS } from '../config';
 import type {
     RegistrationData,
     ApiResponse,
@@ -18,13 +18,14 @@ import type {
 /* ------------------------------------------------------------------ */
 
 /**
- * Fetch the most recently created rider registration.
- * Used on the Account and Settings screens when the app
- * does not yet have proper per-user auth.
+ * Fetch the latest rider registration for the logged-in user.
+ * Requires token (backend returns registration for that user's email only).
  */
-export async function fetchLatestRegistration(): Promise<RegistrationData | null> {
+export async function fetchLatestRegistration(token: string | null): Promise<RegistrationData | null> {
+    if (!token) return null;
     try {
-        const res = await fetch(`${API.RIDERS}/registrations/latest`);
+        const headers: HeadersInit = { ...NGROK_HEADERS, Authorization: `Bearer ${token}` };
+        const res = await fetch(`${API.RIDERS}/registrations/latest`, { headers });
         const json: ApiResponse<RegistrationData> = await res.json();
         return json.success && json.data ? json.data : null;
     } catch (err) {
@@ -43,6 +44,7 @@ export async function deleteRegistration(registrationId: string): Promise<boolea
     try {
         const res = await fetch(`${API.RIDERS}/registrations/${registrationId}`, {
             method: 'DELETE',
+            headers: NGROK_HEADERS,
         });
         const json: ApiResponse = await res.json();
         return !!json.success;
@@ -69,7 +71,7 @@ export async function updateCommunications(
     try {
         const res = await fetch(`${API.RIDERS}/registrations/${registrationId}/communications`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
             body: JSON.stringify(prefs),
         });
         const json: ApiResponse<CommunicationPreferences> = await res.json();
@@ -94,7 +96,7 @@ export async function updateLinkedAccounts(
     try {
         const res = await fetch(`${API.RIDERS}/registrations/${registrationId}/linked-accounts`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
             body: JSON.stringify(prefs),
         });
         const json: ApiResponse<LinkedAccountPreferences> = await res.json();

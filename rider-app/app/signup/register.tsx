@@ -33,13 +33,14 @@ const COUNTRIES = [{ label: '+66', flag: '🇹🇭', value: '+66' }];
 
 export default function RegisterScreen() {
     const router = useRouter();
-    const params = useLocalSearchParams<{ email?: string }>();
+    const params = useLocalSearchParams<{ email?: string; tempToken?: string }>();
     const { setDevMode } = useAuth();
     const { setField } = useSignup();
 
     useEffect(() => {
         if (params.email) setField('email', params.email);
-    }, [params.email]);
+        if (params.tempToken) setField('tempToken', params.tempToken);
+    }, [params.email, params.tempToken]);
 
     // ปุ่มกลับของเครื่อง (Android): ไป create-account แทน GO_BACK (กัน stack ผิด)
     useEffect(() => {

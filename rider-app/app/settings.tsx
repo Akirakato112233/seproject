@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDelivery } from '../context/DeliveryContext';
 import { useAuth } from '../context/AuthContext';
-import { API } from '../config';
+import { API, NGROK_HEADERS } from '../config';
 
 interface RegData {
     _id: string;
@@ -18,19 +18,21 @@ interface RegData {
 export default function SettingsScreen() {
     const router = useRouter();
     const { isOnline, autoAccept, toggleAutoAccept } = useDelivery();
-    const { user, logout, isDevMode, setDevMode } = useAuth();
+    const { user, token, logout, isDevMode, setDevMode } = useAuth();
     const [reg, setReg] = useState<RegData | null>(null);
 
     useFocusEffect(
         useCallback(() => {
+            if (!token) return;
             (async () => {
                 try {
-                    const res = await fetch(`${API.RIDERS}/registrations/latest`);
+                    const headers: HeadersInit = { ...NGROK_HEADERS, Authorization: `Bearer ${token}` };
+                    const res = await fetch(`${API.RIDERS}/registrations/latest`, { headers });
                     const json = await res.json();
                     if (json.success && json.data) setReg(json.data);
                 } catch (_) {}
             })();
-        }, [])
+        }, [token])
     );
 
     const handleLogout = () => {
@@ -39,9 +41,9 @@ export default function SettingsScreen() {
             {
                 text: 'Log Out',
                 style: 'destructive',
-                onPress: () => {
-                    logout();
-                    router.replace('/');
+                onPress: async () => {
+                    await logout();
+                    router.replace('/create-account');
                 },
             },
         ]);

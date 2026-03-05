@@ -3,10 +3,12 @@ import { View, Text, StyleSheet, TouchableOpacity, Switch, Alert } from 'react-n
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { API } from '../config';
+import { useAuth } from '../context/AuthContext';
+import { API, NGROK_HEADERS } from '../config';
 
 export default function CommunicationsScreen() {
     const router = useRouter();
+    const { token } = useAuth();
     const { registrationId, hasEmail } = useLocalSearchParams<{
         registrationId: string;
         hasEmail?: string;
@@ -18,10 +20,11 @@ export default function CommunicationsScreen() {
 
     useFocusEffect(
         useCallback(() => {
-            if (!registrationId) return;
+            if (!registrationId || !token) return;
             (async () => {
                 try {
-                    const res = await fetch(`${API.RIDERS}/registrations/latest`);
+                    const headers: HeadersInit = { ...NGROK_HEADERS, Authorization: `Bearer ${token}` };
+                    const res = await fetch(`${API.RIDERS}/registrations/latest`, { headers });
                     const json = await res.json();
                     if (json.success && json.data) {
                         setEmailOn(!!json.data.marketingEmail);
@@ -29,14 +32,14 @@ export default function CommunicationsScreen() {
                     }
                 } catch (_) {}
             })();
-        }, [registrationId])
+        }, [registrationId, token])
     );
 
     const update = async (field: 'marketingEmail' | 'marketingPhone', value: boolean) => {
         try {
             await fetch(`${API.RIDERS}/registrations/${registrationId}/communications`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
                 body: JSON.stringify({ [field]: value }),
             });
         } catch (_) {

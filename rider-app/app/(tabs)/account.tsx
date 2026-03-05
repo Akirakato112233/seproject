@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
-import { API } from '../../config';
+import { API, NGROK_HEADERS } from '../../config';
 
 interface RegistrationData {
     _id: string;
@@ -35,7 +35,7 @@ interface RegistrationData {
 
 export default function AccountScreen() {
     const router = useRouter();
-    const { token, logout } = useAuth();
+    const { token, logout, user } = useAuth();
     const [data, setData] = useState<RegistrationData | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -43,23 +43,32 @@ export default function AccountScreen() {
 
     useFocusEffect(
         useCallback(() => {
+            if (!token) {
+                setLoading(false);
+                return;
+            }
+            setLoading(true);
             fetchRegistration();
-        }, [])
+        }, [token])
     );
 
     const fetchRegistration = async () => {
         try {
             setError(false);
-            const headers: HeadersInit = {};
+            const headers: HeadersInit = { ...NGROK_HEADERS };
             if (token) headers['Authorization'] = `Bearer ${token}`;
             const res = await fetch(`${API.RIDERS}/registrations/latest`, { headers });
             const json = await res.json();
             if (json.success && json.data) {
                 setData(json.data);
+            } else {
+                setData(null);
+                setError(true);
             }
         } catch (err) {
             console.error('Failed to fetch registration:', err);
             setError(true);
+            setData(null);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -83,7 +92,7 @@ export default function AccountScreen() {
                     onPress: async () => {
                         if (!data?._id) return;
                         try {
-                            const headers: HeadersInit = {};
+                            const headers: HeadersInit = { ...NGROK_HEADERS };
                             if (token) headers['Authorization'] = `Bearer ${token}`;
                             const res = await fetch(`${API.RIDERS}/registrations/${data._id}`, {
                                 method: 'DELETE',
@@ -183,7 +192,7 @@ export default function AccountScreen() {
                     <View style={s.divider} />
                     <View style={s.field}>
                         <Text style={s.fieldLabel}>Email Address</Text>
-                        <Text style={s.fieldValue}>Not set</Text>
+                        <Text style={s.fieldValue}>{user?.email || data?.email || '—'}</Text>
                     </View>
                     <View style={s.divider} />
                     <TouchableOpacity

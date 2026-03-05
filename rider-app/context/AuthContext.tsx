@@ -43,25 +43,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Dev move: ใช้แอปได้โดยไม่ต้อง login ก่อน (เปิดเป็น true ไว้ก่อน)
     const [isDevMode, setIsDevMode] = useState(false);
 
-    // Load token, user, and dev mode from AsyncStorage on app start
+    // โหลดเฉพาะ dev mode; ไม่ restore token/user เพื่อให้ทุกครั้งที่เปิดแอปต้องไปหน้า Create an account
     useEffect(() => {
         const loadAuth = async () => {
             try {
-                const [savedToken, savedUser, savedDevMode] = await Promise.all([
-                    AsyncStorage.getItem(TOKEN_KEY),
-                    AsyncStorage.getItem(USER_KEY),
-                    AsyncStorage.getItem(DEV_MODE_KEY),
-                ]);
-
-                if (savedToken && savedUser) {
-                    const parsed = JSON.parse(savedUser);
-                    setToken(savedToken);
-                    setUser({ ...parsed, _id: parsed._id ?? parsed.id });
-                    console.log('Auth loaded from storage');
-                }
+                const savedDevMode = await AsyncStorage.getItem(DEV_MODE_KEY);
                 if (savedDevMode === 'true') {
                     setIsDevMode(true);
                 }
+                // ล้าง token/user ที่เก็บไว้จากครั้งก่อน เพื่อบังคับให้ต้องล็อกอินทุกครั้งที่เปิดแอป
+                await AsyncStorage.removeItem(TOKEN_KEY);
+                await AsyncStorage.removeItem(USER_KEY);
             } catch (error) {
                 console.error('Error loading auth:', error);
             } finally {

@@ -9,6 +9,11 @@ import { signAppToken, signTempToken, verifyToken } from '../utils/tokens';
 
 const router = Router();
 
+/** สมัคร rider ครบทุกขั้นตอนหรือยัง (ถึงขั้น terms + แพ็กเกจ) */
+function isRiderRegistrationComplete(reg: { packageChoice?: string; agreedCodeOfConduct?: boolean } | null): boolean {
+  return !!(reg && reg.packageChoice && String(reg.packageChoice).trim() && reg.agreedCodeOfConduct === true);
+}
+
 /**
  * POST /api/google/login
  * Verify Google access token and check if user exists
@@ -54,9 +59,37 @@ router.post('/login', async (req: Request, res: Response) => {
       user = await User.findOne({ email: emailRegex!, role });
     }
     // ถ้ามี user ด้วยอีเมลนี้อยู่แล้ว (ไม่ว่าจะ role อะไร) = อยู่ในระบบแล้ว → ให้เข้าแอปได้เลย
+    // แต่สำหรับ rider ต้องผ่านการสมัคร rider (มี RiderRegistration) แล้วเท่านั้น ไม่งั้นให้ไป REGISTER
     if (!user && emailLower) {
       const existingByEmail = await User.findOne({ email: emailRegex! });
       if (existingByEmail) {
+        if (role === 'rider') {
+          const hasRiderReg = await RiderRegistration.findOne({
+            email: { $regex: new RegExp(`^${emailLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+          })
+            .sort({ createdAt: -1 })
+            .lean();
+          if (!hasRiderReg || !isRiderRegistrationComplete(hasRiderReg)) {
+            // ยังไม่เคยสมัคร rider หรือกรอกขั้นตอนไม่ครบ → ส่งไปหน้า regis
+            const tempToken = signTempToken({
+              googleSub,
+              email,
+              name: googleProfile.name || '',
+              picture: googleProfile.picture || '',
+              role,
+            });
+            return res.json({
+              next: 'REGISTER',
+              tempToken,
+              profile: {
+                googleSub,
+                email,
+                name: googleProfile.name,
+                picture: googleProfile.picture,
+              },
+            });
+          }
+        }
         if (!existingByEmail.googleSub) {
           existingByEmail.googleSub = googleSub;
           await existingByEmail.save().catch(() => { });
@@ -78,14 +111,14 @@ router.post('/login', async (req: Request, res: Response) => {
       }
     }
 
-    // No User for this role → ถ้าเป็น rider และมี RiderRegistration กับเมลนี้แล้ว = เคย regis แล้ว ให้สร้าง User (หรือใช้ของเดิมถ้ามีแล้ว)
+    // No User for this role → ถ้าเป็น rider และมี RiderRegistration กับเมลนี้แล้ว และกรอกครบทุกขั้น = ให้สร้าง User / เข้าแอป
     if (!user && role === 'rider' && emailLower) {
       const reg = await RiderRegistration.findOne({
         email: { $regex: new RegExp(`^${emailLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
       })
         .sort({ createdAt: -1 })
         .lean();
-      if (reg) {
+      if (reg && isRiderRegistrationComplete(reg)) {
         // อาจมี User อยู่แล้ว (สร้างจากครั้งก่อนหรือ race) – เช็คอีกครั้งก่อน create
         let existing = await User.findOne({ googleSub, role });
         if (!existing && emailLower) {
@@ -212,6 +245,43 @@ router.post('/login', async (req: Request, res: Response) => {
       });
     }
 
+    // สำหรับ rider: ต้องมี RiderRegistration ล่าสุดที่กรอกครบทุกขั้นแล้วเท่านั้นถึงจะเข้าแอปได้
+    if (role === 'rider' && user.email) {
+      const riderEmail = String(user.email).trim().toLowerCase();
+      const reg = await RiderRegistration.findOne({
+        email: {
+          $regex: new RegExp(
+            `^${riderEmail.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`,
+            'i'
+          ),
+        },
+      })
+        .sort({ createdAt: -1 })
+        .lean();
+
+      if (!reg || !isRiderRegistrationComplete(reg)) {
+        const tempToken = signTempToken({
+          userId: user._id.toString(),
+          role,
+          googleSub: user.googleSub,
+          email: user.email,
+          name: user.displayName || '',
+          picture: '',
+        });
+
+        return res.json({
+          next: 'REGISTER',
+          tempToken,
+          profile: {
+            googleSub: user.googleSub,
+            email: user.email,
+            name: user.displayName,
+            picture: '',
+          },
+        });
+      }
+    }
+
     const token = signAppToken({ userId: user._id.toString() });
     return res.json({
       next: 'APP',
@@ -320,7 +390,7 @@ router.get('/start', (req: Request, res: Response) => {
   const redirectScheme = (req.query.redirect_scheme as string) || 'exp://192.168.2.40:8081';
   const GOOGLE_CLIENT_ID =
     '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
-  const CALLBACK_URL = `${process.env.NGROK_URL || 'https://putative-renea-whisperingly.ngrok-free.dev'}/api/google/callback`;
+  const CALLBACK_URL = `${process.env.NGROK_URL || 'https://nonheritably-panpsychistic-joannie.ngrok-free.dev'}/api/google/callback`;
 
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
@@ -329,6 +399,7 @@ router.get('/start', (req: Request, res: Response) => {
     scope: 'openid profile email',
     access_type: 'offline',
     state: redirectScheme, // pass app scheme in state
+    prompt: 'select_account', // ให้เลือกบัญชีทุกครั้ง (หลัง Log Out จะได้เลือกเมลอื่นได้)
   });
 
   const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
@@ -347,7 +418,7 @@ router.get('/callback', async (req: Request, res: Response) => {
     const GOOGLE_CLIENT_ID =
       '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
     const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
-    const CALLBACK_URL = `${process.env.NGROK_URL || 'https://putative-renea-whisperingly.ngrok-free.dev'}/api/google/callback`;
+    const CALLBACK_URL = `${process.env.NGROK_URL || 'https://nonheritably-panpsychistic-joannie.ngrok-free.dev'}/api/google/callback`;
 
     if (!code) {
       return res.status(400).send('Missing authorization code');

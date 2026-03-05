@@ -76,7 +76,8 @@ export default function HomeScreen() {
     const [offerExpiresAt, setOfferExpiresAt] = useState<number | null>(null);
     const [nowTick, setNowTick] = useState(Date.now());
 
-    const showOffer = isOnline && !!firstRequest && !active && !showSuccessModal;
+    // แสดง popup งานเมื่อออนไลน์และเปิด Auto Accept เท่านั้น ถ้าปิด Auto Accept งานไม่เด้งอัตโนมัติ
+    const showOffer = isOnline && autoAccept && !!firstRequest && !active && !showSuccessModal;
 
     const remainingMs = useMemo(() => {
         if (!offerExpiresAt) return 0;

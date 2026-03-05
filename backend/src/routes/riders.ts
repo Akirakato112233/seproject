@@ -1,9 +1,11 @@
 import { Router } from 'express';
+import { authenticateToken } from '../middleware/auth';
 import {
   getRiderById,
   getRandomRiderId,
   getLatestRegistration,
   registerRider,
+  completeLoginRider,
   deleteRegistration,
   updateRegistrationBackgroundCheck,
   updateRegistrationConsent,
@@ -24,11 +26,14 @@ import {
 
 const router = Router();
 
-// GET /api/riders/registrations/latest - ดึงข้อมูลผู้สมัคร rider ล่าสุด
-router.get('/registrations/latest', getLatestRegistration);
+// GET /api/riders/registrations/latest - ดึง registration ของ user ที่ล็อกอิน (ต้องส่ง Authorization)
+router.get('/registrations/latest', authenticateToken, getLatestRegistration);
 
 // POST /api/riders/register - บันทึกข้อมูล rider ใหม่ (ไม่ต้อง auth)
 router.post('/register', registerRider);
+
+// POST /api/riders/registrations/complete-login - หลังสมัครครบ ส่ง tempToken + registrationId ได้ APP token เข้าแอปเลย
+router.post('/registrations/complete-login', completeLoginRider);
 
 // PATCH /api/riders/registrations/:registrationId/background-check - ต่อข้อมูล verify-documents เข้า rider_registrations
 router.patch('/registrations/:registrationId/background-check', updateRegistrationBackgroundCheck);

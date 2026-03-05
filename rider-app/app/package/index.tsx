@@ -15,7 +15,10 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../../context/AuthContext';
+import { useSignup } from '../../context/SignupContext';
 import { Config } from '../../constants/config';
+import { API, NGROK_HEADERS } from '../../config';
 
 const ILLUSTRATION = require('../../assets/images/package-hero.png');
 
@@ -36,6 +39,8 @@ const DISCLAIMER =
 export default function PackageScreen() {
     const router = useRouter();
     const { registrationId } = useLocalSearchParams<{ registrationId?: string }>();
+    const { login } = useAuth();
+    const { data: signupData } = useSignup();
     const insets = useSafeAreaInsets();
     const [province, setProvince] = useState('');
     const [district, setDistrict] = useState('');
@@ -88,6 +93,18 @@ export default function PackageScreen() {
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
                 throw new Error(err.message || `Request failed ${res.status}`);
+            }
+            const tempToken = signupData.tempToken;
+            if (tempToken) {
+                const loginRes = await fetch(`${API.RIDERS}/registrations/complete-login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
+                    body: JSON.stringify({ tempToken, registrationId: regId }),
+                });
+                const loginJson = await loginRes.json();
+                if (loginJson.success && loginJson.token && loginJson.user) {
+                    await login(loginJson.token, loginJson.user);
+                }
             }
             router.replace('/(tabs)');
         } catch (e) {
