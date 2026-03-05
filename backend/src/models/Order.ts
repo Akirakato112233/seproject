@@ -4,6 +4,8 @@ export interface IOrder extends Document {
   userId: string; // username ของ user (เช่น demo_user)
   userDisplayName: string; // ชื่อที่แสดงของ user (เช่น Bakugoa ku)
   userAddress: string; // ที่อยู่ของ user
+  userLat?: number; // พิกัดลูกค้า (สำหรับไรเดอร์ไปส่ง)
+  userLon?: number;
   shopId: string; // _id ของร้าน
   shopName: string; // ชื่อร้าน
   items: {
@@ -88,6 +90,8 @@ const OrderSchema: Schema = new Schema(
     userId: { type: String, required: true, default: 'demo_user' },
     userDisplayName: { type: String, default: '' },
     userAddress: { type: String, default: '' },
+    userLat: { type: Number, required: false },
+    userLon: { type: Number, required: false },
     shopId: { type: String, required: true },
     shopName: { type: String, required: true },
     items: [

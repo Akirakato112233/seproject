@@ -62,6 +62,28 @@ const DEFAULT_COORDS = {
     longitude: 100.9274,
 };
 
+/** คำนวณระยะเป็น km (Haversine) */
+function distanceKm(
+    a: { latitude: number; longitude: number },
+    b: { latitude: number; longitude: number }
+): number {
+    const R = 6371;
+    const dLat = ((b.latitude - a.latitude) * Math.PI) / 180;
+    const dLon = ((b.longitude - a.longitude) * Math.PI) / 180;
+    const x =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((a.latitude * Math.PI) / 180) *
+            Math.cos((b.latitude * Math.PI) / 180) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+    return R * c;
+}
+
+function formatDistanceKm(km: number): string {
+    return `${km.toFixed(1)} km`;
+}
+
 export default function JobScreen() {
     const router = useRouter();
     const webViewRef = useRef<WebView | null>(null);
@@ -95,6 +117,12 @@ export default function JobScreen() {
             return active.shop ?? active.pickup;
         return active.dropoff;
     }, [active, stage]);
+
+    /** ระยะจริงจากเราไปจุดหมาย (อัปเดตตาม myCoord) */
+    const displayDistance = useMemo(() => {
+        if (!target) return active?.distance ?? '— km';
+        return formatDistanceKm(distanceKm(myCoord, target));
+    }, [myCoord, target, active?.distance]);
 
     // location permission + real-time tracking
     useEffect(() => {
@@ -498,7 +526,7 @@ export default function JobScreen() {
 
                 <View style={s.metaRow}>
                     <Text style={s.metaText}>
-                        {active.distance} • {active.items} items
+                        {displayDistance} • {active.items} items
                     </Text>
                     <Text style={s.feeText}>{active.fee.toFixed(2)}฿</Text>
                 </View>

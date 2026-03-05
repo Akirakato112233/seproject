@@ -40,6 +40,29 @@ function formatOrderId(id: string) {
     return `#${id.slice(-8).toUpperCase()}`;
 }
 
+/** คำนวณระยะเป็น km (Haversine) ระหว่างสองจุด */
+function distanceKm(
+    a: { latitude: number; longitude: number },
+    b: { latitude: number; longitude: number }
+): number {
+    const R = 6371;
+    const dLat = ((b.latitude - a.latitude) * Math.PI) / 180;
+    const dLon = ((b.longitude - a.longitude) * Math.PI) / 180;
+    const x =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((a.latitude * Math.PI) / 180) *
+            Math.cos((b.latitude * Math.PI) / 180) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+    return R * c;
+}
+
+/** แปลง km เป็นข้อความแสดงระยะ เป็น km อย่างเดียว เช่น "0.5 km" หรือ "1.2 km" */
+function formatDistanceKm(km: number): string {
+    return `${km.toFixed(1)} km`;
+}
+
 // ✅ เพิ่ม type ครอบเพื่อให้มี details ได้ (เฉพาะ demo)
 type OrderWithDetails = Order & { details?: string };
 
@@ -415,13 +438,31 @@ export default function HomeScreen() {
                                 <Text style={s.customerName}>
                                     {firstRequest.customerName ?? 'Customer'}
                                 </Text>
-                                <View style={s.distanceRow}>
-                                    <Ionicons name="navigate-outline" size={14} color="#666" />
-                                    <Text style={s.distanceText}>
-                                        {' '}
-                                        {firstRequest.distance || '1 KM'} away •{' '}
-                                        {formatOrderId(firstRequest.id)}
-                                    </Text>
+                                <View style={s.distanceBlock}>
+                                    <View style={s.distanceRow}>
+                                        <Ionicons name="navigate-outline" size={14} color="#666" />
+                                        <Text style={s.distanceText}>
+                                            {' '}
+                                            ไปรับของที่บ้านลูกค้า:{' '}
+                                            {formatDistanceKm(
+                                                distanceKm(myCoord, firstRequest.pickup)
+                                            )}
+                                        </Text>
+                                    </View>
+                                    <View style={s.distanceRow}>
+                                        <Ionicons name="storefront-outline" size={14} color="#666" />
+                                        <Text style={s.distanceText}>
+                                            {' '}
+                                            ไปส่งที่ร้าน:{' '}
+                                            {formatDistanceKm(
+                                                distanceKm(
+                                                    firstRequest.pickup,
+                                                    firstRequest.shop ?? firstRequest.pickup
+                                                )
+                                            )}
+                                        </Text>
+                                    </View>
+                                    <Text style={s.orderIdText}>{formatOrderId(firstRequest.id)}</Text>
                                 </View>
                             </View>
 
@@ -704,8 +745,10 @@ const s = StyleSheet.create({
         marginBottom: 15,
     },
     customerName: { fontSize: 20, fontWeight: '900', color: '#000' },
-    distanceRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+    distanceBlock: { marginTop: 4 },
+    distanceRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
     distanceText: { color: '#666', fontSize: 13, fontWeight: '700' },
+    orderIdText: { color: '#999', fontSize: 12, marginTop: 4, fontWeight: '600' },
     priceText: { fontSize: 20, fontWeight: '900', color: '#000' },
     paymentText: { color: '#22C55E', fontWeight: '900', fontSize: 14, textAlign: 'right' },
 

@@ -410,6 +410,11 @@ export default function OrderScreen() {
                                 total,
                                 paymentMethod: selectedPayment,
                                 additionalRequest,
+                                ...(currentLocation?.lat != null &&
+                                    currentLocation?.lon != null && {
+                                        userLat: currentLocation.lat,
+                                        userLon: currentLocation.lon,
+                                    }),
                             };
 
                             // ลอง auth API ก่อน ถ้า fail ให้ fallback ไปใช้ dev-create

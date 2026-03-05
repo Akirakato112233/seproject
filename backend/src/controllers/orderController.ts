@@ -80,7 +80,7 @@ function parseWashDryFromItems(items: { name: string; details?: string; price?: 
 // สร้าง Order ใหม่
 export const createOrder = async (req: AuthRequest, res: Response) => {
   try {
-    const { shopId, shopName, items, serviceTotal, deliveryFee, total, paymentMethod, additionalRequest } = req.body;
+    const { shopId, shopName, items, serviceTotal, deliveryFee, total, paymentMethod, additionalRequest, userLat, userLon } = req.body;
 
     console.log('=== CREATE ORDER REQUEST ===');
     console.log('Body:', JSON.stringify(req.body, null, 2));
@@ -130,6 +130,13 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
       status: 'decision', // เริ่มต้นที่สถานะรอการตัดสินใจ
     };
     if (additionalRequest) orderData.note = additionalRequest;
+    // พิกัดลูกค้า: ใช้จาก body (ที่ user-app ส่งมา) หรือจาก User ที่บันทึกไว้
+    const lat = typeof userLat === 'number' ? userLat : (user as any).lat;
+    const lon = typeof userLon === 'number' ? userLon : (user as any).lon;
+    if (typeof lat === 'number' && typeof lon === 'number') {
+      orderData.userLat = lat;
+      orderData.userLon = lon;
+    }
 
     console.log('Creating order with data:', JSON.stringify(orderData, null, 2));
 
@@ -742,8 +749,11 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
     // Map ข้อมูลให้ตรงกับ Rider App Order type
     const enrichedOrders = await Promise.all(
       allOrders.map(async (order) => {
-        // พิกัดลูกค้า (ที่รับผ้า/ส่งผ้า) - ยังไม่มีใน User ใช้ default ก่อน
-        const customerCoords = { latitude: 13.113625, longitude: 100.919286 };
+        // พิกัดลูกค้า (ที่รับผ้า/ส่งผ้า) — ใช้จาก order.userLat/userLon ถ้ามี ไม่มีใช้ default
+        const customerCoords =
+          (order as any).userLat != null && (order as any).userLon != null
+            ? { latitude: (order as any).userLat, longitude: (order as any).userLon }
+            : { latitude: 13.113625, longitude: 100.919286 };
 
         let shop = null;
         if (order.shopId && /^[0-9a-fA-F]{24}$/.test(String(order.shopId))) {
@@ -813,7 +823,10 @@ export const getRiderReadyForPickup = async (req: AuthRequest, res: Response) =>
         const shopCoords = shop?.location
           ? { latitude: shop.location.lat, longitude: shop.location.lng }
           : { latitude: 13.117629, longitude: 100.916613 };
-        const customerCoords = { latitude: 13.113625, longitude: 100.919286 };
+        const customerCoords =
+          (order as any).userLat != null && (order as any).userLon != null
+            ? { latitude: (order as any).userLat, longitude: (order as any).userLon }
+            : { latitude: 13.113625, longitude: 100.919286 };
 
         const items = order.items || [];
         const washDry = parseWashDryFromItems(items);
@@ -880,7 +893,10 @@ export const getRiderAtShopOrders = async (req: AuthRequest, res: Response) => {
         const shopCoords = shop?.location
           ? { latitude: shop.location.lat, longitude: shop.location.lng }
           : { latitude: 13.117629, longitude: 100.916613 };
-        const customerCoords = { latitude: 13.113625, longitude: 100.919286 };
+        const customerCoords =
+          (order as any).userLat != null && (order as any).userLon != null
+            ? { latitude: (order as any).userLat, longitude: (order as any).userLon }
+            : { latitude: 13.113625, longitude: 100.919286 };
 
         const items = order.items || [];
         const washDry = parseWashDryFromItems(items);
