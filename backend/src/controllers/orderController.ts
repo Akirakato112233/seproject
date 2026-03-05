@@ -14,6 +14,7 @@ import { User } from '../models/User';
 import { Shop } from '../models/Shop';
 import { Rider } from '../models/Rider';
 import { RiderRegistration } from '../models/RiderRegistration';
+import { MerchantUser } from '../models/MerchantUser';
 
 const findOrderWithModel = async (orderId: string) => {
   const order = await Order.findById(orderId);
@@ -383,6 +384,7 @@ export const merchantAcceptOrder = async (req: AuthRequest, res: Response) => {
         paymentMethod: order.paymentMethod,
         status: 'decision' as const, // ส่งให้ rider ตัดสินใจรับหรือไม่
         merchantOrderId: order._id,
+        ...((order as any).note && { note: (order as any).note }),
       };
       const newOrder = await Order.create(orderData);
 
@@ -897,7 +899,18 @@ export const getRiderOrderHistory = async (req: AuthRequest, res: Response) => {
       orders.map(async (order) => {
         let shop: any = null;
         if (order.shopId && /^[0-9a-fA-F]{24}$/.test(String(order.shopId))) {
-          shop = await Shop.findById(order.shopId);
+          shop = await Shop.findById(order.shopId).lean();
+        }
+        let merchantUser: any = null;
+        if (shop?.merchantUserId && /^[0-9a-fA-F]{24}$/.test(String(shop.merchantUserId))) {
+          merchantUser = await MerchantUser.findById(shop.merchantUserId).lean();
+        }
+        let note = (order as any).note || '';
+        if (!note && (order as any).merchantOrderId) {
+          const merchantOrder = await OrderForMerchant.findById((order as any).merchantOrderId)
+            .select('note')
+            .lean();
+          note = (merchantOrder as any)?.note || '';
         }
 
         const customerCoords =
@@ -916,6 +929,7 @@ export const getRiderOrderHistory = async (req: AuthRequest, res: Response) => {
           id: String(order._id),
           shopName: order.shopName || shop?.name || 'Unknown Shop',
           shopAddress: shop?.address || 'ไม่ระบุที่อยู่ร้าน',
+          shopPhone: merchantUser?.phone || (shop as any)?.phone || '',
           customerName: order.userDisplayName || 'Customer',
           customerAddress: order.userAddress || '',
           distance: '1.5 km',
@@ -929,6 +943,7 @@ export const getRiderOrderHistory = async (req: AuthRequest, res: Response) => {
           status: order.status || 'completed',
           completedAt: order.updatedAt || order.createdAt,
           shopType: shop?.type ?? 'full',
+          note,
           hasWashItem: washDry.hasWashItem,
           hasDryItem: washDry.hasDryItem,
           coinWashDone: (order as any).coinWashDone ?? false,
@@ -995,7 +1010,18 @@ export const getRiderReadyForPickup = async (req: AuthRequest, res: Response) =>
       orders.map(async (order) => {
         let shop: any = null;
         if (order.shopId && /^[0-9a-fA-F]{24}$/.test(String(order.shopId))) {
-          shop = await Shop.findById(order.shopId);
+          shop = await Shop.findById(order.shopId).lean();
+        }
+        let merchantUser: any = null;
+        if (shop?.merchantUserId && /^[0-9a-fA-F]{24}$/.test(String(shop.merchantUserId))) {
+          merchantUser = await MerchantUser.findById(shop.merchantUserId).lean();
+        }
+        let note = (order as any).note || '';
+        if (!note && (order as any).merchantOrderId) {
+          const merchantOrder = await OrderForMerchant.findById((order as any).merchantOrderId)
+            .select('note')
+            .lean();
+          note = (merchantOrder as any)?.note || '';
         }
         const shopCoords = shop?.location
           ? { latitude: shop.location.lat, longitude: shop.location.lng }
@@ -1021,9 +1047,9 @@ export const getRiderReadyForPickup = async (req: AuthRequest, res: Response) =>
           customerPhone: (order as any).customerPhone || '',
           shopName: order.shopName || shop?.name || 'Unknown Shop',
           shopAddress: shop?.address || 'ไม่ระบุที่อยู่ร้าน',
-          shopPhone: shop?.phone || '',
+          shopPhone: merchantUser?.phone || (shop as any)?.phone || '',
           items: items,
-          note: (order as any).note || '',
+          note,
           createdAt: order.createdAt,
           updatedAt: order.updatedAt,
           pickup: shopCoords,
@@ -1095,7 +1121,18 @@ export const getRiderAtShopOrders = async (req: AuthRequest, res: Response) => {
       orders.map(async (order) => {
         let shop: any = null;
         if (order.shopId && /^[0-9a-fA-F]{24}$/.test(String(order.shopId))) {
-          shop = await Shop.findById(order.shopId);
+          shop = await Shop.findById(order.shopId).lean();
+        }
+        let merchantUser: any = null;
+        if (shop?.merchantUserId && /^[0-9a-fA-F]{24}$/.test(String(shop.merchantUserId))) {
+          merchantUser = await MerchantUser.findById(shop.merchantUserId).lean();
+        }
+        let note = (order as any).note || '';
+        if (!note && (order as any).merchantOrderId) {
+          const merchantOrder = await OrderForMerchant.findById((order as any).merchantOrderId)
+            .select('note')
+            .lean();
+          note = (merchantOrder as any)?.note || '';
         }
         const shopCoords = shop?.location
           ? { latitude: shop.location.lat, longitude: shop.location.lng }
@@ -1120,9 +1157,9 @@ export const getRiderAtShopOrders = async (req: AuthRequest, res: Response) => {
           customerAddress: order.userAddress || '',
           shopName: order.shopName || shop?.name || 'Unknown Shop',
           shopAddress: shop?.address || 'ไม่ระบุที่อยู่ร้าน',
-          shopPhone: shop?.phone || '',
+          shopPhone: merchantUser?.phone || (shop as any)?.phone || '',
           items: items,
-          note: (order as any).note || '',
+          note,
           createdAt: order.createdAt,
           updatedAt: order.updatedAt,
           pickup: customerCoords,

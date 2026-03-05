@@ -8,12 +8,21 @@ import {
     Modal,
     Platform,
     useWindowDimensions,
+    Image,
+    Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useDelivery } from '../../context/DeliveryContext';
-import type { Order, ReadyForPickupOrder } from '../../context/DeliveryContext';
+import type {
+    Order,
+    ReadyForPickupOrder,
+    CompletedOrder,
+    ActiveOrder,
+} from '../../context/DeliveryContext';
+import walletIcon from '../../assets/images/witwallet.png';
+import cashIcon from '../../assets/images/cash.png';
 
 function formatMoney(n: number) {
     return `${n.toFixed(2)}฿`;
@@ -171,13 +180,30 @@ function formatTimeBE(iso: string) {
     return `${day}/${month}/${year} BE, ${h}:${m}:${s}`;
 }
 
+/** วันที่+เวลาแบบสั้น สำหรับ popup: 05/03/2569 BE, 18:19 */
+function formatDateTimeBE(iso: string | undefined): string {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    const day = d.getDate().toString().padStart(2, '0');
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    const year = d.getFullYear() + 543;
+    const h = d.getHours().toString().padStart(2, '0');
+    const m = d.getMinutes().toString().padStart(2, '0');
+    return `${day}/${month}/${year} BE, ${h}:${m}`;
+}
+
 function paymentLabel(shopType?: string, paymentMethod?: string): string {
     if (shopType === 'coin') return 'Coin';
     if (shopType === 'full') return 'Full';
     if (paymentMethod === 'wallet') return 'Coin';
     if (paymentMethod === 'cash') return 'Full';
-    if (paymentMethod === 'card') return 'Full';
     return 'Full';
+}
+
+function paymentIcon(paymentMethod?: string) {
+    if (paymentMethod === 'wallet') return walletIcon;
+    return cashIcon;
 }
 
 function OrderRow({
@@ -204,7 +230,14 @@ function OrderRow({
                         {paymentLabel((o as any).shopType, (o as any).paymentMethod)}
                     </Text>
                 </View>
-                <Text style={s.itemFee}>{formatMoney(o.fee)}</Text>
+                <View style={s.itemAmountRow}>
+                    <Image
+                        source={paymentIcon((o as any).paymentMethod)}
+                        style={s.paymentIcon}
+                        resizeMode="contain"
+                    />
+                    <Text style={s.itemFee}>{formatMoney(o.fee)}</Text>
+                </View>
             </View>
         </View>
     );
@@ -232,6 +265,10 @@ export default function EarningScreen() {
         hideCompletedOnEarningPage,
     } = useDelivery();
     const [selectedReadyOrder, setSelectedReadyOrder] = useState<ReadyForPickupOrder | null>(null);
+    const [selectedHistoryOrder, setSelectedHistoryOrder] = useState<CompletedOrder | null>(null);
+    const [selectedInProgressOrder, setSelectedInProgressOrder] = useState<
+        ReadyForPickupOrder | ActiveOrder | null
+    >(null);
 
     const [dayCursor, setDayCursor] = useState<Date>(todayStart);
     const [weekCursor, setWeekCursor] = useState<Date>(() => getWeekStart(new Date()));
@@ -579,9 +616,22 @@ export default function EarningScreen() {
                             <Text style={s.statusPillText}>In progress</Text>
                         </View>
                     </View>
-                    {active && <OrderRow o={active} showDate={false} />}
+                    {active && (
+                        <TouchableOpacity
+                            activeOpacity={0.8}
+                            onPress={() => setSelectedInProgressOrder(active)}
+                        >
+                            <OrderRow o={active} showDate={false} />
+                        </TouchableOpacity>
+                    )}
                     {atShopOrders.map((o) => (
-                        <OrderRow key={o.id} o={o} showDate={true} />
+                        <TouchableOpacity
+                            key={o.id}
+                            activeOpacity={0.8}
+                            onPress={() => setSelectedInProgressOrder(o)}
+                        >
+                            <OrderRow o={o} showDate={true} />
+                        </TouchableOpacity>
                     ))}
                 </>
             )}
@@ -594,7 +644,13 @@ export default function EarningScreen() {
                         </View>
                     </View>
                     {history.map((o) => (
-                        <OrderRow key={`${o.id}-${o.completedAt}`} o={o} />
+                        <TouchableOpacity
+                            key={`${o.id}-${o.completedAt}`}
+                            activeOpacity={0.8}
+                            onPress={() => setSelectedHistoryOrder(o)}
+                        >
+                            <OrderRow o={o} />
+                        </TouchableOpacity>
                     ))}
                 </>
             )}
@@ -606,48 +662,78 @@ export default function EarningScreen() {
                 </View>
             )}
 
-            {/* Bottom Sheet รายละเอียดออเดอร์ Ready for Pickup */}
+            {/* Bottom Sheet รายละเอียดออเดอร์ (Ready for Pickup / In progress / ประวัติ) */}
             <Modal
                 transparent
-                visible={!!selectedReadyOrder}
+                visible={
+                    !!selectedReadyOrder || !!selectedHistoryOrder || !!selectedInProgressOrder
+                }
                 animationType="slide"
-                onRequestClose={() => setSelectedReadyOrder(null)}
+                onRequestClose={() => {
+                    setSelectedReadyOrder(null);
+                    setSelectedHistoryOrder(null);
+                    setSelectedInProgressOrder(null);
+                }}
             >
                 <View style={s.sheetWrap}>
                     <TouchableOpacity
                         style={s.sheetOverlay}
                         activeOpacity={1}
-                        onPress={() => setSelectedReadyOrder(null)}
+                        onPress={() => {
+                            setSelectedReadyOrder(null);
+                            setSelectedHistoryOrder(null);
+                            setSelectedInProgressOrder(null);
+                        }}
                     />
-                    {selectedReadyOrder && (
-                        <View style={s.bottomSheet}>
-                            <View style={s.sheetHandleWrap}>
-                                <View style={s.sheetHandle} />
-                            </View>
-                            <View style={s.sheetHeader}>
-                                <Text style={s.sheetOrderId}>
-                                    {selectedReadyOrder.orderId ||
-                                        `ORD-${String(selectedReadyOrder.id).slice(-4)}`}
-                                </Text>
-                                <View style={s.sheetBadgeWashing}>
-                                    <Text style={s.sheetBadgeText}>WASHING</Text>
-                                </View>
-                                <View style={s.sheetPaymentBadge}>
-                                    <Text style={s.sheetPaymentBadgeText}>
-                                        {selectedReadyOrder.paymentLabel ||
-                                            (selectedReadyOrder.paymentMethod === 'wallet'
-                                                ? 'Wallet'
-                                                : 'เงินสด')}
-                                    </Text>
-                                </View>
-                                <TouchableOpacity
-                                    onPress={() => setSelectedReadyOrder(null)}
-                                    hitSlop={12}
-                                    style={s.sheetCloseBtn}
-                                >
-                                    <Ionicons name="close" size={24} color="#333" />
-                                </TouchableOpacity>
-                            </View>
+                    {(selectedReadyOrder ?? selectedHistoryOrder ?? selectedInProgressOrder) &&
+                        (() => {
+                            const orderForSheet =
+                                selectedReadyOrder ?? selectedHistoryOrder ?? selectedInProgressOrder!;
+                            const isFromHistory = !!selectedHistoryOrder;
+                            const isFromInProgress = !!selectedInProgressOrder;
+                            return (
+                                <View style={s.bottomSheet}>
+                                    <View style={s.sheetHandleWrap}>
+                                        <View style={s.sheetHandle} />
+                                    </View>
+                                    <View style={s.sheetHeader}>
+                                        <Text style={s.sheetOrderId}>
+                                            {(orderForSheet as any).orderId ||
+                                                `ORD-${String(orderForSheet.id).slice(-4)}`}
+                                        </Text>
+                                        <View
+                                            style={[
+                                                s.sheetBadgeWashing,
+                                                isFromInProgress && s.sheetBadgeInProgress,
+                                            ]}
+                                        >
+                                            <Text style={s.sheetBadgeText}>
+                                                {isFromHistory
+                                                    ? 'COMPLETED'
+                                                    : isFromInProgress
+                                                      ? 'IN PROGRESS'
+                                                      : 'WASHING'}
+                                            </Text>
+                                        </View>
+                                        <View style={s.sheetPaymentBadge}>
+                                            <Text style={s.sheetPaymentBadgeText}>
+                                                {(orderForSheet as any).paymentMethod === 'wallet'
+                                                    ? 'Wallet'
+                                                    : 'cash'}
+                                            </Text>
+                                        </View>
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                setSelectedReadyOrder(null);
+                                                setSelectedHistoryOrder(null);
+                                                setSelectedInProgressOrder(null);
+                                            }}
+                                            hitSlop={12}
+                                            style={s.sheetCloseBtn}
+                                        >
+                                            <Ionicons name="close" size={24} color="#333" />
+                                        </TouchableOpacity>
+                                    </View>
 
                             <ScrollView
                                 style={s.sheetScroll}
@@ -658,18 +744,20 @@ export default function EarningScreen() {
                                     <Text style={s.sheetTotalLabel}>Total Amount</Text>
                                     <Text style={s.sheetTotalValue}>
                                         {Number(
-                                            selectedReadyOrder.total ?? selectedReadyOrder.fee ?? 0
+                                            (orderForSheet as any).total ?? orderForSheet.fee ?? 0
                                         ).toFixed(2)}
                                         ฿
                                     </Text>
-                                    <View style={s.sheetUnpaidRow}>
-                                        <Ionicons
-                                            name="calendar-outline"
-                                            size={14}
-                                            color="rgba(255,255,255,0.85)"
-                                        />
-                                        <Text style={s.sheetUnpaid}>Unpaid</Text>
-                                    </View>
+                                    {!isFromHistory && !isFromInProgress && (
+                                        <View style={s.sheetUnpaidRow}>
+                                            <Ionicons
+                                                name="calendar-outline"
+                                                size={14}
+                                                color="rgba(255,255,255,0.85)"
+                                            />
+                                            <Text style={s.sheetUnpaid}>Unpaid</Text>
+                                        </View>
+                                    )}
                                 </View>
 
                                 <View style={s.sheetCard}>
@@ -680,22 +768,38 @@ export default function EarningScreen() {
                                     <View style={s.sheetDetailRow}>
                                         <Text style={s.sheetDetailLabel}>Name</Text>
                                         <Text style={s.sheetDetailValue}>
-                                            {selectedReadyOrder.customerName}
+                                            {orderForSheet.customerName}
                                         </Text>
                                     </View>
-                                    {!!selectedReadyOrder.customerPhone && (
+                                    {!!(orderForSheet as any).customerPhone && (
                                         <View style={s.sheetDetailRow}>
                                             <Text style={s.sheetDetailLabel}>Phone</Text>
                                             <Text style={s.sheetDetailValue}>
-                                                {selectedReadyOrder.customerPhone}
+                                                {(orderForSheet as any).customerPhone}
                                             </Text>
                                         </View>
                                     )}
                                     <View style={s.sheetDetailRow}>
                                         <Text style={s.sheetDetailLabel}>Order Date</Text>
-                                        <Text style={s.sheetDetailValue}>
-                                            Today, 2:00 PM - 4:00 PM
-                                        </Text>
+                                        {isFromHistory ? (
+                                            <Text style={s.sheetDetailValue}>
+                                                จบงาน{' '}
+                                                {formatDateTimeBE((orderForSheet as any).completedAt)}
+                                            </Text>
+                                        ) : (
+                                            <View style={s.sheetOrderDateInProgress}>
+                                                <Text style={s.sheetDetailValue}>
+                                                    เริ่ม{' '}
+                                                    {formatDateTimeBE(
+                                                        (orderForSheet as any).createdAt
+                                                    )}
+                                                </Text>
+                                                <Text style={s.sheetOrderDateToNow}>
+                                                    ถึง{' '}
+                                                    {formatDateTimeBE(new Date().toISOString())}
+                                                </Text>
+                                            </View>
+                                        )}
                                     </View>
                                 </View>
 
@@ -706,15 +810,36 @@ export default function EarningScreen() {
                                     </View>
                                     <View style={s.sheetDetailRow}>
                                         <Text style={s.sheetDetailLabel}>Name</Text>
-                                        <Text style={s.sheetDetailValue}>
-                                            {selectedReadyOrder.shopName}
-                                        </Text>
+                                        <View style={s.sheetMerchantNameRow}>
+                                            <Text style={s.sheetDetailValue}>
+                                                {orderForSheet.shopName}
+                                            </Text>
+                                            {!!(orderForSheet as any).shopPhone && (
+                                                <TouchableOpacity
+                                                    style={s.sheetCallBtn}
+                                                    onPress={() =>
+                                                        Linking.openURL(
+                                                            `tel:${String(
+                                                                (orderForSheet as any).shopPhone
+                                                            )}`
+                                                        ).catch(() => {})
+                                                    }
+                                                    hitSlop={8}
+                                                >
+                                                    <Ionicons
+                                                        name="call-outline"
+                                                        size={18}
+                                                        color="#0EA5E9"
+                                                    />
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
                                     </View>
-                                    {!!selectedReadyOrder.shopPhone && (
+                                    {!!(orderForSheet as any).shopPhone && (
                                         <View style={s.sheetDetailRow}>
                                             <Text style={s.sheetDetailLabel}>Phone</Text>
                                             <Text style={s.sheetDetailValue}>
-                                                {selectedReadyOrder.shopPhone}
+                                                {(orderForSheet as any).shopPhone}
                                             </Text>
                                         </View>
                                     )}
@@ -725,36 +850,30 @@ export default function EarningScreen() {
                                         <Ionicons name="list-outline" size={18} color="#334155" />
                                         <Text style={s.sheetCardTitle}>Service List</Text>
                                     </View>
-                                    {selectedReadyOrder.itemsList &&
-                                    selectedReadyOrder.itemsList.length > 0 ? (
-                                        selectedReadyOrder.itemsList.map((item, i) => {
-                                            const qty = selectedReadyOrder.items ?? 1;
-                                            const subtotal =
-                                                item.price * (typeof qty === 'number' ? qty : 1);
-                                            return (
-                                                <View key={i} style={s.sheetServiceItem}>
-                                                    <View style={s.sheetServiceIcon}>
-                                                        <Ionicons
-                                                            name="shirt-outline"
-                                                            size={20}
-                                                            color="#3B82F6"
-                                                        />
-                                                    </View>
-                                                    <View style={s.sheetServiceContent}>
-                                                        <Text style={s.sheetServiceName}>
-                                                            {item.name}
-                                                        </Text>
-                                                        <Text style={s.sheetServiceDetail}>
-                                                            {item.details ||
-                                                                `${qty} kg x ฿${item.price}`}
-                                                        </Text>
-                                                    </View>
-                                                    <Text style={s.sheetServicePrice}>
-                                                        ฿{subtotal}
+                                    {(orderForSheet as any).itemsList &&
+                                    (orderForSheet as any).itemsList.length > 0 ? (
+                                        (orderForSheet as any).itemsList.map((item: { name: string; details?: string; price: number }, i: number) => (
+                                            <View key={i} style={s.sheetServiceItem}>
+                                                <View style={s.sheetServiceIcon}>
+                                                    <Ionicons
+                                                        name="shirt-outline"
+                                                        size={20}
+                                                        color="#3B82F6"
+                                                    />
+                                                </View>
+                                                <View style={s.sheetServiceContent}>
+                                                    <Text style={s.sheetServiceName}>
+                                                        {item.name}
+                                                    </Text>
+                                                    <Text style={s.sheetServiceDetail}>
+                                                        {item.details ?? item.name}
                                                     </Text>
                                                 </View>
-                                            );
-                                        })
+                                                <Text style={s.sheetServicePrice}>
+                                                    ฿{Number(item.price).toFixed(2)}
+                                                </Text>
+                                            </View>
+                                        ))
                                     ) : (
                                         <View style={s.sheetServiceItem}>
                                             <View style={s.sheetServiceIcon}>
@@ -769,16 +888,16 @@ export default function EarningScreen() {
                                                     Washing & Folding
                                                 </Text>
                                                 <Text style={s.sheetServiceDetail}>
-                                                    {selectedReadyOrder.items ?? 0} kg x ฿40
+                                                    {orderForSheet.items ?? 0} kg x ฿40
                                                 </Text>
                                             </View>
                                             <Text style={s.sheetServicePrice}>
                                                 ฿
                                                 {Number(
-                                                    selectedReadyOrder.total ??
-                                                        selectedReadyOrder.fee ??
+                                                    (orderForSheet as any).total ??
+                                                        orderForSheet.fee ??
                                                         0
-                                                ).toFixed(0)}
+                                                ).toFixed(2)}
                                             </Text>
                                         </View>
                                     )}
@@ -795,26 +914,41 @@ export default function EarningScreen() {
                                     </View>
                                     <View style={s.sheetNoteBox}>
                                         <Text style={s.sheetNoteText}>
-                                            {selectedReadyOrder.note || '—'}
+                                            {(orderForSheet as any).note?.trim()
+                                                ? (orderForSheet as any).note
+                                                : '—'}
                                         </Text>
                                     </View>
                                 </View>
                             </ScrollView>
 
-                            <TouchableOpacity
-                                style={s.sheetBtnHeadToPickup}
-                                onPress={handleHeadToPickup}
-                            >
-                                <Text style={s.sheetBtnHeadToPickupText}>Head to Pickup</Text>
-                                <Ionicons
-                                    name="arrow-forward"
-                                    size={20}
-                                    color="#fff"
-                                    style={{ marginLeft: 8 }}
-                                />
-                            </TouchableOpacity>
+                            {selectedReadyOrder ? (
+                                <TouchableOpacity
+                                    style={s.sheetBtnHeadToPickup}
+                                    onPress={handleHeadToPickup}
+                                >
+                                    <Text style={s.sheetBtnHeadToPickupText}>Head to Pickup</Text>
+                                    <Ionicons
+                                        name="arrow-forward"
+                                        size={20}
+                                        color="#fff"
+                                        style={{ marginLeft: 8 }}
+                                    />
+                                </TouchableOpacity>
+                            ) : (
+                                <TouchableOpacity
+                                    style={s.sheetBtnHeadToPickup}
+                                    onPress={() => {
+                                        setSelectedHistoryOrder(null);
+                                        setSelectedInProgressOrder(null);
+                                    }}
+                                >
+                                    <Text style={s.sheetBtnHeadToPickupText}>ปิด</Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
-                    )}
+                        );
+                    })()}
                 </View>
             </Modal>
         </ScrollView>
@@ -966,6 +1100,15 @@ const s = StyleSheet.create({
     itemSub: { fontSize: 12, fontWeight: '700', color: '#64748B', marginTop: 2 },
     itemTime: { fontSize: 11, fontWeight: '700', color: '#94A3B8', marginTop: 6 },
     itemRight: { alignItems: 'flex-end', gap: 6 },
+    itemAmountRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    paymentIcon: {
+        width: 20,
+        height: 20,
+    },
     paymentPill: {
         backgroundColor: '#3B82F6',
         paddingHorizontal: 10,
@@ -1006,6 +1149,7 @@ const s = StyleSheet.create({
         paddingVertical: 4,
         borderRadius: 999,
     },
+    sheetBadgeInProgress: { backgroundColor: '#EAB308' },
     sheetBadgeText: { color: '#fff', fontSize: 12, fontWeight: '800' },
     sheetPaymentBadge: {
         backgroundColor: '#22C55E',
@@ -1039,6 +1183,13 @@ const s = StyleSheet.create({
     },
     sheetDetailLabel: { fontSize: 13, color: '#64748B', fontWeight: '700' },
     sheetDetailValue: { fontSize: 13, color: '#0F172A', fontWeight: '800' },
+    sheetOrderDateInProgress: { alignItems: 'flex-end', gap: 2 },
+    sheetOrderDateToNow: {
+        fontSize: 13,
+        color: '#EAB308',
+        fontWeight: '800',
+        letterSpacing: 0.3,
+    },
     sheetServiceItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
     sheetServiceIcon: {
         width: 44,
@@ -1061,6 +1212,17 @@ const s = StyleSheet.create({
         borderColor: '#E2E8F0',
     },
     sheetNoteText: { fontSize: 13, color: '#64748B', fontWeight: '700' },
+    sheetMerchantNameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    sheetCallBtn: {
+        paddingHorizontal: 6,
+        paddingVertical: 4,
+        borderRadius: 999,
+        backgroundColor: 'rgba(14,165,233,0.08)',
+    },
     sheetBtnHeadToPickup: {
         flexDirection: 'row',
         alignItems: 'center',

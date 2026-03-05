@@ -9,7 +9,7 @@ export type DeliveryStatus =
     | 'delivering';
 
 export type LatLng = { latitude: number; longitude: number };
-export type PaymentMethod = 'cash' | 'card';
+export type PaymentMethod = 'cash' | 'wallet';
 
 export type Order = {
     id: string;
@@ -59,6 +59,8 @@ export type ReadyForPickupOrder = Order & {
     note?: string;
     shopPhone?: string;
     customerPhone?: string;
+    createdAt?: string;
+    updatedAt?: string;
 };
 
 type DeliveryContextType = {
@@ -340,13 +342,15 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
                     pickup: o.pickup ?? o.shop,
                     dropoff: o.dropoff,
                     shop: o.shop ?? o.pickup,
-                    paymentMethod: o.paymentMethod === 'wallet' ? 'card' : 'cash',
+                    paymentMethod: (o.paymentMethod as PaymentMethod) ?? 'cash',
                     paymentLabel: o.paymentLabel,
                     status: o.status,
                     total: o.total,
                     note: o.note,
                     shopPhone: o.shopPhone,
                     customerPhone: o.customerPhone,
+                    createdAt: o.createdAt,
+                    updatedAt: o.updatedAt,
                     ...(Array.isArray(o.items) && { itemsList: o.items }),
                     shopType: o.shopType ?? 'full',
                     hasWashItem: o.hasWashItem ?? false,
@@ -394,7 +398,7 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
                     pickup: o.pickup ?? o.shop,
                     dropoff: o.dropoff,
                     shop: o.shop ?? o.pickup,
-                    paymentMethod: o.paymentMethod === 'wallet' ? 'card' : 'cash',
+                    paymentMethod: (o.paymentMethod as PaymentMethod) ?? 'cash',
                     paymentLabel: o.paymentLabel,
                     status: o.status,
                     total: o.total,
