@@ -6,16 +6,21 @@ export const getMessages = async (req: Request, res: Response) => {
   try {
     const { riderId, shopId } = req.query;
 
-    if (!riderId || typeof riderId !== 'string') {
-      return res.status(400).json({ message: 'riderId is required' });
-    }
+    console.log('🔍 [getMessages] Query params:', { riderId, shopId });
 
-    const filter: any = { riderId };
+    // shopId (= orderId) เป็น key หลัก เพราะ riderId อาจไม่ตรงกันระหว่าง user-app กับ rider-app
+    const filter: any = {};
     if (shopId && typeof shopId === 'string') {
       filter.shopId = shopId;
+    } else if (riderId && typeof riderId === 'string') {
+      filter.riderId = riderId;
+    } else {
+      return res.status(400).json({ message: 'shopId or riderId is required' });
     }
 
+    console.log('🔍 [getMessages] Filter:', JSON.stringify(filter));
     const messages = await ChatMessage.find(filter).sort({ createdAt: 1 }).lean();
+    console.log('🔍 [getMessages] Found', messages.length, 'messages');
     return res.json(messages);
   } catch (error) {
     console.error('Error fetching chat messages:', error);

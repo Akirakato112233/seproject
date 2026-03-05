@@ -4,10 +4,14 @@ import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
+    Dimensions,
     FlatList,
     Image,
     KeyboardAvoidingView,
+    Modal,
     Platform,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -46,9 +50,12 @@ export default function ChatScreen() {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [riderError, setRiderError] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const NGROK_HEADERS: Record<string, string> = BASE_URL.includes('ngrok')
         ? { 'ngrok-skip-browser-warning': '1' }
         : {};
+
+    console.log('[UserChat] 🔑 Params:', { id, riderId, riderNameParam });
 
     // ─── Send text message ───
     const handleSend = async () => {
@@ -75,31 +82,14 @@ export default function ChatScreen() {
         }
     };
 
-    // ─── Pick & send image ───
-    const handlePickImage = async () => {
+    // ─── Upload & send image (shared by camera & library) ───
+    const uploadAndSendImage = async (uri: string) => {
         try {
-            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (status !== 'granted') {
-                alert('ต้องอนุญาตการเข้าถึงรูปภาพเพื่อส่งรูป');
-                return;
-            }
-
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ['images'],
-                quality: 0.7,
-                allowsEditing: false,
-            });
-
-            if (result.canceled || !result.assets?.[0]) return;
-
             setUploading(true);
-            const asset = result.assets[0];
-            const uri = asset.uri;
             const filename = uri.split('/').pop() || 'photo.jpg';
             const match = /\.(\w+)$/.exec(filename);
             const type = match ? `image/${match[1]}` : 'image/jpeg';
 
-            // Upload image to backend
             const formData = new FormData();
             formData.append('image', { uri, name: filename, type } as any);
 
@@ -112,13 +102,11 @@ export default function ChatScreen() {
 
             if (!uploadData.imageUrl) {
                 console.error('[UserChat] Upload failed:', uploadData);
-                setUploading(false);
                 return;
             }
 
             const imageUrl = `${BASE_URL}${uploadData.imageUrl}`;
 
-            // Optimistic UI
             const newMessage: ChatMessage = {
                 id: `${Date.now()}`,
                 text: '',
@@ -128,7 +116,6 @@ export default function ChatScreen() {
             };
             setMessages((prev) => [...prev, newMessage]);
 
-            // Save message to backend
             await fetch(`${BASE_URL}/api/chat/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
@@ -140,10 +127,52 @@ export default function ChatScreen() {
                 }),
             });
         } catch (error) {
-            console.error('[UserChat] Error picking/uploading image:', error);
+            console.error('[UserChat] Error uploading image:', error);
         } finally {
             setUploading(false);
         }
+    };
+
+    // ─── Camera icon: show Take Photo / Choose from Library ───
+    const handlePickImage = () => {
+        Alert.alert('Send Photo', '', [
+            {
+                text: 'Take Photo',
+                onPress: async () => {
+                    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+                    if (status !== 'granted') {
+                        alert('ต้องอนุญาตการเข้าถึงกล้องเพื่อถ่ายรูป');
+                        return;
+                    }
+                    const result = await ImagePicker.launchCameraAsync({
+                        quality: 0.7,
+                        allowsEditing: false,
+                    });
+                    if (!result.canceled && result.assets?.[0]) {
+                        uploadAndSendImage(result.assets[0].uri);
+                    }
+                },
+            },
+            {
+                text: 'Choose from Library',
+                onPress: async () => {
+                    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                    if (status !== 'granted') {
+                        alert('ต้องอนุญาตการเข้าถึงรูปภาพเพื่อส่งรูป');
+                        return;
+                    }
+                    const result = await ImagePicker.launchImageLibraryAsync({
+                        mediaTypes: ['images'],
+                        quality: 0.7,
+                        allowsEditing: false,
+                    });
+                    if (!result.canceled && result.assets?.[0]) {
+                        uploadAndSendImage(result.assets[0].uri);
+                    }
+                },
+            },
+            { text: 'Cancel', style: 'cancel' },
+        ]);
     };
 
     useEffect(() => {
@@ -221,7 +250,9 @@ export default function ChatScreen() {
             <View style={[styles.messageRow, isUser ? styles.messageRowUser : styles.messageRowRider]}>
                 <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleRider, item.imageUrl && styles.bubbleImage]}>
                     {item.imageUrl ? (
-                        <Image source={{ uri: item.imageUrl }} style={styles.chatImage} resizeMode="cover" />
+                        <TouchableOpacity activeOpacity={0.8} onPress={() => setSelectedImage(item.imageUrl!)}>
+                            <Image source={{ uri: item.imageUrl }} style={styles.chatImage} resizeMode="cover" />
+                        </TouchableOpacity>
                     ) : null}
                     {item.text ? (
                         <Text style={[styles.messageText, isUser && styles.messageTextUser]}>{item.text}</Text>
@@ -232,8 +263,35 @@ export default function ChatScreen() {
         );
     };
 
+    const screenWidth = Dimensions.get('window').width;
+    const screenHeight = Dimensions.get('window').height;
+
     return (
         <SafeAreaView style={styles.container}>
+            {/* Fullscreen Image Viewer */}
+            <Modal visible={!!selectedImage} transparent animationType="fade" onRequestClose={() => setSelectedImage(null)}>
+                <View style={styles.imageViewerOverlay}>
+                    <TouchableOpacity style={styles.imageViewerClose} onPress={() => setSelectedImage(null)}>
+                        <Ionicons name="close" size={28} color="#fff" />
+                    </TouchableOpacity>
+                    <ScrollView
+                        contentContainerStyle={styles.imageViewerScroll}
+                        maximumZoomScale={5}
+                        minimumZoomScale={1}
+                        showsHorizontalScrollIndicator={false}
+                        showsVerticalScrollIndicator={false}
+                        bouncesZoom
+                    >
+                        {selectedImage && (
+                            <Image
+                                source={{ uri: selectedImage }}
+                                style={{ width: screenWidth, height: screenHeight * 0.8 }}
+                                resizeMode="contain"
+                            />
+                        )}
+                    </ScrollView>
+                </View>
+            </Modal>
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.headerIconButton}>
@@ -348,4 +406,7 @@ const styles = StyleSheet.create({
     textInput: { fontSize: 14, color: '#111827' },
     sendButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#1d4685', alignItems: 'center', justifyContent: 'center', marginLeft: 6 },
     sendButtonDisabled: { opacity: 0.5 },
+    imageViewerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
+    imageViewerClose: { position: 'absolute', top: 50, right: 20, zIndex: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+    imageViewerScroll: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });
