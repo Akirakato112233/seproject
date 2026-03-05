@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     View,
     Text,
@@ -7,6 +7,8 @@ import {
     Platform,
     Modal,
     ScrollView,
+    Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -67,6 +69,12 @@ export default function HomeScreen() {
     const [hasLocationPermission, setHasLocationPermission] = useState(false);
     const [myCoord, setMyCoord] = useState<LatLng>(DEFAULT_COORDS);
     const [locationReady, setLocationReady] = useState(false);
+    const [mapCenterKey, setMapCenterKey] = useState(0);
+    const mapWebViewRef = useRef<any>(null);
+    /** พิกัดที่กดปุ่มลูกศรล่าสุด — ใช้ใน generateMapHTML ให้แผนที่ไปตำแหน่งจริงบนแมพ (state เพื่อให้ render ได้ค่าแน่นอน) */
+    const [centerWhenPressed, setCenterWhenPressed] = useState<{ lat: number; lon: number } | null>(null);
+    /** หลังกดปุ่มลูกศร เก็บพิกัดไว้ inject ใน onLoadEnd ให้แผนที่ไปตำแหน่ง user แน่นอน */
+    const pendingCenterRef = useRef<{ lat: number; lon: number } | null>(null);
 
     // Success Modal
     const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -99,11 +107,11 @@ export default function HomeScreen() {
                 const loc = await Location.getCurrentPositionAsync({
                     accuracy: Location.Accuracy.Balanced,
                 });
-
-                setMyCoord({
-                    latitude: loc.coords.latitude,
-                    longitude: loc.coords.longitude,
-                });
+                const lat = loc.coords.latitude;
+                const lon = loc.coords.longitude;
+                setMyCoord({ latitude: lat, longitude: lon });
+                setCenterWhenPressed({ lat, lon });
+                setMapCenterKey((k) => k + 1);
                 setLocationReady(true);
             } catch {
                 setLocationReady(true); // แสดงแผนที่แม้เกิด error
@@ -111,26 +119,44 @@ export default function HomeScreen() {
         })();
     }, []);
 
+    useEffect(() => {
+        if (mapCenterKey === 0) return;
+        const t = setTimeout(() => setCenterWhenPressed(null), 500);
+        return () => clearTimeout(t);
+    }, [mapCenterKey]);
+
     const centerToMe = async () => {
         try {
-            if (!hasLocationPermission) return;
+            if (!hasLocationPermission) {
+                Alert.alert(
+                    'ตำแหน่ง',
+                    'กรุณาอนุญาตการเข้าถึงตำแหน่งใน Settings เพื่อให้แผนที่เลื่อนไปจุดที่คุณอยู่',
+                    [{ text: 'ตกลง' }]
+                );
+                return;
+            }
+            // ใช้ High accuracy เพื่อดึงตำแหน่งจริงบนแมพตอนกดลูกศร (ไม่ใช้ค่าแคช)
             const loc = await Location.getCurrentPositionAsync({
-                accuracy: Location.Accuracy.Balanced,
+                accuracy: Location.Accuracy.High,
             });
-            setMyCoord({
-                latitude: loc.coords.latitude,
-                longitude: loc.coords.longitude,
-            });
-            // WebView ref removed, simplified to just updating state
+            const lat = loc.coords.latitude;
+            const lon = loc.coords.longitude;
+            pendingCenterRef.current = { lat, lon };
+            setCenterWhenPressed({ lat, lon });
+            setMyCoord({ latitude: lat, longitude: lon });
+            setMapCenterKey((k) => k + 1);
+            const script = `if (typeof window.centerMapTo === 'function') { window.centerMapTo(${lat}, ${lon}); } true;`;
+            mapWebViewRef.current?.injectJavaScript(script);
         } catch {
-            // ignore
+            Alert.alert('ตำแหน่ง', 'ไม่สามารถดึงตำแหน่งได้ กรุณาลองใหม่', [{ text: 'ตกลง' }]);
         }
     };
 
-    // Generate Longdo Map HTML
+    // Generate Longdo Map HTML — ใช้พิกัดที่กดปุ่มลูกศรล่าสุด (ถ้ามี) เพื่อให้แผนที่ไปตำแหน่งจริงที่เราอยู่บนแมพ
     const generateMapHTML = () => {
-        const lat = myCoord.latitude;
-        const lon = myCoord.longitude;
+        const c = centerWhenPressed;
+        const lat = c ? c.lat : myCoord.latitude;
+        const lon = c ? c.lon : myCoord.longitude;
 
         return `
       <!DOCTYPE html>
@@ -166,6 +192,23 @@ export default function HomeScreen() {
             }
           );
           map.Overlays.add(myMarker);
+
+          // ฟังก์ชันให้แอปสั่งเลื่อนแผนที่ไปจุดที่เราอยู่ (ปุ่มลูกศร = ไปที่จุดสีฟ้า)
+          window.centerMapTo = function(lat, lon) {
+            map.location({ lat: lat, lon: lon }, true);
+            map.Overlays.remove(myMarker);
+            myMarker = new longdo.Marker(
+              { lat: lat, lon: lon },
+              {
+                title: 'ตำแหน่งของฉัน',
+                icon: {
+                  html: '<div style="width:20px;height:20px;background:#4285F4;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>',
+                  offset: { x: 10, y: 10 }
+                }
+              }
+            );
+            map.Overlays.add(myMarker);
+          };
         </script>
       </body>
       </html>
@@ -237,16 +280,33 @@ export default function HomeScreen() {
 
     return (
         <View style={s.container}>
-            <WebView
-                key={`map-${myCoord.latitude}-${myCoord.longitude}`}
-                source={{ html: generateMapHTML() }}
-                style={s.map}
-                scrollEnabled={false}
-                bounces={false}
-                javaScriptEnabled={true}
-                domStorageEnabled={true}
-                originWhitelist={['*']}
-            />
+            {!locationReady ? (
+                <View style={[s.map, s.mapLoading]}>
+                    <ActivityIndicator size="large" color="#4285F4" />
+                    <Text style={s.mapLoadingText}>กำลังโหลดตำแหน่ง...</Text>
+                </View>
+            ) : (
+                <WebView
+                    ref={mapWebViewRef}
+                    key={`map-${myCoord.latitude}-${myCoord.longitude}-${mapCenterKey}`}
+                    source={{ html: generateMapHTML() }}
+                    style={s.map}
+                    scrollEnabled={false}
+                    bounces={false}
+                    javaScriptEnabled={true}
+                    domStorageEnabled={true}
+                    originWhitelist={['*']}
+                    onLoadEnd={() => {
+                        const p = pendingCenterRef.current;
+                        if (p) {
+                            mapWebViewRef.current?.injectJavaScript(
+                                `if (typeof window.centerMapTo === 'function') { window.centerMapTo(${p.lat}, ${p.lon}); } true;`
+                            );
+                            pendingCenterRef.current = null;
+                        }
+                    }}
+                />
+            )}
 
             {/* Overlay */}
             <SafeAreaView style={s.overlay} pointerEvents="box-none">
@@ -510,6 +570,8 @@ export default function HomeScreen() {
 const s = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#fff' },
     map: { ...StyleSheet.absoluteFillObject },
+    mapLoading: { justifyContent: 'center', alignItems: 'center', backgroundColor: '#f0f0f0' },
+    mapLoadingText: { marginTop: 12, fontSize: 16, color: '#666' },
     overlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end' },
 
     floatingControls: {
@@ -517,19 +579,15 @@ const s = StyleSheet.create({
         paddingHorizontal: 20,
         marginBottom: 10,
         justifyContent: 'flex-end',
+        alignItems: 'center',
     },
 
     btnGoOnline: {
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        alignSelf: 'center',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: '#202020',
-        paddingHorizontal: 30,
+        paddingHorizontal: 24,
         paddingVertical: 14,
         borderRadius: 30,
         elevation: 6,
@@ -559,6 +617,8 @@ const s = StyleSheet.create({
         height: 48,
         borderRadius: 24,
         backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
         justifyContent: 'center',
         alignItems: 'center',
         elevation: 4,
