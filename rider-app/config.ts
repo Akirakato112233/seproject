@@ -16,6 +16,7 @@ export const NGROK_HEADERS: Record<string, string> = BASE_URL.includes('ngrok')
 export const API = {
   REDEEM: `${BASE_URL}/api/redeem`,
   BALANCE: `${BASE_URL}/api/redeem/balance`,
+  WITHDRAW: `${BASE_URL}/api/redeem/withdraw`,
   RIDERS: `${BASE_URL}/api/riders`,
   CHAT: `${BASE_URL}/api/chat`,
   SHOPS: `${BASE_URL}/api/shops`,

@@ -10,6 +10,7 @@ export interface IRider extends Document {
   countryCode?: string;
   city?: string;
   email?: string;
+  balance?: number;
   status?: 'online' | 'offline' | 'on_delivery';
 }
 
@@ -24,6 +25,7 @@ const RiderSchema = new Schema<IRider>(
     countryCode: { type: String, default: '+66' },
     city: { type: String },
     email: { type: String },
+    balance: { type: Number, default: 0 },
     status: {
       type: String,
       enum: ['online', 'offline', 'on_delivery'],

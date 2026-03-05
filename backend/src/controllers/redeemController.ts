@@ -61,7 +61,7 @@ export const redeemGift = async (req: AuthRequest, res: Response) => {
         const index = lines.findIndex((l: any) => l.includes('ส่งของทรูมันนี่ให้คุณ'));
         return index > 0 ? lines[index - 1].trim() : 'Unknown';
       });
-    } catch (e) {}
+    } catch (e) { }
 
     // กรอกเบอร์
     const inputSelector = '#mobile-text-field';
@@ -144,5 +144,37 @@ export const redeemGift = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ success: false, message: 'Redeem failed' });
   } finally {
     if (browser) await browser.close();
+  }
+};
+
+// ✅ 3. ถอนเงินออกจากกระเป๋า (API: POST /api/redeem/withdraw)
+export const withdrawBalance = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ success: false, message: 'User not authenticated' });
+
+    const { amount } = req.body;
+    const amt = Math.round(Number(amount) || 0);
+
+    if (amt <= 0) {
+      return res.status(400).json({ success: false, message: 'Amount must be positive' });
+    }
+    if (amt < 100) {
+      return res.status(400).json({ success: false, message: 'Minimum withdrawal is ฿100' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const currentBalance = user.balance ?? 0;
+    if (amt > currentBalance) {
+      return res.status(400).json({ success: false, message: 'Insufficient balance' });
+    }
+
+    const updated = await User.findByIdAndUpdate(userId, { $inc: { balance: -amt } }, { new: true });
+    res.json({ success: true, balance: updated?.balance ?? 0 });
+  } catch (error) {
+    console.error('Withdraw Error:', error);
+    res.status(500).json({ success: false, message: 'Withdraw failed' });
   }
 };
