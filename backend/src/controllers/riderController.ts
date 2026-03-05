@@ -897,13 +897,22 @@ export const getLatestRegistration = async (req: AuthRequest, res: Response) => 
 };
 
 // GET /api/riders/:id
-// order.riderId is User._id (from rider app auth), so fallback to User/RiderRegistration when Rider not found
+// order.riderId อาจเป็น Rider._id, User._id (จาก rider app auth เดิม) หรือ RiderRegistration._id
 export const getRiderById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     if (!id || typeof id !== 'string') {
       return res.status(400).json({ message: 'Invalid rider id' });
     }
+
+    // กรณีใหม่: riderId ชี้ไปที่ RiderRegistration โดยตรง
+    const registration = await RiderRegistration.findById(id).lean();
+    if (registration) {
+      const fullName = registration.fullName || 'Rider';
+      const phone = registration.phone || undefined;
+      return res.json({ displayName: fullName, fullName, phone });
+    }
+
     let rider = await Rider.findById(id).lean();
     if (!rider) {
       // riderId อาจเป็น User._id ที่มี role='user' หรือ role='rider'

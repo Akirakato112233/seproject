@@ -1,11 +1,11 @@
 // config.ts
 
-// ใช้ ngrok (ต้องรัน ngrok http 3000 ก่อน) — ใส่ใน .env ได้: EXPO_PUBLIC_BASE_URL=https://xxx.ngrok-free.dev
+// ใช้ ngrok (ต้องรัน ngrok http 3000 ก่อน) — ใส่ใน .env ได้: EXPO_PUBLIC_BASE_URL=https://unsure-smectic-alondra.ngrok-free.dev
 const _envUrl = process.env.EXPO_PUBLIC_BASE_URL?.trim();
 export const BASE_URL =
     _envUrl && _envUrl.startsWith('http')
         ? _envUrl
-        : 'https://nonheritably-panpsychistic-joannie.ngrok-free.dev';
+        : 'https://unsure-smectic-alondra.ngrok-free.dev';
 
 // ถ้าใช้ ngrok ต้องส่ง header นี้ทุก request ไม่งั้นได้ HTML แทน JSON
 export const NGROK_HEADERS: Record<string, string> = BASE_URL.includes('ngrok')

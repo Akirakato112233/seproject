@@ -171,7 +171,9 @@ function formatTimeBE(iso: string) {
     return `${day}/${month}/${year} BE, ${h}:${m}:${s}`;
 }
 
-function paymentLabel(paymentMethod?: string): string {
+function paymentLabel(shopType?: string, paymentMethod?: string): string {
+    if (shopType === 'coin') return 'Coin';
+    if (shopType === 'full') return 'Full';
     if (paymentMethod === 'wallet') return 'Coin';
     if (paymentMethod === 'cash') return 'Full';
     if (paymentMethod === 'card') return 'Full';
@@ -198,7 +200,9 @@ function OrderRow({
             </View>
             <View style={s.itemRight}>
                 <View style={s.paymentPill}>
-                    <Text style={s.paymentPillText}>{paymentLabel((o as any).paymentMethod)}</Text>
+                    <Text style={s.paymentPillText}>
+                        {paymentLabel((o as any).shopType, (o as any).paymentMethod)}
+                    </Text>
                 </View>
                 <Text style={s.itemFee}>{formatMoney(o.fee)}</Text>
             </View>

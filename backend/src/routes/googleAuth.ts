@@ -59,7 +59,8 @@ router.post('/login', async (req: Request, res: Response) => {
       user = await User.findOne({ email: emailRegex!, role });
     }
     // ถ้ามี user ด้วยอีเมลนี้อยู่แล้ว (ไม่ว่าจะ role อะไร) = อยู่ในระบบแล้ว → ให้เข้าแอปได้เลย
-    // แต่สำหรับ rider ต้องผ่านการสมัคร rider (มี RiderRegistration) แล้วเท่านั้น ไม่งั้นให้ไป REGISTER
+    // แต่สำหรับ rider ต้องผ่านการสมัคร rider (มี RiderRegistration) แล้วเท่านั้น
+    // และต้องใช้ user ที่มี role='rider' เท่านั้น (ไม่ใช้ account ลูกค้าฝั่ง user-app เป็น riderId)
     if (!user && emailLower) {
       const existingByEmail = await User.findOne({ email: emailRegex! });
       if (existingByEmail) {
@@ -89,25 +90,46 @@ router.post('/login', async (req: Request, res: Response) => {
               },
             });
           }
+          // มี RiderRegistration ครบแล้ว → ใช้ existingByEmail login ได้เลย (ไม่สน role ใน User)
+          if (!existingByEmail.googleSub) {
+            existingByEmail.googleSub = googleSub;
+            await existingByEmail.save().catch(() => { });
+          }
+          const token = signAppToken({ userId: existingByEmail._id.toString() });
+          return res.json({
+            next: 'APP',
+            token,
+            user: {
+              id: existingByEmail._id,
+              email: existingByEmail.email,
+              displayName: existingByEmail.displayName,
+              phone: existingByEmail.phone,
+              address: existingByEmail.address,
+              balance: existingByEmail.balance,
+              role: existingByEmail.role,
+            },
+          });
+        } else {
+          // role อื่น (user/merchant) → ใช้ existingByEmail ได้ตามปกติ
+          if (!existingByEmail.googleSub) {
+            existingByEmail.googleSub = googleSub;
+            await existingByEmail.save().catch(() => { });
+          }
+          const token = signAppToken({ userId: existingByEmail._id.toString() });
+          return res.json({
+            next: 'APP',
+            token,
+            user: {
+              id: existingByEmail._id,
+              email: existingByEmail.email,
+              displayName: existingByEmail.displayName,
+              phone: existingByEmail.phone,
+              address: existingByEmail.address,
+              balance: existingByEmail.balance,
+              role: existingByEmail.role,
+            },
+          });
         }
-        if (!existingByEmail.googleSub) {
-          existingByEmail.googleSub = googleSub;
-          await existingByEmail.save().catch(() => { });
-        }
-        const token = signAppToken({ userId: existingByEmail._id.toString() });
-        return res.json({
-          next: 'APP',
-          token,
-          user: {
-            id: existingByEmail._id,
-            email: existingByEmail.email,
-            displayName: existingByEmail.displayName,
-            phone: existingByEmail.phone,
-            address: existingByEmail.address,
-            balance: existingByEmail.balance,
-            role: existingByEmail.role,
-          },
-        });
       }
     }
 
@@ -390,7 +412,7 @@ router.get('/start', (req: Request, res: Response) => {
   const redirectScheme = (req.query.redirect_scheme as string) || 'exp://192.168.2.40:8081';
   const GOOGLE_CLIENT_ID =
     '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
-  const CALLBACK_URL = `${process.env.NGROK_URL || 'https://nonheritably-panpsychistic-joannie.ngrok-free.dev'}/api/google/callback`;
+  const CALLBACK_URL = `${process.env.NGROK_URL || 'https://unsure-smectic-alondra.ngrok-free.dev'}/api/google/callback`;
 
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
@@ -418,7 +440,7 @@ router.get('/callback', async (req: Request, res: Response) => {
     const GOOGLE_CLIENT_ID =
       '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
     const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
-    const CALLBACK_URL = `${process.env.NGROK_URL || 'https://nonheritably-panpsychistic-joannie.ngrok-free.dev'}/api/google/callback`;
+    const CALLBACK_URL = `${process.env.NGROK_URL || 'https://unsure-smectic-alondra.ngrok-free.dev'}/api/google/callback`;
 
     if (!code) {
       return res.status(400).send('Missing authorization code');

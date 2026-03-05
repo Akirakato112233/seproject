@@ -175,9 +175,17 @@ export const getOrderById = async (req: AuthRequest, res: Response) => {
     const orderObj = order.toObject ? order.toObject() : { ...order };
     const riderId = (order as any).riderId;
     if (riderId) {
-      const riderUser = await User.findById(riderId).select('displayName').lean();
-      const riderDoc = await Rider.findById(riderId).select('displayName fullName').lean();
-      const name = riderUser?.displayName || riderDoc?.displayName || riderDoc?.fullName;
+      // riderId อาจเป็นทั้ง User._id, Rider._id หรือ RiderRegistration._id
+      const [riderReg, riderUser, riderDoc] = await Promise.all([
+        RiderRegistration.findById(riderId).select('fullName').lean(),
+        User.findById(riderId).select('displayName').lean(),
+        Rider.findById(riderId).select('displayName fullName').lean(),
+      ]);
+      const name =
+        riderReg?.fullName ||
+        riderUser?.displayName ||
+        riderDoc?.displayName ||
+        riderDoc?.fullName;
       (orderObj as any).riderDisplayName = (name && String(name).trim()) || 'Rider';
     }
 
@@ -459,7 +467,46 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
           }
         : { _id: actualOrderId };
     const updatePayload: any = { status };
-    if (status === 'rider_coming' && riderId) updatePayload.riderId = riderId;
+
+    // map riderId ให้เป็น RiderRegistration._id ถ้าเป็นไปได้
+    if (status === 'rider_coming' && riderId) {
+      let finalRiderId = String(riderId);
+
+      // ถ้า front-end ส่ง RiderRegistration._id มาอยู่แล้ว ใช้ต่อได้เลย
+      const existingReg = await RiderRegistration.findById(finalRiderId).lean();
+      if (!existingReg) {
+        // กรณีทั่วไป: riderId เป็น User._id → หา RiderRegistration จาก email / phone
+        const riderUser = await User.findById(finalRiderId).lean();
+        if (riderUser) {
+          let reg: any = null;
+          if (riderUser.email) {
+            const emailLower = String(riderUser.email).trim().toLowerCase();
+            const emailRegex = new RegExp(
+              `^${emailLower.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`,
+              'i'
+            );
+            reg = await RiderRegistration.findOne({ email: emailRegex }).sort({ createdAt: -1 }).lean();
+          }
+          if (!reg && riderUser.phone) {
+            const phoneStr = String(riderUser.phone).trim();
+            reg = await RiderRegistration.findOne({
+              $or: [
+                { phone: phoneStr },
+                { phone: phoneStr.replace(/^0/, '') },
+                { phone: '0' + phoneStr.replace(/^0/, '') },
+              ],
+            })
+              .sort({ createdAt: -1 })
+              .lean();
+          }
+          if (reg?._id) {
+            finalRiderId = String(reg._id);
+          }
+        }
+      }
+
+      updatePayload.riderId = finalRiderId;
+    }
     const order = await Order.findOneAndUpdate(updateQuery, updatePayload, { new: true });
 
     if (!order) {
@@ -799,6 +846,106 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// ดึงประวัติออเดอร์ที่ completed ของ Rider (ตาม riderId)
+export const getRiderOrderHistory = async (req: AuthRequest, res: Response) => {
+  try {
+    const riderId = (req.query.riderId as string) || (req as any).user?.userId;
+    if (!riderId) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'riderId is required (query or auth)' });
+    }
+
+    // riderId ใน DB อาจเป็นทั้ง User._id (เดิม) หรือ RiderRegistration._id (ใหม่)
+    const riderIds: string[] = [String(riderId)];
+    const user = await User.findById(riderId).lean();
+    if (user) {
+      let reg: any = null;
+      if (user.email) {
+        const emailLower = String(user.email).trim().toLowerCase();
+        const emailRegex = new RegExp(
+          `^${emailLower.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`,
+          'i'
+        );
+        reg = await RiderRegistration.findOne({ email: emailRegex }).sort({ createdAt: -1 }).lean();
+      }
+      if (!reg && user.phone) {
+        const phoneStr = String(user.phone).trim();
+        reg = await RiderRegistration.findOne({
+          $or: [
+            { phone: phoneStr },
+            { phone: phoneStr.replace(/^0/, '') },
+            { phone: '0' + phoneStr.replace(/^0/, '') },
+          ],
+        })
+          .sort({ createdAt: -1 })
+          .lean();
+      }
+      if (reg?._id) {
+        riderIds.push(String(reg._id));
+      }
+    }
+
+    const orders = await Order.find({
+      riderId: { $in: riderIds },
+      status: { $in: ['completed', 'Completed'] },
+    })
+      .sort({ updatedAt: -1 })
+      .limit(200);
+
+    const enriched = await Promise.all(
+      orders.map(async (order) => {
+        let shop: any = null;
+        if (order.shopId && /^[0-9a-fA-F]{24}$/.test(String(order.shopId))) {
+          shop = await Shop.findById(order.shopId);
+        }
+
+        const customerCoords =
+          (order as any).userLat != null && (order as any).userLon != null
+            ? { latitude: (order as any).userLat, longitude: (order as any).userLon }
+            : { latitude: 13.113625, longitude: 100.919286 };
+
+        const shopCoords = shop?.location
+          ? { latitude: shop.location.lat, longitude: shop.location.lng }
+          : { latitude: 13.117629, longitude: 100.916613 };
+
+        const items = order.items || [];
+        const washDry = parseWashDryFromItems(items);
+
+        return {
+          id: String(order._id),
+          shopName: order.shopName || shop?.name || 'Unknown Shop',
+          shopAddress: shop?.address || 'ไม่ระบุที่อยู่ร้าน',
+          customerName: order.userDisplayName || 'Customer',
+          customerAddress: order.userAddress || '',
+          distance: '1.5 km',
+          fee: order.deliveryFee ?? order.total ?? 0,
+          items: items.length,
+          itemsList: items,
+          pickup: customerCoords,
+          dropoff: customerCoords,
+          shop: shopCoords,
+          paymentMethod: order.paymentMethod || 'cash',
+          status: order.status || 'completed',
+          completedAt: order.updatedAt || order.createdAt,
+          shopType: shop?.type ?? 'full',
+          hasWashItem: washDry.hasWashItem,
+          hasDryItem: washDry.hasDryItem,
+          coinWashDone: (order as any).coinWashDone ?? false,
+          coinDryDone: (order as any).coinDryDone ?? false,
+        };
+      })
+    );
+
+    res.json({ success: true, orders: enriched });
+  } catch (error) {
+    console.error('Get Rider Order History Error:', error);
+    res
+      .status(500)
+      .json({ success: false, message: 'Failed to get rider order history' });
+  }
+};
+
 /** ดึง Order ที่ Ready for Pickup ของ rider นี้ (ผ้าอยู่ที่ร้าน รอไรเดอร์มารับไปส่งลูกค้า) */
 export const getRiderReadyForPickup = async (req: AuthRequest, res: Response) => {
   try {
@@ -809,8 +956,38 @@ export const getRiderReadyForPickup = async (req: AuthRequest, res: Response) =>
         .json({ success: false, message: 'riderId is required (query or auth)' });
     }
 
+    // riderId ใน DB อาจเป็นทั้ง User._id (เดิม) หรือ RiderRegistration._id (ใหม่)
+    const riderIds: string[] = [String(riderId)];
+    const user = await User.findById(riderId).lean();
+    if (user) {
+      let reg: any = null;
+      if (user.email) {
+        const emailLower = String(user.email).trim().toLowerCase();
+        const emailRegex = new RegExp(
+          `^${emailLower.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`,
+          'i'
+        );
+        reg = await RiderRegistration.findOne({ email: emailRegex }).sort({ createdAt: -1 }).lean();
+      }
+      if (!reg && user.phone) {
+        const phoneStr = String(user.phone).trim();
+        reg = await RiderRegistration.findOne({
+          $or: [
+            { phone: phoneStr },
+            { phone: phoneStr.replace(/^0/, '') },
+            { phone: '0' + phoneStr.replace(/^0/, '') },
+          ],
+        })
+          .sort({ createdAt: -1 })
+          .lean();
+      }
+      if (reg?._id) {
+        riderIds.push(String(reg._id));
+      }
+    }
+
     const orders = await Order.find({
-      riderId,
+      riderId: { $in: riderIds },
       status: { $in: ['in_progress', 'out_for_delivery'] },
     }).sort({ updatedAt: -1 });
 
@@ -879,8 +1056,38 @@ export const getRiderAtShopOrders = async (req: AuthRequest, res: Response) => {
         .json({ success: false, message: 'riderId is required (query or auth)' });
     }
 
+    // riderId ใน DB อาจเป็นทั้ง User._id (เดิม) หรือ RiderRegistration._id (ใหม่)
+    const riderIds: string[] = [String(riderId)];
+    const user = await User.findById(riderId).lean();
+    if (user) {
+      let reg: any = null;
+      if (user.email) {
+        const emailLower = String(user.email).trim().toLowerCase();
+        const emailRegex = new RegExp(
+          `^${emailLower.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`,
+          'i'
+        );
+        reg = await RiderRegistration.findOne({ email: emailRegex }).sort({ createdAt: -1 }).lean();
+      }
+      if (!reg && user.phone) {
+        const phoneStr = String(user.phone).trim();
+        reg = await RiderRegistration.findOne({
+          $or: [
+            { phone: phoneStr },
+            { phone: phoneStr.replace(/^0/, '') },
+            { phone: '0' + phoneStr.replace(/^0/, '') },
+          ],
+        })
+          .sort({ createdAt: -1 })
+          .lean();
+      }
+      if (reg?._id) {
+        riderIds.push(String(reg._id));
+      }
+    }
+
     const orders = await Order.find({
-      riderId,
+      riderId: { $in: riderIds },
       status: 'at_shop',
     }).sort({ updatedAt: -1 });
 
@@ -1152,21 +1359,30 @@ export const rateOrder = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ success: false, message: 'No rider assigned to this order' });
     }
 
-    // หา User ที่เป็น rider เพื่อดึง email
-    const riderUser = await User.findById(riderId).lean();
-    if (!riderUser) {
-      return res.status(404).json({ success: false, message: 'Rider user not found' });
-    }
+    // พยายามหา RiderRegistration จาก riderId โดยตรงก่อน (กรณีใหม่ที่ใช้ reg._id เป็น riderId)
+    let registration = await RiderRegistration.findById(riderId).lean();
+    let riderUser = null as any;
 
-    // หา RiderRegistration ด้วย email หรือ phone
-    let registration = null;
-    if (riderUser.email) {
-      registration = await RiderRegistration.findOne({
-        email: { $regex: new RegExp(`^${riderUser.email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
-      });
-    }
-    if (!registration && riderUser.phone) {
-      registration = await RiderRegistration.findOne({ phone: riderUser.phone });
+    if (!registration) {
+      // กรณีเก่า: riderId เป็น User._id → หา User ก่อนแล้ว map ไป RiderRegistration
+      riderUser = await User.findById(riderId).lean();
+      if (!riderUser) {
+        return res.status(404).json({ success: false, message: 'Rider user not found' });
+      }
+
+      if (riderUser.email) {
+        registration = await RiderRegistration.findOne({
+          email: {
+            $regex: new RegExp(
+              `^${riderUser.email.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`,
+              'i'
+            ),
+          },
+        }).lean();
+      }
+      if (!registration && riderUser.phone) {
+        registration = await RiderRegistration.findOne({ phone: riderUser.phone }).lean();
+      }
     }
 
     if (registration) {

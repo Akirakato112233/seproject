@@ -1,5 +1,5 @@
-import { Router } from 'express';
-import multer from 'multer';
+import { Router, Request } from 'express';
+import multer, { FileFilterCallback } from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { createMessage, getMessages, uploadChatImage } from '../controllers/chatController';
@@ -11,8 +11,9 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 const storage = multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, uploadDir),
-    filename: (_req, file, cb) => {
+    destination: (_req: Request, _file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) =>
+        cb(null, uploadDir),
+    filename: (_req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
         const ext = path.extname(file.originalname) || '.jpg';
         cb(null, `chat_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`);
     },
@@ -21,7 +22,7 @@ const storage = multer.diskStorage({
 const upload = multer({
     storage,
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-    fileFilter: (_req, file, cb) => {
+    fileFilter: (_req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
         // รองรับไฟล์จาก iPhone (HEIC/HEIF) เพิ่มเติม
         const allowed = /jpeg|jpg|png|gif|webp|heic|heif/;
         const extOk = allowed.test(path.extname(file.originalname).toLowerCase());

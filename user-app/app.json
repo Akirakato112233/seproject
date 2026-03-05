@@ -5,7 +5,7 @@
         "owner": "0822189639",
         "version": "1.0.0",
         "orientation": "portrait",
-        "icon": "./assets/images/icon.png",
+        "icon": "./assets/icon.png",
         "scheme": "wit-user",
         "userInterfaceStyle": "automatic",
         "newArchEnabled": true,

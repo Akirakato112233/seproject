@@ -190,14 +190,23 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
         return () => clearInterval(interval);
     }, [isOnline, active]);
 
-    // Load state from storage
+    // Load state from storage (แยกตาม rider ที่ login)
     useEffect(() => {
+        if (!effectiveRiderId) return;
+
         (async () => {
             try {
                 const raw = await AsyncStorage.getItem(STORAGE_KEY);
                 if (!raw) return;
 
                 const parsed = JSON.parse(raw);
+
+                // ถ้าไม่มี riderId หรือ riderId ไม่ตรงกับคนที่ login อยู่
+                // ให้ข้ามไปเลย (กันไม่ให้ history ของไรเดอร์คนอื่น / dev mode มาโชว์ปนกัน)
+                if (!parsed.riderId || parsed.riderId !== effectiveRiderId) {
+                    return;
+                }
+
                 if (Array.isArray(parsed.history)) setHistory(parsed.history);
 
                 // Don't load available/active from storage to avoid stale data
@@ -205,15 +214,22 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
                 // ignore
             }
         })();
-    }, []);
+    }, [effectiveRiderId]);
 
-    // save
+    // save (ผูก state กับ rider ที่ login)
     useEffect(() => {
         AsyncStorage.setItem(
             STORAGE_KEY,
-            JSON.stringify({ available, active, history, isOnline, autoAccept })
+            JSON.stringify({
+                available,
+                active,
+                history,
+                isOnline,
+                autoAccept,
+                riderId: effectiveRiderId,
+            })
         ).catch(() => {});
-    }, [available, active, history, isOnline, autoAccept]);
+    }, [available, active, history, isOnline, autoAccept, effectiveRiderId]);
 
     const updateBackendStatus = async (
         orderId: string,
@@ -406,11 +422,63 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
 
     const refreshAtShopOrders = () => fetchAtShopOrders();
 
-    // ดึง Ready for Pickup + At Shop (In progress) เมื่อ login หรือโหมด dev
+    const fetchHistoryFromBackend = async () => {
+        const riderId = effectiveRiderId;
+        if (!riderId) {
+            setHistory([]);
+            return;
+        }
+        try {
+            const headers: Record<string, string> = { ...NGROK_HEADERS };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const res = await fetch(
+                `${API.ORDERS}/rider/history?riderId=${encodeURIComponent(riderId)}`,
+                { headers }
+            );
+            const data = await res.json();
+            if (data.success && Array.isArray(data.orders)) {
+                const mapped: CompletedOrder[] = data.orders.map((o: any) => ({
+                    id: o.id,
+                    shopName: o.shopName,
+                    shopAddress: o.shopAddress,
+                    customerName: o.customerName,
+                    customerAddress: o.customerAddress,
+                    distance: o.distance ?? '1.5 km',
+                    fee: o.fee ?? 0,
+                    items: o.items ?? 0,
+                    pickup: o.pickup,
+                    dropoff: o.dropoff,
+                    shop: o.shop,
+                    note: o.note,
+                    timeWindow: o.timeWindow,
+                    paymentMethod: o.paymentMethod,
+                    customerPhone: o.customerPhone,
+                    shopPhone: o.shopPhone,
+                    status: o.status,
+                    shopType: o.shopType,
+                    hasWashItem: o.hasWashItem,
+                    hasDryItem: o.hasDryItem,
+                    coinWashDone: o.coinWashDone,
+                    coinDryDone: o.coinDryDone,
+                    itemsList: o.itemsList,
+                    completedAt: o.completedAt,
+                }));
+                setHistory(mapped);
+            } else {
+                setHistory([]);
+            }
+        } catch (e) {
+            console.log('Fetch rider history error:', e);
+            setHistory([]);
+        }
+    };
+
+    // ดึง Ready for Pickup + At Shop (In progress) + History เมื่อ login หรือโหมด dev
     useEffect(() => {
         if (!effectiveRiderId) return;
         fetchReadyForPickup();
         fetchAtShopOrders();
+        fetchHistoryFromBackend();
         const t = setInterval(() => {
             fetchReadyForPickup();
             fetchAtShopOrders();
