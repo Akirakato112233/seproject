@@ -185,32 +185,6 @@ export default function CreateAccountScreen() {
             )}
           </TouchableOpacity>
 
-          <View style={s.entryRow}>
-            <TouchableOpacity
-              style={[s.entryBtn, s.entryBtnLaundry]}
-              onPress={() => router.replace('/(tabs)')}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="shirt-outline" size={20} color="#fff" />
-              <Text style={s.entryBtnText}>ร้านรับซัก</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[s.entryBtn, s.entryBtnCoin]}
-              onPress={() => router.replace('/(coin)')}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="hardware-chip-outline" size={20} color="#fff" />
-              <Text style={s.entryBtnText}>ร้านหยอดเหรียญ</Text>
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity
-            style={s.skipBtn}
-            onPress={() => router.replace('/(tabs)')}
-            activeOpacity={0.7}
-          >
-            <Text style={s.skipText}>ข้าม เข้าใช้งานเลย (ร้านรับซัก)</Text>
-          </TouchableOpacity>
-
           <Text style={s.terms}>
             By continuing, you agree to our Terms of Service and Privacy Policy
           </Text>
