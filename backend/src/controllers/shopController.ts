@@ -1,9 +1,24 @@
 import { Request, Response } from 'express';
 import { Shop, calculatePriceLevel } from '../models/Shop';
 
+// คำนวณระยะทางระหว่าง 2 จุด (Haversine formula) - return km
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371; // รัศมีโลก (km)
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
 export const getShops = async (req: Request, res: Response) => {
   try {
-    const { type, rating, price, delivery, nearMe, promo, open, merchantUserId } = req.query;
+    const { type, rating, price, delivery, nearMe, lat, lon, promo, open, merchantUserId } = req.query;
 
     // สร้าง query object
     const query: any = {};
@@ -34,11 +49,26 @@ export const getShops = async (req: Request, res: Response) => {
       query.deliveryFee = { $lte: maxFee };
     }
 
-    // TODO: Filter by nearMe (ต้องใช้ location)
-    // TODO: Filter by promo (ต้องมี field ใน database)
-    // TODO: Filter by open (ต้องมี field openingHours)
+    let shops = await Shop.find(query).lean();
 
-    const shops = await Shop.find(query).sort({ rating: -1 });
+    // Near Me: คำนวณระยะทางและ sort ตามใกล้สุด
+    if (nearMe === 'true' && lat && lon) {
+      const userLat = Number(lat);
+      const userLon = Number(lon);
+
+      shops = shops
+        .map((shop) => {
+          const shopLat = shop.location?.lat;
+          const shopLon = shop.location?.lng;
+          const distance =
+            shopLat && shopLon ? calculateDistance(userLat, userLon, shopLat, shopLon) : Infinity;
+          return { ...shop, distance };
+        })
+        .sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
+    } else {
+      // Default sort by rating
+      shops = shops.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+    }
 
     res.json(shops);
   } catch (error) {
