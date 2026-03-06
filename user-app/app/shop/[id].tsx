@@ -146,15 +146,14 @@ export default function ShopDetailScreen() {
                 return newState;
             }
 
-            // ร้าน coin: ลบ selection จากเครื่องอื่นในประเภทเดียวกัน
-            if (shop?.type === 'coin') {
-                const serviceType = serviceKey.split('-')[0]; // 'wash' หรือ 'dry'
-                Object.keys(newState).forEach((key) => {
-                    if (key.startsWith(`${serviceType}-`) && key !== serviceKey) {
-                        delete newState[key];
-                    }
-                });
-            }
+            // ให้เลือก wash หรือ dry ได้แค่อย่างละ 1 รายการ
+            const serviceType = serviceKey.split('-')[0]; // 'wash' หรือ 'dry'
+            Object.keys(newState).forEach((key) => {
+                if (key.startsWith(`${serviceType}-`) && key !== serviceKey) {
+                    // กำหนดค่าเป็น -1 เพื่อเคลียร์การเลือก (แทน delete เพื่อให้ React จับการเปลี่ยนแปลง state ได้ชัวร์)
+                    newState[key] = -1;
+                }
+            });
 
             newState[serviceKey] = optionIndex;
             return newState;
