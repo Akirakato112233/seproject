@@ -88,7 +88,7 @@ export default function CreateAccountScreen() {
     const handleMobileGoogleSignIn = async () => {
         try {
             setIsLoading(true);
-            const scheme = 'exp://192.168.2.40:8081';
+            const scheme = AuthSession.makeRedirectUri().replace(/\/?$/, '');
             const authUrl = `${BACKEND_URL}/api/google/start?redirect_scheme=${encodeURIComponent(scheme)}`;
 
             const result = await WebBrowser.openAuthSessionAsync(

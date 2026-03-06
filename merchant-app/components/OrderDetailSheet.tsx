@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
   Dimensions,
+  Linking,
   Modal,
   ScrollView,
   StyleSheet,
@@ -69,8 +70,8 @@ export function OrderDetailSheet({
           : isWashing
             ? 'In progress'
             : isInProgress
-            ? 'Ready for pickup'
-            : 'Delivering');
+              ? 'Ready for pickup'
+              : 'Delivering');
   const actionLabel =
     order.actionLabel ??
     (isNewOrder ? 'Accept' : isWaitForRider ? 'Rider arrived' : isWashing ? 'Ready for pickup' : isInProgress ? 'Rider picked up' : '');
@@ -83,176 +84,190 @@ export function OrderDetailSheet({
           <View style={s.overlayTouch} />
         </TouchableWithoutFeedback>
         <View style={s.sheet} pointerEvents="box-none">
-              <View style={s.dragHandle} />
-              <View style={s.header}>
-                <View>
-                  <Text style={s.orderId}>ORD-{order.id}</Text>
-                  <View
-                    style={[
-                      s.statusBadge,
-                      isNewOrder
-                        ? s.statusNew
-                        : isCompleted
-                          ? s.statusCompleted
-                          : isWaitForRider
-                            ? s.statusWait
-                            : isWashing
-                              ? s.statusWashing
-                              : isInProgress
-                                ? s.statusInProgress
-                                : s.statusReady,
-                    ]}
-                  >
-                    <Text style={s.statusText}>
-                      {statusLabel}
-                    </Text>
-                  </View>
-                </View>
-                <View style={s.headerRight}>
-                  <View style={s.paymentBadge}>
-                    <Text style={s.paymentBadgeText}>{order.paymentMethod}</Text>
-                  </View>
-                  <TouchableOpacity onPress={onClose}>
-                    <Ionicons name="close" size={24} color={Colors.textMuted} />
-                  </TouchableOpacity>
+          <View style={s.dragHandle} />
+          <View style={s.header}>
+            <View>
+              <Text style={s.orderId}>ORD-{order.id}</Text>
+              <View
+                style={[
+                  s.statusBadge,
+                  isNewOrder
+                    ? s.statusNew
+                    : isCompleted
+                      ? s.statusCompleted
+                      : isWaitForRider
+                        ? s.statusWait
+                        : isWashing
+                          ? s.statusWashing
+                          : isInProgress
+                            ? s.statusInProgress
+                            : s.statusReady,
+                ]}
+              >
+                <Text style={s.statusText}>
+                  {statusLabel}
+                </Text>
+              </View>
+            </View>
+            <View style={s.headerRight}>
+              <View style={s.paymentBadge}>
+                <Text style={s.paymentBadgeText}>{order.paymentMethod}</Text>
+              </View>
+              <TouchableOpacity onPress={onClose}>
+                <Ionicons name="close" size={24} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <ScrollView
+            style={s.content}
+            contentContainerStyle={s.contentContainer}
+            showsVerticalScrollIndicator={true}
+            bounces={true}
+            nestedScrollEnabled={true}
+            scrollEventThrottle={16}
+          >
+            <View style={s.totalCard}>
+              <Text style={s.totalLabel}>Total Amount</Text>
+              <Text style={s.totalAmount}>{order.total.toFixed(2)}฿</Text>
+              <View style={s.paidRow}>
+                <Ionicons
+                  name={order.isPaid ? 'lock-closed' : 'document-text'}
+                  size={14}
+                  color="rgba(255,255,255,0.9)"
+                />
+                <Text style={s.paidText}>{order.isPaid ? 'Paid' : 'Unpaid'}</Text>
+              </View>
+            </View>
+
+            <View style={s.card}>
+              <View style={s.cardHeader}>
+                <Ionicons name="person-outline" size={18} color={Colors.textPrimary} />
+                <Text style={s.cardTitle}>Customer Details</Text>
+              </View>
+              <View style={s.detailRow}>
+                <Text style={s.detailLabel}>Name</Text>
+                <Text style={s.detailValue}>{order.customerName}</Text>
+              </View>
+              <View style={s.detailRow}>
+                <Text style={s.detailLabel}>Phone</Text>
+                <View style={s.phoneRow}>
+                  <Text style={s.detailValue}>{order.customerPhone}</Text>
+                  {!!order.customerPhone && (
+                    <TouchableOpacity onPress={() => Linking.openURL(`tel:${order.customerPhone}`)}>
+                      <Ionicons name="call" size={16} color={Colors.successGreen} style={{ marginLeft: 6 }} />
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
+              <View style={s.detailRow}>
+                <Text style={s.detailLabel}>Order Date</Text>
+                <Text style={s.detailValue}>{order.orderDate}</Text>
+              </View>
+              <View style={s.detailRow}>
+                <Text style={s.detailLabel}>Payment Method</Text>
+                <Text style={s.detailValue}>{order.paymentMethod}</Text>
+              </View>
+            </View>
 
-              <ScrollView
-                style={s.content}
-                contentContainerStyle={s.contentContainer}
-                showsVerticalScrollIndicator={true}
-                bounces={true}
-                nestedScrollEnabled={true}
-                scrollEventThrottle={16}
-              >
-                <View style={s.totalCard}>
-                  <Text style={s.totalLabel}>Total Amount</Text>
-                  <Text style={s.totalAmount}>{order.total.toFixed(2)}฿</Text>
-                  <View style={s.paidRow}>
-                    <Ionicons
-                      name={order.isPaid ? 'lock-closed' : 'document-text'}
-                      size={14}
-                      color="rgba(255,255,255,0.9)"
-                    />
-                    <Text style={s.paidText}>{order.isPaid ? 'Paid' : 'Unpaid'}</Text>
-                  </View>
+            {(order.riderName || isNewOrder) && (
+              <View style={s.card}>
+                <View style={s.cardHeader}>
+                  <Ionicons name="bicycle-outline" size={18} color={Colors.textPrimary} />
+                  <Text style={s.cardTitle}>Rider Details</Text>
                 </View>
-
-                <View style={s.card}>
-                  <View style={s.cardHeader}>
-                    <Ionicons name="person-outline" size={18} color={Colors.textPrimary} />
-                    <Text style={s.cardTitle}>Customer Details</Text>
-                  </View>
-                  <View style={s.detailRow}>
-                    <Text style={s.detailLabel}>Name</Text>
-                    <Text style={s.detailValue}>{order.customerName}</Text>
-                  </View>
-                  <View style={s.detailRow}>
-                    <Text style={s.detailLabel}>Phone</Text>
-                    <Text style={s.detailValue}>{order.customerPhone}</Text>
-                  </View>
-                  <View style={s.detailRow}>
-                    <Text style={s.detailLabel}>Order Date</Text>
-                    <Text style={s.detailValue}>{order.orderDate}</Text>
-                  </View>
-                  <View style={s.detailRow}>
-                    <Text style={s.detailLabel}>Payment Method</Text>
-                    <Text style={s.detailValue}>{order.paymentMethod}</Text>
-                  </View>
-                </View>
-
-                {(order.riderName || isNewOrder) && (
-                  <View style={s.card}>
-                    <View style={s.cardHeader}>
-                      <Ionicons name="bicycle-outline" size={18} color={Colors.textPrimary} />
-                      <Text style={s.cardTitle}>Rider Details</Text>
+                {order.riderName ? (
+                  <>
+                    <View style={s.detailRow}>
+                      <Text style={s.detailLabel}>Name</Text>
+                      <Text style={s.detailValue}>{order.riderName}</Text>
                     </View>
-                    {order.riderName ? (
-                      <>
-                        <View style={s.detailRow}>
-                          <Text style={s.detailLabel}>Name</Text>
-                          <Text style={s.detailValue}>{order.riderName}</Text>
-                        </View>
-                        <View style={s.detailRow}>
-                          <Text style={s.detailLabel}>Phone</Text>
-                          <Text style={s.detailValue}>{order.riderPhone}</Text>
-                        </View>
-                      </>
-                    ) : (
-                      <Text style={s.emptyRiderText}>Waiting for rider to accept</Text>
-                    )}
-                  </View>
-                )}
-
-                {order.services && order.services.length > 0 && (
-                  <View style={s.card}>
-                    <View style={s.cardHeader}>
-                      <Ionicons name="list-outline" size={18} color={Colors.textPrimary} />
-                      <Text style={s.cardTitle}>Service List</Text>
-                    </View>
-                    {order.services.map((svc, i) => (
-                      <View key={i} style={s.serviceRow}>
-                        <View style={s.serviceLeft}>
-                          <View style={s.serviceIcon}>
-                            <Ionicons name="shirt-outline" size={18} color={Colors.primaryBlue} />
-                          </View>
-                          <View>
-                            <Text style={s.serviceName}>{svc.name}</Text>
-                            <Text style={s.serviceQty}>{svc.qty}</Text>
-                          </View>
-                        </View>
-                        <Text style={s.servicePrice}>{svc.price}฿</Text>
+                    <View style={s.detailRow}>
+                      <Text style={s.detailLabel}>Phone</Text>
+                      <View style={s.phoneRow}>
+                        <Text style={s.detailValue}>{order.riderPhone}</Text>
+                        {!!order.riderPhone && (
+                          <TouchableOpacity onPress={() => Linking.openURL(`tel:${order.riderPhone}`)}>
+                            <Ionicons name="call" size={16} color={Colors.successGreen} style={{ marginLeft: 6 }} />
+                          </TouchableOpacity>
+                        )}
                       </View>
-                    ))}
-                  </View>
-                )}
-
-                {(order.note !== undefined && order.note !== '') && (
-                  <View style={s.card}>
-                    <View style={s.cardHeader}>
-                      <Ionicons
-                        name="document-text-outline"
-                        size={18}
-                        color={Colors.textPrimary}
-                      />
-                      <Text style={s.cardTitle}>Note</Text>
                     </View>
-                    <Text style={s.noteText}>{order.note}</Text>
-                  </View>
+                  </>
+                ) : (
+                  <Text style={s.emptyRiderText}>Waiting for rider to accept</Text>
                 )}
-              </ScrollView>
+              </View>
+            )}
 
-              {showAction && (isNewOrder && onDecline ? (
-                <View style={s.newOrderButtons}>
-                  <TouchableOpacity
-                    style={s.declineBtn}
-                    onPress={onDecline}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={s.declineBtnText}>Decline</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[s.actionBtn, s.actionBtnFlex, actionLoading && s.actionBtnDisabled]}
-                    onPress={onAction}
-                    activeOpacity={0.8}
-                    disabled={actionLoading}
-                  >
-                    <Text style={s.actionBtnText}>{actionLoading ? 'Processing...' : 'Accept'}</Text>
-                    {!actionLoading && <Ionicons name="arrow-forward" size={20} color={Colors.white} />}
-                  </TouchableOpacity>
+            {order.services && order.services.length > 0 && (
+              <View style={s.card}>
+                <View style={s.cardHeader}>
+                  <Ionicons name="list-outline" size={18} color={Colors.textPrimary} />
+                  <Text style={s.cardTitle}>Service List</Text>
                 </View>
-              ) : (
-                <TouchableOpacity
-                  style={[s.actionBtn, actionLoading && s.actionBtnDisabled]}
-                  onPress={onAction}
-                  activeOpacity={0.8}
-                  disabled={actionLoading}
-                >
-                  <Text style={s.actionBtnText}>{actionLoading ? 'Processing...' : actionLabel}</Text>
-                  {!actionLoading && <Ionicons name="arrow-forward" size={20} color={Colors.white} />}
-                </TouchableOpacity>
-              ))}
+                {order.services.map((svc, i) => (
+                  <View key={i} style={s.serviceRow}>
+                    <View style={s.serviceLeft}>
+                      <View style={s.serviceIcon}>
+                        <Ionicons name="shirt-outline" size={18} color={Colors.primaryBlue} />
+                      </View>
+                      <View>
+                        <Text style={s.serviceName}>{svc.name}</Text>
+                        <Text style={s.serviceQty}>{svc.qty}</Text>
+                      </View>
+                    </View>
+                    <Text style={s.servicePrice}>{svc.price}฿</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {(order.note !== undefined && order.note !== '') && (
+              <View style={s.card}>
+                <View style={s.cardHeader}>
+                  <Ionicons
+                    name="document-text-outline"
+                    size={18}
+                    color={Colors.textPrimary}
+                  />
+                  <Text style={s.cardTitle}>Note</Text>
+                </View>
+                <Text style={s.noteText}>{order.note}</Text>
+              </View>
+            )}
+          </ScrollView>
+
+          {showAction && (isNewOrder && onDecline ? (
+            <View style={s.newOrderButtons}>
+              <TouchableOpacity
+                style={s.declineBtn}
+                onPress={onDecline}
+                activeOpacity={0.8}
+              >
+                <Text style={s.declineBtnText}>Decline</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.actionBtn, s.actionBtnFlex, actionLoading && s.actionBtnDisabled]}
+                onPress={onAction}
+                activeOpacity={0.8}
+                disabled={actionLoading}
+              >
+                <Text style={s.actionBtnText}>{actionLoading ? 'Processing...' : 'Accept'}</Text>
+                {!actionLoading && <Ionicons name="arrow-forward" size={20} color={Colors.white} />}
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[s.actionBtn, actionLoading && s.actionBtnDisabled]}
+              onPress={onAction}
+              activeOpacity={0.8}
+              disabled={actionLoading}
+            >
+              <Text style={s.actionBtnText}>{actionLoading ? 'Processing...' : actionLabel}</Text>
+              {!actionLoading && <Ionicons name="arrow-forward" size={20} color={Colors.white} />}
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
     </Modal>
@@ -355,6 +370,7 @@ const s = StyleSheet.create({
   },
   detailLabel: { fontSize: 13, color: Colors.textMuted },
   detailValue: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
+  phoneRow: { flexDirection: 'row', alignItems: 'center' },
   serviceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

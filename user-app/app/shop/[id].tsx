@@ -30,12 +30,18 @@ interface WashDryOption {
 }
 
 interface WashService {
+    machineId?: string;
     weight: number;
+    status?: 'available' | 'busy' | 'ready';
+    finishTime?: string | null;
     options: WashDryOption[];
 }
 
 interface DryService {
+    machineId?: string;
     weight: number;
+    status?: 'available' | 'busy' | 'ready';
+    finishTime?: string | null;
     options: WashDryOption[];
 }
 
@@ -117,12 +123,42 @@ export default function ShopDetailScreen() {
         }
     };
 
+    // Helper: คำนวณเวลาเหลือของเครื่องที่ busy
+    const getRemainingTime = (finishTime?: string | null) => {
+        if (!finishTime) return '';
+        const now = new Date();
+        const finish = new Date(finishTime);
+        const diffMs = finish.getTime() - now.getTime();
+        if (diffMs <= 0) return 'เสร็จแล้ว';
+        const mins = Math.ceil(diffMs / 60000);
+        return `อีก ${mins} นาที`;
+    };
+
     // สำหรับ single select (wash, dry)
+    // สำหรับร้าน coin: เลือกได้แค่ 1 เครื่อง wash + 1 เครื่อง dry
     const handleSelectOption = (serviceKey: string, optionIndex: number) => {
-        setSelectedOptions((prev) => ({
-            ...prev,
-            [serviceKey]: prev[serviceKey] === optionIndex ? -1 : optionIndex,
-        }));
+        setSelectedOptions((prev) => {
+            const newState = { ...prev };
+
+            // ถ้ากดซ้ำ → deselect
+            if (newState[serviceKey] === optionIndex) {
+                newState[serviceKey] = -1;
+                return newState;
+            }
+
+            // ร้าน coin: ลบ selection จากเครื่องอื่นในประเภทเดียวกัน
+            if (shop?.type === 'coin') {
+                const serviceType = serviceKey.split('-')[0]; // 'wash' หรือ 'dry'
+                Object.keys(newState).forEach((key) => {
+                    if (key.startsWith(`${serviceType}-`) && key !== serviceKey) {
+                        delete newState[key];
+                    }
+                });
+            }
+
+            newState[serviceKey] = optionIndex;
+            return newState;
+        });
     };
 
     // สำหรับ multi-select (ironing, folding, other)
@@ -210,6 +246,7 @@ export default function ShopDetailScreen() {
             details: string;
             price: number;
             duration: number;
+            machineId?: string;
             additionalRequest?: string;
         }[] = [];
 
@@ -227,6 +264,7 @@ export default function ShopDetailScreen() {
                             details: `${option.duration || 0} min`,
                             price: option.price,
                             duration: option.duration || 0,
+                            machineId: service.machineId,
                         });
                     }
                 } else if (serviceType === 'dry' && shop.dryServices) {
@@ -238,6 +276,7 @@ export default function ShopDetailScreen() {
                             details: `${option.duration || 0} min`,
                             price: option.price,
                             duration: option.duration || 0,
+                            machineId: service.machineId,
                         });
                     }
                 }
@@ -412,98 +451,136 @@ export default function ShopDetailScreen() {
                 {/* Wash Services */}
                 {shop.washServices && shop.washServices.length > 0 && (
                     <View style={localStyles.servicesSection}>
-                        {shop.washServices.map((service, serviceIndex) => (
-                            <View key={`wash-${serviceIndex}`} style={localStyles.serviceGroup}>
-                                <Text style={localStyles.serviceTitle}>
-                                    Wash {service.weight} kg
-                                </Text>
-                                {service.options.map((option, optionIndex) => {
-                                    const isSelected =
-                                        selectedOptions[`wash-${serviceIndex}`] === optionIndex;
-                                    return (
-                                        <TouchableOpacity
-                                            key={optionIndex}
-                                            style={localStyles.optionRow}
-                                            onPress={() =>
-                                                handleSelectOption(
-                                                    `wash-${serviceIndex}`,
-                                                    optionIndex
-                                                )
-                                            }
-                                        >
-                                            <View
-                                                style={[
-                                                    localStyles.radio,
-                                                    isSelected && localStyles.radioSelected,
-                                                ]}
-                                            >
-                                                {isSelected && (
-                                                    <View style={localStyles.radioInner} />
-                                                )}
+                        {shop.washServices.map((service, serviceIndex) => {
+                            const isBusy = shop.type === 'coin' && service.status === 'busy';
+                            const isReady = shop.type === 'coin' && service.status === 'ready';
+                            const isDisabled = isBusy;
+                            return (
+                                <View key={`wash-${serviceIndex}`} style={[localStyles.serviceGroup, isDisabled && { opacity: 0.5 }]}>
+                                    <View style={localStyles.machineTitleRow}>
+                                        <Text style={localStyles.serviceTitle}>
+                                            {shop.type === 'coin' && service.machineId ? `${service.machineId} · ` : ''}Wash {service.weight} kg
+                                        </Text>
+                                        {shop.type === 'coin' && (
+                                            <View style={[
+                                                localStyles.statusBadge,
+                                                isBusy ? localStyles.statusBusy : isReady ? localStyles.statusReady : localStyles.statusAvailable,
+                                            ]}>
+                                                <Text style={localStyles.statusBadgeText}>
+                                                    {isBusy ? `กำลังทำงาน ${getRemainingTime(service.finishTime)}` : isReady ? 'รอไรเดอร์รับ' : 'ว่าง'}
+                                                </Text>
                                             </View>
-                                            <Text style={localStyles.optionSetting}>
-                                                {option.setting}
-                                            </Text>
-                                            <Text style={localStyles.optionDuration}>
-                                                {option.duration} min
-                                            </Text>
-                                            <Text style={localStyles.optionPrice}>
-                                                ฿ {option.price}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </View>
-                        ))}
+                                        )}
+                                    </View>
+                                    {service.options.map((option, optionIndex) => {
+                                        const isSelected =
+                                            selectedOptions[`wash-${serviceIndex}`] === optionIndex;
+                                        return (
+                                            <TouchableOpacity
+                                                key={optionIndex}
+                                                style={localStyles.optionRow}
+                                                onPress={() => {
+                                                    if (isDisabled) return;
+                                                    handleSelectOption(
+                                                        `wash-${serviceIndex}`,
+                                                        optionIndex
+                                                    );
+                                                }}
+                                                activeOpacity={isDisabled ? 1 : 0.7}
+                                            >
+                                                <View
+                                                    style={[
+                                                        localStyles.radio,
+                                                        isSelected && localStyles.radioSelected,
+                                                    ]}
+                                                >
+                                                    {isSelected && (
+                                                        <View style={localStyles.radioInner} />
+                                                    )}
+                                                </View>
+                                                <Text style={localStyles.optionSetting}>
+                                                    {option.setting}
+                                                </Text>
+                                                <Text style={localStyles.optionDuration}>
+                                                    {option.duration} min
+                                                </Text>
+                                                <Text style={localStyles.optionPrice}>
+                                                    ฿ {option.price}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
+                            );
+                        })}
                     </View>
                 )}
 
                 {/* Dry Services */}
                 {shop.dryServices && shop.dryServices.length > 0 && (
                     <View style={localStyles.servicesSection}>
-                        {shop.dryServices.map((service, serviceIndex) => (
-                            <View key={`dry-${serviceIndex}`} style={localStyles.serviceGroup}>
-                                <Text style={localStyles.serviceTitle}>
-                                    Dry {service.weight} kg
-                                </Text>
-                                {service.options.map((option, optionIndex) => {
-                                    const isSelected =
-                                        selectedOptions[`dry-${serviceIndex}`] === optionIndex;
-                                    return (
-                                        <TouchableOpacity
-                                            key={optionIndex}
-                                            style={localStyles.optionRow}
-                                            onPress={() =>
-                                                handleSelectOption(
-                                                    `dry-${serviceIndex}`,
-                                                    optionIndex
-                                                )
-                                            }
-                                        >
-                                            <View
-                                                style={[
-                                                    localStyles.radio,
-                                                    isSelected && localStyles.radioSelected,
-                                                ]}
-                                            >
-                                                {isSelected && (
-                                                    <View style={localStyles.radioInner} />
-                                                )}
+                        {shop.dryServices.map((service, serviceIndex) => {
+                            const isBusy = shop.type === 'coin' && service.status === 'busy';
+                            const isReady = shop.type === 'coin' && service.status === 'ready';
+                            const isDisabled = isBusy;
+                            return (
+                                <View key={`dry-${serviceIndex}`} style={[localStyles.serviceGroup, isDisabled && { opacity: 0.5 }]}>
+                                    <View style={localStyles.machineTitleRow}>
+                                        <Text style={localStyles.serviceTitle}>
+                                            {shop.type === 'coin' && service.machineId ? `${service.machineId} · ` : ''}Dry {service.weight} kg
+                                        </Text>
+                                        {shop.type === 'coin' && (
+                                            <View style={[
+                                                localStyles.statusBadge,
+                                                isBusy ? localStyles.statusBusy : isReady ? localStyles.statusReady : localStyles.statusAvailable,
+                                            ]}>
+                                                <Text style={localStyles.statusBadgeText}>
+                                                    {isBusy ? `กำลังทำงาน ${getRemainingTime(service.finishTime)}` : isReady ? 'รอไรเดอร์รับ' : 'ว่าง'}
+                                                </Text>
                                             </View>
-                                            <Text style={localStyles.optionSetting}>
-                                                {option.setting}
-                                            </Text>
-                                            <Text style={localStyles.optionDuration}>
-                                                {option.duration} min
-                                            </Text>
-                                            <Text style={localStyles.optionPrice}>
-                                                ฿ {option.price}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </View>
-                        ))}
+                                        )}
+                                    </View>
+                                    {service.options.map((option, optionIndex) => {
+                                        const isSelected =
+                                            selectedOptions[`dry-${serviceIndex}`] === optionIndex;
+                                        return (
+                                            <TouchableOpacity
+                                                key={optionIndex}
+                                                style={localStyles.optionRow}
+                                                onPress={() => {
+                                                    if (isDisabled) return;
+                                                    handleSelectOption(
+                                                        `dry-${serviceIndex}`,
+                                                        optionIndex
+                                                    );
+                                                }}
+                                                activeOpacity={isDisabled ? 1 : 0.7}
+                                            >
+                                                <View
+                                                    style={[
+                                                        localStyles.radio,
+                                                        isSelected && localStyles.radioSelected,
+                                                    ]}
+                                                >
+                                                    {isSelected && (
+                                                        <View style={localStyles.radioInner} />
+                                                    )}
+                                                </View>
+                                                <Text style={localStyles.optionSetting}>
+                                                    {option.setting}
+                                                </Text>
+                                                <Text style={localStyles.optionDuration}>
+                                                    {option.duration} min
+                                                </Text>
+                                                <Text style={localStyles.optionPrice}>
+                                                    ฿ {option.price}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
+                            );
+                        })}
                     </View>
                 )}
 
@@ -936,5 +1013,30 @@ const localStyles = StyleSheet.create({
     retryText: {
         color: '#fff',
         fontWeight: 'bold',
+    },
+    machineTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 4,
+    },
+    statusBadge: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    statusAvailable: {
+        backgroundColor: '#e8f5e9',
+    },
+    statusBusy: {
+        backgroundColor: '#fff3e0',
+    },
+    statusReady: {
+        backgroundColor: '#e3f2fd',
+    },
+    statusBadgeText: {
+        fontSize: 11,
+        fontWeight: '600',
+        color: '#333',
     },
 });

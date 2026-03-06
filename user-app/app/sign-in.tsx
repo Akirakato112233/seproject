@@ -1,76 +1,116 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, Text, TouchableOpacity, View, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import * as AuthSession from 'expo-auth-session';
+import { useAuth } from '../context/AuthContext';
+import { BASE_URL, API } from '../config';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const GOOGLE_CLIENT_ID = '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
+const GOOGLE_WEB_CLIENT_ID = '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
 
 export default function SignInScreen() {
     const router = useRouter();
+    const { login } = useAuth();
+    const [isLoading, setIsLoading] = useState(false);
 
-    // @ts-ignore - useProxy is deprecated but works for Expo Go
-    const redirectUri = AuthSession.makeRedirectUri({
-        useProxy: Platform.OS !== 'web',
-    });
-
-    console.log('Platform:', Platform.OS);
-    console.log('Generated redirectUri:', redirectUri);
+    const redirectUri = AuthSession.makeRedirectUri();
 
     const [request, response, promptAsync] = Google.useAuthRequest({
-        expoClientId: GOOGLE_CLIENT_ID,
+        webClientId: GOOGLE_WEB_CLIENT_ID,
+        iosClientId: GOOGLE_WEB_CLIENT_ID,
+        androidClientId: GOOGLE_WEB_CLIENT_ID,
         scopes: ['profile', 'email'],
-        redirectUri,
     });
 
-    React.useEffect(() => {
-        console.log('Auth Request:', request ? 'Loaded' : 'NULL');
-        if (request) console.log('Redirect URI:', request.redirectUri);
-    }, [request]);
-
-    React.useEffect(() => {
-        const run = async () => {
-            if (response?.type === 'success') {
-                const accessToken = response.authentication?.accessToken;
-                if (!accessToken) {
-                    Alert.alert('Login failed', 'No access token returned.');
-                    return;
-                }
-
-                try {
-                    const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                        headers: { Authorization: `Bearer ${accessToken}` },
-                    });
-                    const user = await userRes.json();
-                    console.log('Google User Info:', user);
-
-                    router.replace('/(tabs)');
-                } catch (error) {
-                    console.error('Error fetching user info:', error);
-                    Alert.alert('Error', 'Failed to get user info');
-                }
-            } else if (response?.type === 'error') {
-                console.log('Google response error:', response.error);
-                Alert.alert('Google Sign-In failed', JSON.stringify(response.error));
+    useEffect(() => {
+        if (Platform.OS === 'web' && response?.type === 'success') {
+            const { authentication } = response;
+            if (authentication?.accessToken) {
+                handleAccessToken(authentication.accessToken);
             }
-        };
-
-        run();
+        }
     }, [response]);
 
-    const onGooglePress = () => {
-        console.log('Google button pressed');
-        // @ts-ignore - useProxy is deprecated but works for Expo Go
-        promptAsync({ useProxy: Platform.OS !== 'web', showInRecents: false });
+    const handleAccessToken = async (accessToken: string) => {
+        setIsLoading(true);
+        try {
+            const backendRes = await fetch(API.GOOGLE_LOGIN, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': '1',
+                },
+                body: JSON.stringify({ accessToken }),
+            });
+
+            const data = await backendRes.json();
+
+            if (data.next === 'REGISTER') {
+                router.replace({
+                    pathname: '/signup/register',
+                    params: {
+                        tempToken: data.tempToken,
+                        email: data.profile?.email || '',
+                        displayName: data.profile?.name || '',
+                    },
+                });
+            } else if (data.next === 'APP') {
+                await login(data.token, data.user);
+                router.replace('/(tabs)');
+            } else {
+                Alert.alert('Error', data.message || 'Login failed');
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Failed to login');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    const goToApp = () => router.replace('/(tabs)');
+    const handleMobileGoogleSignIn = async () => {
+        try {
+            setIsLoading(true);
+            const scheme = AuthSession.makeRedirectUri().replace(/\/?$/, '');
+            const authUrl = `${BASE_URL}/api/google/start?redirect_scheme=${encodeURIComponent(scheme)}`;
+
+            const result = await WebBrowser.openAuthSessionAsync(
+                authUrl + '&ngrok-skip-browser-warning=1',
+                scheme
+            );
+
+            if (result.type === 'success' && result.url) {
+                const url = new URL(result.url);
+                const accessToken = url.searchParams.get('access_token');
+                if (accessToken) {
+                    await handleAccessToken(accessToken);
+                } else {
+                    Alert.alert('Error', 'No access token received');
+                }
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Google Sign-In failed');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleGoogleSignIn = () => {
+        if (Platform.OS === 'web') {
+            if (!request) return;
+            promptAsync();
+        } else {
+            handleMobileGoogleSignIn();
+        }
+    };
+
+    const goToEmail = () => {
+        router.replace('/(tabs)');
+    };
 
     return (
         <SafeAreaView style={s.safe}>
@@ -78,8 +118,7 @@ export default function SignInScreen() {
                 <View style={s.header}>
                     <Text style={s.title}>Sign In</Text>
                     <Text style={s.subtitle}>
-                        Save time by linking your social account. We will never share any personal
-                        data.
+                        Save time by linking your social account. We will never share any personal data.
                     </Text>
                 </View>
 
@@ -87,7 +126,8 @@ export default function SignInScreen() {
                     <TouchableOpacity
                         style={[s.btn, s.btnEmail]}
                         activeOpacity={0.85}
-                        onPress={goToApp}
+                        onPress={goToEmail}
+                        disabled={isLoading}
                     >
                         <Text style={[s.btnText, s.btnTextEmail]}>Continue with email</Text>
                     </TouchableOpacity>
@@ -99,10 +139,13 @@ export default function SignInScreen() {
                     </View>
 
                     <TouchableOpacity
-                        style={[s.googleCircle, !request && s.disabledBtn]}
+                        style={[
+                            s.googleCircle,
+                            (((!request && Platform.OS === 'web') || isLoading) ? s.disabledBtn : null)
+                        ]}
                         activeOpacity={0.85}
-                        onPress={onGooglePress}
-                        disabled={!request}
+                        onPress={handleGoogleSignIn}
+                        disabled={(Platform.OS === 'web' && !request) || isLoading}
                     >
                         <Ionicons name="logo-google" size={18} color="#EA4335" />
                     </TouchableOpacity>
