@@ -42,9 +42,9 @@ export default function Step8Screen() {
 
         <View style={s.contactBox}>
           <Text style={s.contactTitle}>ติดต่อฝ่ายสนับสนุน</Text>
-          <Text style={s.contactItem}>โทร: 02-XXX-XXXX</Text>
-          <Text style={s.contactItem}>Line OA: @laundry-support</Text>
-          <Text style={s.contactItem}>อีเมล: support@laundry.com</Text>
+          <Text style={s.contactItem}>โทร: 0864932918</Text>
+          <Text style={s.contactItem}>Line OA: @WIT</Text>
+          <Text style={s.contactItem}>อีเมล: WIT@gmail.com</Text>
         </View>
 
         <Text

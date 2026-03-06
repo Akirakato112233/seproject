@@ -362,25 +362,7 @@ export default function Step5Screen() {
               </View>
             </View>
 
-            <View style={s.field}>
-              <Text style={s.label}>รัศมีบริการ: {radius} กม. *</Text>
-              <Controller
-                control={control}
-                name="service_radius_km"
-                render={({ field: { onChange, value } }) => (
-                  <Slider
-                    style={s.slider}
-                    minimumValue={1}
-                    maximumValue={20}
-                    step={1}
-                    value={value ?? 5}
-                    onValueChange={onChange}
-                    minimumTrackTintColor="#0E3A78"
-                    maximumTrackTintColor="#E0E0E0"
-                  />
-                )}
-              />
-            </View>
+
 
             <View style={s.field}>
               <Text style={s.label}>ความจุต่อวัน (ถ้ามี)</Text>

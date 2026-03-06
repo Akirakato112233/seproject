@@ -39,13 +39,7 @@ export default function Step9Screen() {
     }
   };
 
-  const viewDashboard = () => {
-    if (businessType === 'coin') {
-      router.replace('/(coin)');
-    } else {
-      router.replace('/(tabs)');
-    }
-  };
+
 
   return (
     <SafeAreaView style={s.safe} edges={['bottom']}>
@@ -69,10 +63,7 @@ export default function Step9Screen() {
             <Text style={s.checkEmpty}>○</Text>
             <Text style={s.checkText}>เปิดสถานะรับออเดอร์ครั้งแรก</Text>
           </View>
-          <View style={s.checkItem}>
-            <Text style={s.checkEmpty}>○</Text>
-            <Text style={s.checkText}>แชร์ลิงก์ร้านให้ลูกค้า</Text>
-          </View>
+
         </View>
 
         <TouchableOpacity
@@ -88,9 +79,6 @@ export default function Step9Screen() {
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity style={s.secondaryBtn} onPress={viewDashboard} activeOpacity={0.85}>
-          <Text style={s.secondaryBtnText}>ดู Dashboard ก่อน</Text>
-        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );

@@ -98,6 +98,13 @@ export default function CoinSettingsScreen() {
         </View>
 
         <Text style={s.sectionTitle}>Account Management</Text>
+        <TouchableOpacity style={s.menuItem} onPress={() => router.push('/(coin)/edit-account' as any)}>
+          <View style={[s.iconWrap, s.iconBlue]}>
+            <Ionicons name="person-outline" size={22} color={Colors.white} />
+          </View>
+          <Text style={s.menuText}>Account</Text>
+          <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+        </TouchableOpacity>
         <TouchableOpacity style={s.menuItem} onPress={() => router.push('/(coin)/contact')}>
           <View style={[s.iconWrap, s.iconPurple]}>
             <Ionicons name="headset-outline" size={22} color={Colors.white} />
