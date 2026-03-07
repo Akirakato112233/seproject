@@ -37,9 +37,9 @@ export default function HomeScreen() {
     const [balance, setBalance] = useState(
         user?.balance
             ? user.balance.toLocaleString('en-US', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-              })
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            })
             : '0.00'
     );
     const [activeOrder, setActiveOrder] = useState<any>(null);
@@ -131,7 +131,7 @@ export default function HomeScreen() {
                     if (data.success && data.user?.profilePhoto) {
                         setProfilePhoto(data.user.profilePhoto);
                     }
-                } catch {}
+                } catch { }
             };
 
             fetchBalance();
@@ -259,7 +259,10 @@ export default function HomeScreen() {
                         label="CHECK STATUS"
                         onPress={() => {
                             if (activeOrder) {
-                                router.push(`/shop/order/status/${activeOrder._id}?step=1` as any);
+                                router.push({
+                                    pathname: '/shop/order/status/[id]' as any,
+                                    params: { id: activeOrder._id, step: '1' },
+                                });
                             } else {
                                 alert('ไม่มี Order ที่กำลังดำเนินการ');
                             }

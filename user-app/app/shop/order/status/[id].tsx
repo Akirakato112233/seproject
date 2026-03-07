@@ -194,7 +194,7 @@ export default function OrderStatusScreen() {
         router.push({
             pathname: '/shop/chat' as any,
             params: {
-                id,
+                id: order?._id || id,
                 riderId: order?.riderId,
                 riderName: nameToPass ? String(nameToPass) : undefined,
             },
