@@ -344,11 +344,12 @@ export default function ShopDetailScreen() {
             return;
         }
 
+        const serviceDuration = orderItems.reduce((sum, item) => sum + (item.duration || 0), 0);
         const orderData = {
             items: orderItems,
             serviceTotal: calculateTotal(),
             deliveryFee: shop?.deliveryFee || 0,
-            deliveryTime: shop?.deliveryTime || 30,
+            serviceDuration: serviceDuration || 45,
             additionalRequest: additionalRequest.trim() || undefined,
         };
 

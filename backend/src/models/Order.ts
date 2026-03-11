@@ -15,6 +15,7 @@ export interface IOrder extends Document {
   }[];
   serviceTotal: number; // ราคาบริการรวม
   deliveryFee: number; // ค่าส่ง
+  deliveryTier?: 'priority' | 'standard' | 'saver'; // ตัวเลือกจัดส่งที่ user เลือก
   total: number; // ราคารวมทั้งหมด
   paymentMethod: 'wallet' | 'cash';
   status:
@@ -105,6 +106,7 @@ const OrderSchema: Schema = new Schema(
     ],
     serviceTotal: { type: Number, required: true },
     deliveryFee: { type: Number, required: true },
+    deliveryTier: { type: String, enum: ['priority', 'standard', 'saver'], required: false },
     total: { type: Number, required: true },
     paymentMethod: { type: String, enum: ['wallet', 'cash'], default: 'cash' },
     status: {

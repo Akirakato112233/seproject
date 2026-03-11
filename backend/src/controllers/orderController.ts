@@ -81,7 +81,7 @@ function parseWashDryFromItems(items: { name: string; details?: string; price?: 
 // สร้าง Order ใหม่
 export const createOrder = async (req: AuthRequest, res: Response) => {
   try {
-    const { shopId, shopName, items, serviceTotal, deliveryFee, total, paymentMethod, additionalRequest, userLat, userLon } = req.body;
+    const { shopId, shopName, items, serviceTotal, deliveryFee, deliveryTier, total, paymentMethod, additionalRequest, userLat, userLon } = req.body;
 
     console.log('=== CREATE ORDER REQUEST ===');
     console.log('Body:', JSON.stringify(req.body, null, 2));
@@ -130,6 +130,9 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
       paymentMethod: paymentMethod || 'cash',
       status: 'decision', // เริ่มต้นที่สถานะรอการตัดสินใจ
     };
+    if (deliveryTier && ['priority', 'standard', 'saver'].includes(deliveryTier)) {
+      orderData.deliveryTier = deliveryTier;
+    }
     if (additionalRequest) orderData.note = additionalRequest;
     // พิกัดลูกค้า: ใช้จาก body (ที่ user-app ส่งมา) หรือจาก User ที่บันทึกไว้
     const lat = typeof userLat === 'number' ? userLat : (user as any).lat;

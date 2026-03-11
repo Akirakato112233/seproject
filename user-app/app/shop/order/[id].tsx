@@ -35,7 +35,7 @@ interface OrderData {
     items: OrderItem[];
     serviceTotal: number;
     deliveryFee: number;
-    deliveryTime: number;
+    serviceDuration?: number;
 }
 
 interface Shop {
@@ -44,6 +44,27 @@ interface Shop {
     type: 'coin' | 'full';
     deliveryFee: number;
     deliveryTime: number;
+    location?: { lat: number; lng: number };
+}
+
+// คำนวณระยะทาง km (Haversine)
+function calculateDistanceKm(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+): number {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) *
+            Math.cos((lat2 * Math.PI) / 180) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
 }
 
 export default function OrderScreen() {
@@ -73,36 +94,65 @@ export default function OrderScreen() {
         return null;
     }, [orderDataParam]);
 
-    // คำนวณ Delivery options จาก shop data
-    const deliveryOptions: DeliveryOption[] = useMemo(() => {
-        const baseTime = orderData?.deliveryTime || shop?.deliveryTime || 30;
-        const baseFee = orderData?.deliveryFee || shop?.deliveryFee || 30;
-
-        return [
-            {
-                id: 'priority',
-                name: 'Priority',
-                time: `${baseTime} mins`,
-                price: Math.round(baseFee * 1.4),
-            },
-            { id: 'standard', name: 'Standard', time: `${baseTime + 7} mins`, price: baseFee },
-            {
-                id: 'saver',
-                name: 'Saver',
-                time: `${baseTime + 20} mins`,
-                price: Math.round(baseFee * 0.85),
-            },
-        ];
-    }, [orderData, shop]);
-
     // Order items จาก params หรือ default
     const orderItems: OrderItem[] = useMemo(() => {
         if (orderData?.items && orderData.items.length > 0) {
             return orderData.items;
         }
-        // Fallback ถ้าไม่มีข้อมูล
         return [];
     }, [orderData]);
+
+    // คำนวณ Delivery options: เวลา + ราคาตามระยะทาง (ลูกค้า↔ร้าน)
+    const deliveryOptions: DeliveryOption[] = useMemo(() => {
+        const items = orderData?.items ?? orderItems;
+        const fromItems = (items || []).reduce((s, i) => s + (i.duration ?? 0), 0);
+        const serviceMinutes = orderData?.serviceDuration ?? (fromItems || 45);
+
+        // คำนวณค่าส่งจากระยะทาง (ฐาน 20฿ + 8฿/km round-trip)
+        let baseFee: number;
+        const userLat = currentLocation?.lat;
+        const userLon = currentLocation?.lon;
+        const shopLat = shop?.location?.lat;
+        const shopLng = shop?.location?.lng;
+
+        if (
+            typeof userLat === 'number' &&
+            typeof userLon === 'number' &&
+            typeof shopLat === 'number' &&
+            typeof shopLng === 'number'
+        ) {
+            const distKm = calculateDistanceKm(userLat, userLon, shopLat, shopLng);
+            const roundTripKm = distKm * 2; // ไปรับ + กลับส่ง
+            baseFee = Math.round(20 + roundTripKm * 8);
+            baseFee = Math.max(baseFee, 20); // ขั้นต่ำ 20฿
+        } else {
+            baseFee = orderData?.deliveryFee ?? shop?.deliveryFee ?? 30;
+        }
+
+        const RIDE_TIME = { priority: 30, standard: 45, saver: 55 };
+        const TIER_MULT = { priority: 1.4, standard: 1, saver: 0.85 };
+
+        return [
+            {
+                id: 'priority',
+                name: 'Priority',
+                time: `${serviceMinutes + RIDE_TIME.priority} mins`,
+                price: Math.round(baseFee * TIER_MULT.priority),
+            },
+            {
+                id: 'standard',
+                name: 'Standard',
+                time: `${serviceMinutes + RIDE_TIME.standard} mins`,
+                price: Math.round(baseFee * TIER_MULT.standard),
+            },
+            {
+                id: 'saver',
+                name: 'Saver',
+                time: `${serviceMinutes + RIDE_TIME.saver} mins`,
+                price: Math.round(baseFee * TIER_MULT.saver),
+            },
+        ];
+    }, [orderData, shop, orderItems, currentLocation]);
 
     const paymentMethods = [
         { id: 'wallet', name: 'WIT wallet', icon: 'wallet-outline' as const },
@@ -407,6 +457,7 @@ export default function OrderScreen() {
                                 })),
                                 serviceTotal,
                                 deliveryFee,
+                                deliveryTier: selectedDelivery,
                                 total,
                                 paymentMethod: selectedPayment,
                                 additionalRequest,
