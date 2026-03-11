@@ -3,7 +3,7 @@
 const ENV = {
     dev: {
         // Base URL ต้องลงท้ายด้วย /api เพราะ route ใช้ Config.API_URL + '/riders/registrations/...'
-        apiUrl: 'https://unsure-smectic-alondra.ngrok-free.dev/api',
+        apiUrl: 'https://unwainscotted-unshoved-deborah.ngrok-free.dev/api',
     },
     prod: {
         // อันนี้สำหรับตอนเอาขึ้น Server จริง (ค่อยมาแก้ทีหลังได้)

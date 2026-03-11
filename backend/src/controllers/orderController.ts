@@ -197,6 +197,71 @@ export const getOrderById = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// User ให้คะแนนร้านค้า
+export const rateShop = async (req: AuthRequest, res: Response) => {
+  try {
+    const { orderId } = req.params;
+    const { rating } = req.body;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ success: false, message: 'Rating must be between 1 and 5' });
+    }
+
+    const foundOrder = await findOrderWithModel(orderId);
+    const order = foundOrder?.order;
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    if (String(order.status) !== 'completed' && String(order.status) !== 'Completed') {
+      return res.status(400).json({ success: false, message: 'Only completed orders can be rated' });
+    }
+
+    if ((order as any).shopRating) {
+      return res.status(400).json({ success: false, message: 'Shop already rated for this order' });
+    }
+
+    // อัปเดตคะแนนใน Order
+    const updateId = String(order._id);
+    await foundOrder!.model.findByIdAndUpdate(updateId, { shopRating: rating });
+
+    // sync ไป Order / OrderForMerchant หากมีการเชื่อมกับอีกตาราง
+    if ((order as any).merchantOrderId) {
+      await OrderForMerchant.findByIdAndUpdate((order as any).merchantOrderId, { shopRating: rating });
+    } else if ((order as any).ordersId) {
+      await Order.findByIdAndUpdate((order as any).ordersId, { shopRating: rating });
+    }
+
+    // อัปเดตคะแนนเฉลี่ยใน Shop
+    const shop = await Shop.findById(order.shopId);
+    if (!shop) {
+      return res.status(404).json({ success: false, message: 'Shop not found' });
+    }
+
+    const currentRating = typeof shop.rating === 'number' ? shop.rating : 4.8;
+    const currentReviewCount = typeof shop.reviewCount === 'number' ? shop.reviewCount : 0;
+
+    let newRating = rating;
+    if (currentReviewCount > 0) {
+      newRating = ((currentRating * currentReviewCount) + rating) / (currentReviewCount + 1);
+    }
+
+    // ปัดเศษให้เหลือทศนิยม 1 ตำแหน่ง
+    newRating = Math.round(newRating * 10) / 10;
+
+    await Shop.findByIdAndUpdate(shop._id, {
+      $inc: { reviewCount: 1 },
+      $set: { rating: newRating }
+    });
+
+    res.json({ success: true, message: 'Shop rated successfully', newRating, newReviewCount: currentReviewCount + 1 });
+  } catch (error) {
+    console.error('Rate Shop Error:', error);
+    res.status(500).json({ success: false, message: 'Failed to rate shop' });
+  }
+};
+
 // ดึง Order ที่กำลังดำเนินการ (ยังไม่เสร็จ/ยกเลิก)
 export const getActiveOrder = async (req: AuthRequest, res: Response) => {
   try {
@@ -411,15 +476,15 @@ export const merchantAcceptOrder = async (req: AuthRequest, res: Response) => {
       const merchantId = (order as any).merchantOrderId;
       const updatedMerchant = merchantId
         ? await OrderForMerchant.findByIdAndUpdate(
-            merchantId,
-            { status: 'Looking for rider' },
-            { new: true }
-          )
+          merchantId,
+          { status: 'Looking for rider' },
+          { new: true }
+        )
         : await OrderForMerchant.findOneAndUpdate(
-            { ordersId: (order as any)._id },
-            { status: 'Looking for rider' },
-            { new: true }
-          );
+          { ordersId: (order as any)._id },
+          { status: 'Looking for rider' },
+          { new: true }
+        );
       console.log(
         '[Merchant Accept] Order ถูก accept ไปแล้ว - sync OrderForMerchant เป็น Looking for rider',
         { merchantId, updated: !!updatedMerchant }
@@ -464,9 +529,9 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
     const updateQuery =
       status === 'rider_coming'
         ? {
-            _id: actualOrderId,
-            status: { $in: ['pending', 'decision', 'waiting_rider', 'accepted'] },
-          }
+          _id: actualOrderId,
+          status: { $in: ['pending', 'decision', 'waiting_rider', 'accepted'] },
+        }
         : { _id: actualOrderId };
     const updatePayload: any = { status };
 

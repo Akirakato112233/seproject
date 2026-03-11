@@ -435,9 +435,17 @@ export default function ShopDetailScreen() {
                     <Text style={localStyles.shopName}>{shop.name}</Text>
 
                     <View style={localStyles.ratingRow}>
-                        <Ionicons name="star" size={16} color="#FFD700" />
-                        <Text style={localStyles.ratingText}>{shop.rating}</Text>
-                        <Text style={localStyles.reviewCount}>({shop.reviewCount}+)</Text>
+                        {shop.reviewCount === 0 ? (
+                            <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginRight: 8 }}>
+                                <Text style={{ fontSize: 12, fontWeight: '700', color: '#D97706' }}>ร้านค้าหน้าใหม่</Text>
+                            </View>
+                        ) : (
+                            <>
+                                <Ionicons name="star" size={16} color="#FFD700" />
+                                <Text style={localStyles.ratingText}>{shop.rating}</Text>
+                                <Text style={localStyles.reviewCount}>({shop.reviewCount}+)</Text>
+                            </>
+                        )}
                         <View style={localStyles.deliveryInfo}>
                             <Ionicons name="bicycle" size={16} color="#666" />
                             <Text style={localStyles.deliveryText}>

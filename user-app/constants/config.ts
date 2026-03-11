@@ -2,11 +2,11 @@
 
 const ENV = {
     dev: {
-        apiUrl: 'https://unsure-smectic-alondra.ngrok-free.dev',
+        apiUrl: 'https://unwainscotted-unshoved-deborah.ngrok-free.dev',
     },
     prod: {
         // อันนี้สำหรับตอนเอาขึ้น Server จริง (ค่อยมาแก้ทีหลังได้)
-        apiUrl: 'https://unsure-smectic-alondra.ngrok-free.dev',
+        apiUrl: 'https://unwainscotted-unshoved-deborah.ngrok-free.dev',
     },
 };
 

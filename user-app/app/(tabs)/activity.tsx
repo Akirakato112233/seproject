@@ -11,6 +11,7 @@ import {
     ActivityIndicator,
     RefreshControl,
 } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { API, BASE_URL } from '../../config';
@@ -31,6 +32,7 @@ interface OrderItem {
     paymentMethod: 'wallet' | 'cash';
     status: string;
     note?: string;
+    shopRating?: number;
     createdAt?: string;
     updatedAt?: string;
 }
@@ -415,6 +417,7 @@ export default function ActivityScreen() {
                                         {selectedOrder.paymentMethod === 'wallet' ? 'Wallet' : 'cash'}
                                     </Text>
                                 </View>
+
                                 <TouchableOpacity
                                     onPress={() => setSelectedOrder(null)}
                                     hitSlop={12}
@@ -423,6 +426,35 @@ export default function ActivityScreen() {
                                     <Ionicons name="close" size={24} color="#333" />
                                 </TouchableOpacity>
                             </View>
+
+                            {/* Rate Shop Section */}
+                            {isCompletedStatus(selectedOrder.status) && !selectedOrder.shopRating && (
+                                <TouchableOpacity
+                                    style={s.rateShopButton}
+                                    onPress={() => {
+                                        setSelectedOrder(null);
+                                        router.push({
+                                            pathname: '/activity/rate-shop/[id]' as any,
+                                            params: {
+                                                id: selectedOrder._id,
+                                                shopName: selectedOrder.shopName
+                                            }
+                                        });
+                                    }}
+                                >
+                                    <Ionicons name="star" size={20} color="#FFB800" />
+                                    <Text style={s.rateShopText}>ให้คะแนนร้านค้า</Text>
+                                </TouchableOpacity>
+                            )}
+                            {isCompletedStatus(selectedOrder.status) && selectedOrder.shopRating && (
+                                <View style={s.ratedShopContainer}>
+                                    <Text style={s.ratedShopText}>คุณให้คะแนนร้านค้านี้แล้ว: </Text>
+                                    <Ionicons name="star" size={16} color="#FFB800" />
+                                    <Text style={[s.ratedShopText, { fontWeight: 'bold', marginLeft: 4 }]}>
+                                        {selectedOrder.shopRating}
+                                    </Text>
+                                </View>
+                            )}
 
                             <ScrollView
                                 style={s.sheetScroll}
@@ -748,4 +780,34 @@ const s = StyleSheet.create({
         marginTop: 8,
     },
     sheetCloseActionText: { color: '#fff', fontWeight: '900', fontSize: 16 },
+    rateShopButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#FFFBEB',
+        borderColor: '#FDE68A',
+        borderWidth: 1,
+        paddingVertical: 12,
+        borderRadius: 12,
+        marginBottom: 16,
+        gap: 8,
+    },
+    rateShopText: {
+        color: '#D97706',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    ratedShopContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#F8FAFC',
+        paddingVertical: 10,
+        borderRadius: 12,
+        marginBottom: 16,
+    },
+    ratedShopText: {
+        color: '#64748B',
+        fontSize: 14,
+    },
 });

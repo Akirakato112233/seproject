@@ -116,9 +116,17 @@ export const LaundryShopCard: React.FC<LaundryShopCardProps> = ({ shop, onPress 
 
                 {/* คะแนนรีวิว */}
                 <View style={styles.shopRating}>
-                    <Ionicons name="star" size={16} color="#FFD700" />
-                    <Text style={styles.ratingText}>{shop.rating}</Text>
-                    <Text style={styles.ratingCount}>({formatReviewCount(shop.reviewCount)})</Text>
+                    {shop.reviewCount === 0 ? (
+                        <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                            <Text style={{ fontSize: 10, fontWeight: '700', color: '#D97706' }}>ร้านค้าหน้าใหม่</Text>
+                        </View>
+                    ) : (
+                        <>
+                            <Ionicons name="star" size={16} color="#FFD700" />
+                            <Text style={styles.ratingText}>{shop.rating}</Text>
+                            <Text style={styles.ratingCount}>({formatReviewCount(shop.reviewCount)})</Text>
+                        </>
+                    )}
                 </View>
 
                 {/* ปิด (เมื่อร้านปิด) */}
