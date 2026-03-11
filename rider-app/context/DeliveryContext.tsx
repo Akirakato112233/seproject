@@ -31,6 +31,7 @@ export type Order = {
 
     // optional extras
     note?: string; // หมายเหตุจาก user
+    deliveryTier?: 'priority' | 'standard' | 'saver';
     timeWindow?: string;
     paymentMethod?: PaymentMethod;
     customerPhone?: string;

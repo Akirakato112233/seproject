@@ -883,7 +883,7 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
   try {
     console.log('📦 Fetching pending orders...');
     const pendingQuery = {
-      status: { $in: ['pending', 'decision', 'waiting_rider', 'rider_coming'] }, // waiting_rider = merchant accept แล้ว ส่งให้ rider ตัดสินใจ
+      status: { $in: ['pending', 'decision', 'waiting_rider'] }, // ไม่รวม rider_coming เพราะรับไปแล้ว
       userId: { $ne: 'dev-test-user' }, // แสดงเฉพาะ order จริง ไม่เอา order ทดสอบ
     };
 
@@ -929,6 +929,7 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
           shop: shopCoords, // พิกัดร้าน (ไปร้านหลังรับผ้า)
           paymentMethod: order.paymentMethod || 'cash',
           status: order.status || 'decision',
+          deliveryTier: (order as any).deliveryTier || 'standard',
           shopType: shop?.type ?? 'full',
           hasWashItem: washDry.hasWashItem,
           hasDryItem: washDry.hasDryItem,

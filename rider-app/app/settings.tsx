@@ -163,12 +163,44 @@ export default function SettingsScreen() {
                         <Switch
                             value={autoAccept}
                             onValueChange={handleToggleAutoAccept}
-                            trackColor={{ false: '#E2E8F0', true: '#4ADE80' }} // Light gray / Green
+                            trackColor={{ false: '#E2E8F0', true: '#4ADE80' }}
                             thumbColor={'#FFFFFF'}
                             disabled={!isOnline}
                             style={{ opacity: isOnline ? 1 : 0.5 }}
                         />
                     </View>
+                    <TouchableOpacity
+                        style={[
+                            s.row,
+                            { marginTop: 8 },
+                            (autoAccept || !isOnline) && { opacity: 0.5 },
+                        ]}
+                        onPress={() => {
+                            if (!isOnline) {
+                                Alert.alert('Offline', 'You must be online to browse jobs.');
+                                return;
+                            }
+                            if (autoAccept) {
+                                Alert.alert(
+                                    'ปิด Auto Accept',
+                                    'กรุณาปิด Auto Accept ก่อนเพื่อใช้ Choose Job'
+                                );
+                                return;
+                            }
+                            router.push('/choose-job');
+                        }}
+                        disabled={!isOnline || autoAccept}
+                    >
+                        <View>
+                            <Text style={s.rowTitle}>Choose Job</Text>
+                            <Text style={s.rowSub}>
+                                {autoAccept
+                                    ? 'ปิด Auto Accept เพื่อใช้'
+                                    : 'Browse and manually accept jobs by tier.'}
+                            </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
+                    </TouchableOpacity>
                 </View>
 
                 {/* App Settings */}
