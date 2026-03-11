@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 /**
  * Register Screen - สำหรับ Merchant หลัง Google Sign-In
@@ -28,11 +29,13 @@ export default function RegisterScreen() {
   const [displayName, setDisplayName] = useState(params.displayName || '');
   const [countryCode] = useState('+66');
   const [mobileNumber, setMobileNumber] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const submittedRef = useRef(false);
 
   const isValid =
     displayName.trim().length >= 2 &&
-    mobileNumber.replace(/\D/g, '').length >= 9;
+    mobileNumber.replace(/\D/g, '').length >= 9 &&
+    acceptedTerms;
 
   const handleContinue = () => {
     if (displayName.trim().length < 2) {
@@ -118,6 +121,27 @@ export default function RegisterScreen() {
             </View>
           </View>
 
+          <View style={s.termsContainer}>
+            <TouchableOpacity
+              style={s.checkbox}
+              onPress={() => setAcceptedTerms(!acceptedTerms)}
+              activeOpacity={0.7}
+            >
+              <View style={[s.checkboxBox, acceptedTerms && s.checkboxBoxChecked]}>
+                {acceptedTerms && <Ionicons name="checkmark" size={16} color="#fff" />}
+              </View>
+              <Text style={s.termsText}>
+                ยอมรับ{' '}
+                <Text
+                  style={s.termsLink}
+                  onPress={() => router.push('/signup/terms')}
+                >
+                  ข้อตกลง
+                </Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           <TouchableOpacity
             style={[s.cta, !isValid && s.ctaDisabled]}
             activeOpacity={0.85}
@@ -198,6 +222,38 @@ const s = StyleSheet.create({
   flag: { fontSize: 20 },
   countryCodeText: { fontSize: 15, color: '#333', fontWeight: '500' },
   phoneInput: { flex: 1 },
+  termsContainer: {
+    marginBottom: 24,
+    marginTop: 4,
+  },
+  checkbox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  checkboxBox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  checkboxBoxChecked: {
+    backgroundColor: '#0E3A78',
+    borderColor: '#0E3A78',
+  },
+  termsText: {
+    fontSize: 14,
+    color: '#444',
+  },
+  termsLink: {
+    color: '#0E3A78',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
   cta: {
     height: 52,
     borderRadius: 26,
