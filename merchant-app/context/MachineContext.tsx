@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { API, NGROK_HEADERS } from '../config';
 import { useCoinShop, type WashService, type DryService } from './CoinShopContext';
 
 /** สถานะเครื่องซัก */
@@ -48,8 +49,8 @@ interface MachineContextType {
   removeMachine: (id: string) => void;
   /** ข้ามรอบ (running → finished ทันที) */
   skipMachine: (id: string) => void;
-  /** รับเงิน (finished → available) คืนค่า price ของเครื่องนั้น */
-  collectMachine: (id: string) => number;
+  /** รับเงิน (finished → available) คืนค่า price ของเครื่องนั้น — บันทึกลง backend */
+  collectMachine: (id: string) => Promise<number>;
   /** รายได้วันนี้ */
   todayRevenue: number;
 }
@@ -159,9 +160,11 @@ function buildMachinesFromShop(
 }
 
 export function MachineProvider({ children }: { children: React.ReactNode }) {
-  const { shop, updateShop } = useCoinShop();
+  const { shop, updateShop, refreshShop } = useCoinShop();
   const [machines, setMachines] = useState<Machine[]>([]);
   const [todayRevenue, setTodayRevenue] = useState(0);
+
+  const todayStr = new Date().toISOString().slice(0, 10);
 
   // โหลด/ซิงค์เครื่องจาก backend shop data — rebuild ทุกครั้งที่ shop เปลี่ยน (รวมเมื่อ rider เริ่มเครื่องผ่าน start-coin-wash)
   useEffect(() => {
@@ -170,6 +173,15 @@ export function MachineProvider({ children }: { children: React.ReactNode }) {
       setMachines(built);
     }
   }, [shop]);
+
+  // โหลด todayRevenue จาก shop (เก็บไว้แล้ว) — ใช้เฉพาะเมื่อวันที่ตรงกัน
+  useEffect(() => {
+    if (shop?.todayRevenue != null && shop.todayRevenueDate === todayStr) {
+      setTodayRevenue(shop.todayRevenue);
+    } else if (shop && shop.todayRevenueDate !== todayStr) {
+      setTodayRevenue(0); // วันที่เปลี่ยนแล้ว
+    }
+  }, [shop?._id, shop?.todayRevenue, shop?.todayRevenueDate, todayStr]);
 
   // sync machines กลับไป backend เป็น washServices + dryServices
   const syncToBackend = useCallback((updatedMachines: Machine[]) => {
@@ -304,7 +316,7 @@ export function MachineProvider({ children }: { children: React.ReactNode }) {
     });
   }, [syncToBackend]);
 
-  const collectMachine = useCallback((id: string): number => {
+  const collectMachine = useCallback(async (id: string): Promise<number> => {
     let earned = 0;
     setMachines((prev) => {
       const updated = prev.map((m) => {
@@ -317,11 +329,29 @@ export function MachineProvider({ children }: { children: React.ReactNode }) {
       syncToBackend(updated);
       return updated;
     });
-    if (earned > 0) {
+    if (earned > 0 && shop?._id) {
+      try {
+        const res = await fetch(`${API.SHOPS}/${shop._id}/coin-revenue`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
+          body: JSON.stringify({ amount: earned }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setTodayRevenue(data.todayRevenue ?? 0);
+          refreshShop?.(); // โหลด shop ใหม่เพื่อ sync balance
+        } else {
+          setTodayRevenue((prev) => prev + earned); // fallback: อัปเดต local เท่านั้น
+        }
+      } catch (err) {
+        console.error('Failed to save coin revenue:', err);
+        setTodayRevenue((prev) => prev + earned); // fallback
+      }
+    } else if (earned > 0) {
       setTodayRevenue((prev) => prev + earned);
     }
     return earned;
-  }, [syncToBackend]);
+  }, [syncToBackend, shop?._id, refreshShop]);
 
   return (
     <MachineContext.Provider

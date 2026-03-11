@@ -8,7 +8,6 @@ import {
     Alert,
     ActivityIndicator,
     Image,
-    Linking,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -66,9 +65,8 @@ export default function TermsAndInfoScreen() {
     const toggleMarketing = (key: MarketingKey) =>
         setMarketing((prev) => ({ ...prev, [key]: !prev[key] }));
 
-    const openLink = (label: string) => {
-        // Placeholder: could open in-app browser or external URL per document
-        Linking.openURL('https://www.wit.co.th').catch(() => {});
+    const openTermDetail = (key: LegalKey) => {
+        router.push(`/terms-and-info/${key}`);
     };
 
     const handleContinue = async () => {
@@ -143,25 +141,26 @@ export default function TermsAndInfoScreen() {
                 <Text style={s.intro}>{INTRO}</Text>
 
                 {LEGAL_ITEMS.map((item) => (
-                    <TouchableOpacity
-                        key={item.key}
-                        style={s.checkRow}
-                        onPress={() => toggleLegal(item.key)}
-                        activeOpacity={0.7}
-                    >
-                        <View style={[s.checkbox, legal[item.key] && s.checkboxActive]}>
-                            {legal[item.key] && (
-                                <Ionicons name="checkmark" size={16} color="#FFF" />
-                            )}
-                        </View>
+                    <View key={item.key} style={s.checkRow}>
                         <TouchableOpacity
-                            onPress={() => openLink(item.label)}
+                            onPress={() => toggleLegal(item.key)}
+                            style={s.checkboxTouch}
+                            activeOpacity={0.7}
+                        >
+                            <View style={[s.checkbox, legal[item.key] && s.checkboxActive]}>
+                                {legal[item.key] && (
+                                    <Ionicons name="checkmark" size={16} color="#FFF" />
+                                )}
+                            </View>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={() => openTermDetail(item.key)}
                             style={s.linkWrap}
                             activeOpacity={0.8}
                         >
                             <Text style={s.linkText}>{item.label}</Text>
                         </TouchableOpacity>
-                    </TouchableOpacity>
+                    </View>
                 ))}
 
                 <Text style={s.sectionTitle}>Offers from WIT</Text>
@@ -259,6 +258,10 @@ const s = StyleSheet.create({
     checkboxActive: {
         backgroundColor: '#0E3A78',
         borderColor: '#0E3A78',
+    },
+    checkboxTouch: {
+        marginRight: 12,
+        marginTop: 2,
     },
     linkWrap: { flex: 1 },
     linkText: {

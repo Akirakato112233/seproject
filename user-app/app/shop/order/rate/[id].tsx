@@ -1,15 +1,31 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { API } from '../../../../config';
-import { authPost } from '../../../../services/apiClient';
+import { authPost, authGet } from '../../../../services/apiClient';
 
 export default function RateExperienceScreen() {
     const { id, riderName } = useLocalSearchParams<{ id: string; riderName?: string }>();
     const [rating, setRating] = useState(0);
     const [submitting, setSubmitting] = useState(false);
+    const [riderPhoto, setRiderPhoto] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchRiderPhoto = async () => {
+            try {
+                const res = await authGet(`${API.ORDERS}/${id}`);
+                const data = await res.json();
+                if (data.success && data.order?.riderPhoto) {
+                    setRiderPhoto(data.order.riderPhoto);
+                }
+            } catch (e) {
+                console.error('Error fetching rider photo:', e);
+            }
+        };
+        fetchRiderPhoto();
+    }, [id]);
 
     const handleSubmit = async () => {
         setSubmitting(true);
@@ -31,10 +47,14 @@ export default function RateExperienceScreen() {
             </TouchableOpacity>
 
             <View style={styles.content}>
-                {/* Rider Avatar */}
+                {/* Rider Avatar (รูปเดียวกับ rider Edit Account - selfieUri) */}
                 <View style={styles.avatarContainer}>
                     <View style={styles.avatar}>
-                        <Ionicons name="person-circle" size={90} color="#bbb" />
+                        {riderPhoto ? (
+                            <Image source={{ uri: riderPhoto }} style={styles.avatarImage} />
+                        ) : (
+                            <Ionicons name="person-circle" size={90} color="#bbb" />
+                        )}
                     </View>
                     <View style={styles.verifiedBadge}>
                         <Ionicons name="checkmark-circle" size={24} color="#1976D2" />
@@ -72,7 +92,7 @@ export default function RateExperienceScreen() {
                 <TouchableOpacity
                     style={[styles.submitButton, rating === 0 && styles.submitButtonDisabled]}
                     onPress={handleSubmit}
-                    disabled={submitting}
+                    disabled={submitting || rating === 0}
                 >
                     {submitting ? (
                         <ActivityIndicator color="#fff" />
@@ -99,6 +119,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         overflow: 'hidden',
     },
+    avatarImage: { width: 96, height: 96, borderRadius: 48 },
     verifiedBadge: {
         position: 'absolute',
         bottom: 0,

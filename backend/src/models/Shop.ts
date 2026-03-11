@@ -74,6 +74,8 @@ export interface IShop extends Document {
   deliveryFee: number;
   deliveryTime: number; // minutes
   balance?: number; // ยอดเงินคงเหลือ (บาท) เก็บเป็น integer
+  todayRevenue?: number; // รายได้วันนี้จากเครื่องหยอดเหรียญ (บาท)
+  todayRevenueDate?: string; // วันที่ของ todayRevenue (YYYY-MM-DD) เพื่อ reset เมื่อเปลี่ยนวัน
   status?: boolean; // ร้านเปิดรับออเดอร์ true / ปิด false
   openingHours?: { days: string[]; open: string; close: string }[]; // ชื่อวัน: จันทร์, อังคาร, ..., อาทิตย์, HH:mm
   imageUrl?: string;
@@ -200,6 +202,8 @@ const ShopSchema = new Schema<IShop>(
     deliveryFee: { type: Number, required: true },
     deliveryTime: { type: Number, required: true },
     balance: { type: Number, default: 0 },
+    todayRevenue: { type: Number, default: 0 },
+    todayRevenueDate: { type: String },
     status: { type: Boolean, default: true },
     openingHours: { type: [OpeningHoursItemSchema], default: [] },
     imageUrl: { type: String },

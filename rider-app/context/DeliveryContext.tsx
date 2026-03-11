@@ -19,6 +19,7 @@ export type Order = {
     shopAddress: string;
     customerName: string;
     customerAddress: string;
+    userId?: string; // สำหรับดึง profile photo ของลูกค้า
     distance: string;
     fee: number;
     items: number;
@@ -29,7 +30,7 @@ export type Order = {
     shop: LatLng; // พิกัดร้าน
 
     // optional extras
-    note?: string;
+    note?: string; // หมายเหตุจาก user
     timeWindow?: string;
     paymentMethod?: PaymentMethod;
     customerPhone?: string;

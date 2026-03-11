@@ -910,7 +910,8 @@ export const getRiderById = async (req: Request, res: Response) => {
     if (registration) {
       const fullName = registration.fullName || 'Rider';
       const phone = registration.phone || undefined;
-      return res.json({ displayName: fullName, fullName, phone });
+      const selfieUri = (registration as any).selfieUri || undefined;
+      return res.json({ displayName: fullName, fullName, phone, selfieUri });
     }
 
     let rider = await Rider.findById(id).lean();
@@ -940,15 +941,17 @@ export const getRiderById = async (req: Request, res: Response) => {
             registration = await RiderRegistration.findOne({ phone: phoneToSearch }).lean();
           }
         }
+        let selfieUri: string | undefined;
         if (registration) {
           phone = registration.phone;
           regFullName = registration.fullName;
+          selfieUri = (registration as any).selfieUri;
         }
         // fallback: ใช้ phone จาก riderUser หรือ user
         if (!phone) phone = riderUser?.phone || user.phone || undefined;
         const finalName = regFullName || displayName;
 
-        return res.json({ displayName: finalName, fullName: finalName, phone });
+        return res.json({ displayName: finalName, fullName: finalName, phone, selfieUri });
       }
       return res.json({ displayName: 'Rider', fullName: 'Rider' });
     }

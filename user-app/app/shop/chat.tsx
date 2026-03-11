@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BASE_URL } from '../../config';
+import { uploadChatImage } from '../../lib/uploadChatImage';
 
 type Sender = 'user' | 'rider';
 
@@ -47,6 +48,7 @@ export default function ChatScreen() {
     const [riderInitial, setRiderInitial] = useState<string>(
         (riderNameFromParam || 'R').charAt(0).toUpperCase()
     );
+    const [riderPhoto, setRiderPhoto] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [riderError, setRiderError] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
@@ -82,30 +84,11 @@ export default function ChatScreen() {
         }
     };
 
-    // ─── Upload & send image (shared by camera & library) ───
+    // ─── Upload & send image (Supabase) ───
     const uploadAndSendImage = async (uri: string) => {
         try {
             setUploading(true);
-            const filename = uri.split('/').pop() || 'photo.jpg';
-            const match = /\.(\w+)$/.exec(filename);
-            const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-            const formData = new FormData();
-            formData.append('image', { uri, name: filename, type } as any);
-
-            const uploadRes = await fetch(`${BASE_URL}/api/chat/upload`, {
-                method: 'POST',
-                headers: NGROK_HEADERS,
-                body: formData,
-            });
-            const uploadData = await uploadRes.json();
-
-            if (!uploadData.imageUrl) {
-                console.error('[UserChat] Upload failed:', uploadData);
-                return;
-            }
-
-            const imageUrl = `${BASE_URL}${uploadData.imageUrl}`;
+            const imageUrl = await uploadChatImage(uri);
 
             const newMessage: ChatMessage = {
                 id: `${Date.now()}`,
@@ -123,7 +106,7 @@ export default function ChatScreen() {
                     riderId,
                     shopId: id,
                     sender: 'user',
-                    imageUrl: uploadData.imageUrl,
+                    imageUrl,
                 }),
             });
         } catch (error) {
@@ -199,6 +182,7 @@ export default function ChatScreen() {
                 const name: string = data.displayName || data.fullName || 'Rider';
                 setRiderName(name);
                 setRiderInitial(name.charAt(0).toUpperCase());
+                if (data.selfieUri) setRiderPhoto(data.selfieUri);
             } catch (error) {
                 console.error('Error fetching rider:', error);
                 setRiderError(error instanceof Error ? error.message : 'Error fetching rider');
@@ -299,7 +283,11 @@ export default function ChatScreen() {
                 </TouchableOpacity>
                 <View style={styles.headerCenter}>
                     <View style={styles.headerAvatar}>
-                        <Text style={styles.headerAvatarText}>{riderInitial}</Text>
+                        {riderPhoto ? (
+                            <Image source={{ uri: riderPhoto }} style={styles.headerAvatarImage} />
+                        ) : (
+                            <Text style={styles.headerAvatarText}>{riderInitial}</Text>
+                        )}
                     </View>
                     <View>
                         <Text style={styles.headerTitle}>{riderName}</Text>
@@ -372,8 +360,9 @@ const styles = StyleSheet.create({
     headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
     headerAvatar: {
         width: 40, height: 40, borderRadius: 20, backgroundColor: '#1d4685',
-        alignItems: 'center', justifyContent: 'center', marginHorizontal: 8,
+        alignItems: 'center', justifyContent: 'center', marginHorizontal: 8, overflow: 'hidden',
     },
+    headerAvatarImage: { width: 40, height: 40, borderRadius: 20 },
     headerAvatarText: { color: '#ffffff', fontWeight: '700', fontSize: 18 },
     headerTitle: { fontSize: 16, fontWeight: '600', color: '#111827' },
     headerSubtitle: { fontSize: 12, color: '#10b981' },

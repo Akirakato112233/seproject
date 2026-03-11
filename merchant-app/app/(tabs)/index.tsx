@@ -72,7 +72,7 @@ function apiOrderToNewOrderData(order: ApiPendingOrder & { userDisplayName?: str
     serviceType: order.serviceType || 'Wash & Fold Service',
     serviceDetail: order.serviceDetail || 'approx. 5-7 kg',
     pickupTime: formatPickupTime(createdStr),
-    note: order.items?.[0]?.details || undefined,
+    note: order.note || (order.items?.[0] as any)?.additionalRequest || undefined,
     expiresIn: 180,
     _rawId: order.id,
   };
@@ -352,7 +352,7 @@ export default function DashboardScreen() {
         customerPhone: '086-555-4444',
         orderDate: o.createdAt ? formatPickupTime(typeof o.createdAt === 'string' ? o.createdAt : new Date(o.createdAt).toISOString()) : 'Today, 2:00 PM - 4:00 PM',
         services: services.length > 0 ? services : [{ name: o.serviceType || 'Wash & Fold', qty: o.serviceDetail || '-', price: 0 }],
-        note: firstItem?.details || undefined,
+        note: o.note || (firstItem as any)?.additionalRequest || undefined,
         showAction: true,
         actionLabel: 'Accept',
       };
@@ -374,7 +374,7 @@ export default function DashboardScreen() {
         orderDate: 'Completed',
         showAction: false,
         services,
-        note: items[0]?.details || undefined,
+        note: selectedOrder.note || (items[0] as any)?.additionalRequest || undefined,
       };
     }
     const status: OrderDetailStatus =
@@ -411,7 +411,7 @@ export default function DashboardScreen() {
         }))
       : [{ name: selectedOrder.serviceType || 'Wash & Fold', qty: '-', price: 0 }];
     const firstItem = items[0];
-    const note = firstItem?.details || undefined;
+    const note = selectedOrder.note || (firstItem as any)?.additionalRequest || undefined;
 
     return {
       id: displayId,

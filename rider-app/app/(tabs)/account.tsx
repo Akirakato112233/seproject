@@ -25,6 +25,8 @@ interface RegistrationData {
     phone: string;
     countryCode: string;
     selfieUri?: string;
+    totalRating?: number;
+    ratingCount?: number;
     vehicleRegistrationNo?: string;
     vehicleBrand?: string;
     vehicleModel?: string;
@@ -195,6 +197,32 @@ export default function AccountScreen() {
                         <Text style={s.fieldValue}>{user?.email || data?.email || '—'}</Text>
                     </View>
                     <View style={s.divider} />
+                    {/* Rating (แบบ merchant Edit Account) */}
+                    <View style={s.ratingRow}>
+                        <Text style={s.fieldLabel}>Rating</Text>
+                        <View style={s.ratingContent}>
+                            <View style={s.ratingBadge}>
+                                <Text style={s.ratingNumber}>
+                                    {((data?.totalRating ?? 0) / Math.max(1, data?.ratingCount ?? 0)).toFixed(1)}
+                                </Text>
+                                <Text style={s.ratingMax}>/ 5.0</Text>
+                            </View>
+                            <View style={s.ratingStars}>
+                                {[1, 2, 3, 4, 5].map((i) => (
+                                    <Ionicons
+                                        key={i}
+                                        name={i <= Math.round((data?.totalRating ?? 0) / Math.max(1, data?.ratingCount ?? 0)) ? 'star' : 'star-outline'}
+                                        size={20}
+                                        color="#f59e0b"
+                                    />
+                                ))}
+                            </View>
+                            <Text style={s.reviewText}>
+                                จาก {(data?.ratingCount ?? 0)} รีวิว
+                            </Text>
+                        </View>
+                    </View>
+                    <View style={s.divider} />
                     <TouchableOpacity
                         style={s.fieldRow}
                         onPress={() => {
@@ -294,6 +322,20 @@ const s = StyleSheet.create({
     },
     divider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 12 },
     field: { paddingVertical: 4 },
+    ratingRow: { paddingVertical: 4 },
+    ratingContent: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
+    ratingBadge: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: '#dc2626',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    ratingNumber: { fontSize: 18, fontWeight: '800', color: '#fff' },
+    ratingMax: { fontSize: 10, color: 'rgba(255,255,255,0.8)' },
+    ratingStars: { flexDirection: 'row', gap: 2 },
+    reviewText: { fontSize: 13, color: '#64748B' },
     fieldRow: {
         flexDirection: 'row',
         alignItems: 'center',

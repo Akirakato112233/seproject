@@ -41,6 +41,8 @@ export interface CoinShopData {
   washServices?: WashService[];
   dryServices?: DryService[];
   balance?: number;
+  todayRevenue?: number; // รายได้วันนี้จากเครื่องหยอดเหรียญ
+  todayRevenueDate?: string; // YYYY-MM-DD
   status?: boolean; // ร้านเปิด true / ปิดปรับปรุง false
 }
 

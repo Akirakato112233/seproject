@@ -145,6 +145,55 @@ export const depositBalance = async (req: Request, res: Response) => {
   }
 };
 
+/** ร้าน coin: เพิ่มรายได้เมื่อร้านรับเงินจากเครื่องหยอดเหรียญ (collect) */
+export const addCoinRevenue = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { amount } = req.body;
+    const amt = Math.round(Number(amount) || 0);
+    if (amt <= 0) {
+      return res.status(400).json({ error: 'Amount must be positive' });
+    }
+
+    const shop = await Shop.findById(id).lean();
+    if (!shop) {
+      return res.status(404).json({ error: 'Shop not found' });
+    }
+    if (shop.type !== 'coin') {
+      return res.status(400).json({ error: 'Only coin-operated shops can add coin revenue' });
+    }
+
+    const todayStr = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+    const existingDate = (shop as any).todayRevenueDate;
+    const isNewDay = existingDate !== todayStr;
+
+    let updateOps: Record<string, unknown>;
+    if (isNewDay) {
+      updateOps = {
+        $set: { todayRevenueDate: todayStr, todayRevenue: amt },
+        $inc: { balance: amt },
+      };
+    } else {
+      updateOps = {
+        $inc: { balance: amt, todayRevenue: amt },
+      };
+    }
+
+    const updated = await Shop.findByIdAndUpdate(id, updateOps, { new: true });
+    if (!updated) {
+      return res.status(404).json({ error: 'Shop not found' });
+    }
+    res.json({
+      success: true,
+      balance: (updated as any).balance ?? 0,
+      todayRevenue: (updated as any).todayRevenue ?? 0,
+    });
+  } catch (error) {
+    console.error('Error adding coin revenue:', error);
+    res.status(500).json({ error: 'Failed to add coin revenue' });
+  }
+};
+
 /** ถอน balance (Transfer to Account) */
 export const withdrawBalance = async (req: Request, res: Response) => {
   try {

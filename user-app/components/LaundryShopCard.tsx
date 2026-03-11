@@ -2,7 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
+import { Config } from '../constants/config';
 import { styles } from '../style/myStyle';
+
+/** แปลง imageUrl ให้เป็น full URL (ตรงกับที่ merchant แสดง) */
+function resolveShopImageUrl(imageUrl?: string): string | null {
+    if (!imageUrl) return null;
+    return imageUrl.startsWith('http') ? imageUrl : `${Config.API_URL}${imageUrl}`;
+}
 
 interface WashServiceOption {
     setting: string;
@@ -75,11 +82,11 @@ export const LaundryShopCard: React.FC<LaundryShopCardProps> = ({ shop, onPress 
             activeOpacity={0.7}
             disabled={isClosed}
         >
-            {/* รูปภาพร้าน - dim เมื่อปิด */}
+            {/* รูปภาพร้าน - dim เมื่อปิด (ใช้ imageUrl เดียวกับ merchant Edit Account) */}
             <View style={[styles.shopImage, isClosed && { opacity: 0.5 }]}>
-                {shop.imageUrl ? (
+                {resolveShopImageUrl(shop.imageUrl) ? (
                     <Image
-                        source={{ uri: shop.imageUrl }}
+                        source={{ uri: resolveShopImageUrl(shop.imageUrl)! }}
                         style={{ width: '100%', height: '100%' }}
                     />
                 ) : (

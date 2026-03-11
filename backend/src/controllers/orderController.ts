@@ -177,17 +177,39 @@ export const getOrderById = async (req: AuthRequest, res: Response) => {
     const riderId = (order as any).riderId;
     if (riderId) {
       // riderId อาจเป็นทั้ง User._id, Rider._id หรือ RiderRegistration._id
-      const [riderReg, riderUser, riderDoc] = await Promise.all([
-        RiderRegistration.findById(riderId).select('fullName').lean(),
-        User.findById(riderId).select('displayName').lean(),
-        Rider.findById(riderId).select('displayName fullName').lean(),
-      ]);
+      let riderReg = await RiderRegistration.findById(riderId).select('fullName selfieUri').lean();
+      const riderUser = await User.findById(riderId).select('displayName email phone').lean();
+      const riderDoc = await Rider.findById(riderId).select('displayName fullName').lean();
+      // ถ้า riderId เป็น User._id ให้หา RiderRegistration จาก email/phone
+      if (!riderReg && riderUser) {
+        if (riderUser.email) {
+          riderReg = await RiderRegistration.findOne({
+            email: { $regex: new RegExp(`^${String(riderUser.email).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+          })
+            .select('fullName selfieUri')
+            .sort({ createdAt: -1 })
+            .lean();
+        }
+        if (!riderReg && riderUser.phone) {
+          riderReg = await RiderRegistration.findOne({
+            $or: [
+              { phone: String(riderUser.phone) },
+              { phone: String(riderUser.phone).replace(/^0/, '') },
+              { phone: '0' + String(riderUser.phone).replace(/^0/, '') },
+            ],
+          })
+            .select('fullName selfieUri')
+            .sort({ createdAt: -1 })
+            .lean();
+        }
+      }
       const name =
         riderReg?.fullName ||
         riderUser?.displayName ||
         riderDoc?.displayName ||
         riderDoc?.fullName;
       (orderObj as any).riderDisplayName = (name && String(name).trim()) || 'Rider';
+      (orderObj as any).riderPhoto = (riderReg as any)?.selfieUri || undefined;
     }
 
     res.json({ success: true, order: orderObj });
@@ -694,6 +716,7 @@ export const getMerchantPendingOrders = async (req: AuthRequest, res: Response) 
           ? order.items[0]
           : { name: 'Wash & Fold Service', details: 'approx. 5-7 kg', price: 0 };
 
+      const note = (order as any).note || (firstItem as any)?.additionalRequest || '';
       return {
         id: String(order._id),
         _id: order._id,
@@ -708,6 +731,7 @@ export const getMerchantPendingOrders = async (req: AuthRequest, res: Response) 
         serviceType: firstItem?.name || 'Wash & Fold Service',
         serviceDetail: firstItem?.details || `approx. 5-7 kg`,
         items: order.items || [],
+        note,
         status: order.status,
         createdAt: order.createdAt,
         updatedAt: order.updatedAt,
@@ -781,6 +805,7 @@ export const getMerchantCurrentOrders = async (req: AuthRequest, res: Response) 
               ? 'Delivering'
               : 'Waiting for rider to pick up';
 
+      const note = (order as any).note || (firstItem as any)?.additionalRequest || '';
       return {
         id: String(order._id),
         customerName: order.userDisplayName || 'Customer',
@@ -793,6 +818,7 @@ export const getMerchantCurrentOrders = async (req: AuthRequest, res: Response) 
         dueText,
         pickupText,
         items: order.items || [],
+        note,
       };
     });
 
@@ -827,6 +853,7 @@ export const getMerchantOrderHistory = async (req: AuthRequest, res: Response) =
           ? order.items[0]
           : { name: 'Wash & Fold Service', details: '', price: 0 };
 
+      const note = (order as any).note || (firstItem as any)?.additionalRequest || '';
       return {
         id: String(order._id),
         customerName: order.userDisplayName || 'Customer',
@@ -837,6 +864,7 @@ export const getMerchantOrderHistory = async (req: AuthRequest, res: Response) =
         paymentMethod: order.paymentMethod === 'wallet' ? 'Wallet' : 'Cash',
         completedAt: order.updatedAt || order.createdAt,
         items: order.items || [],
+        note,
       };
     });
 
@@ -887,6 +915,8 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
           shopAddress: shop?.name || 'ไม่ระบุที่อยู่ร้าน',
           customerName: order.userDisplayName || 'Customer',
           customerAddress: order.userAddress || 'ไม่ระบุที่อยู่',
+          userId: order.userId || undefined,
+          note: (order as any).note || '',
           distance: '1.5 km',
           fee: order.total || 0,
           items: items.length,
@@ -1456,6 +1486,14 @@ export const rateOrder = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
 
+    if (String(order.status) !== 'completed' && String(order.status) !== 'Completed') {
+      return res.status(400).json({ success: false, message: 'Only completed orders can be rated' });
+    }
+
+    if ((order as any).riderRating != null) {
+      return res.status(400).json({ success: false, message: 'Rider already rated for this order' });
+    }
+
     const riderId = (order as any).riderId;
     if (!riderId) {
       return res.status(400).json({ success: false, message: 'No rider assigned to this order' });
@@ -1488,13 +1526,24 @@ export const rateOrder = async (req: AuthRequest, res: Response) => {
     }
 
     if (registration) {
-      // อัพเดท rating: เพิ่ม totalRating และ ratingCount
+      // บันทึก riderRating ใน Order เพื่อกัน rate ซ้ำ
+      const updateId = String((order as any)._id);
+      await foundOrder!.model.findByIdAndUpdate(updateId, { riderRating: rating });
+
+      // sync ไป Order / OrderForMerchant หากมีการเชื่อมกับอีกตาราง
+      if ((order as any).merchantOrderId) {
+        await OrderForMerchant.findByIdAndUpdate((order as any).merchantOrderId, { riderRating: rating });
+      } else if ((order as any).ordersId) {
+        await Order.findByIdAndUpdate((order as any).ordersId, { riderRating: rating });
+      }
+
+      // อัพเดท rating ใน RiderRegistration: เพิ่ม totalRating และ ratingCount
       await RiderRegistration.findByIdAndUpdate(registration._id, {
         $inc: { totalRating: rating, ratingCount: 1 },
       });
       console.log(`⭐ Rating ${rating} added to rider ${registration.fullName}`);
     } else {
-      console.log(`⚠️ Rider registration not found for user ${riderId}`);
+      return res.status(404).json({ success: false, message: 'Rider not found' });
     }
 
     res.json({ success: true, message: 'Rating submitted' });

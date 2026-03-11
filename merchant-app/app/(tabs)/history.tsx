@@ -114,7 +114,7 @@ export default function HistoryScreen() {
         : 'Completed',
       showAction: false,
       services,
-      note: items[0]?.details || undefined,
+      note: selectedOrder.note || (items[0] as any)?.additionalRequest || undefined,
     };
   };
 

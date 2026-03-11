@@ -691,9 +691,9 @@ export default function LiveMonitorScreen() {
 
                 <TouchableOpacity
                   style={s.collectBtn}
-                  onPress={() => {
+                  onPress={async () => {
                     if (readyMachine) {
-                      const earned = collectMachine(readyMachine.id);
+                      const earned = await collectMachine(readyMachine.id);
                       setCollectedAmount(earned);
                     }
                   }}

@@ -549,6 +549,7 @@ export default function JobScreen() {
                                         orderId: active.id,
                                         riderId: effectiveRiderId,
                                         customerName: active.customerName || 'ลูกค้า',
+                                        customerUserId: (active as any).userId,
                                     },
                                 });
                             }

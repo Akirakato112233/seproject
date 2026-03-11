@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { getShopById } from '../../services/api';
 // Import Type พื้นฐานเดิมมา
 import { LaundryShop } from '../../components/LaundryShopCard';
+import { Config } from '../../constants/config';
 import { BASE_URL } from '../../config';
 
 // ---------------------------------------------------------
@@ -412,10 +413,17 @@ export default function ShopDetailScreen() {
     return (
         <SafeAreaView style={localStyles.container}>
             <ScrollView style={localStyles.scrollView} showsVerticalScrollIndicator={false}>
-                {/* Header Image */}
+                {/* Header Image (ใช้ imageUrl เดียวกับ merchant Edit Account) */}
                 <View style={localStyles.headerImage}>
                     {shop.imageUrl ? (
-                        <Image source={{ uri: shop.imageUrl }} style={localStyles.shopImage} />
+                        <Image
+                            source={{
+                                uri: shop.imageUrl.startsWith('http')
+                                    ? shop.imageUrl
+                                    : `${Config.API_URL}${shop.imageUrl}`,
+                            }}
+                            style={localStyles.shopImage}
+                        />
                     ) : (
                         <View style={localStyles.placeholderImage}>
                             <Ionicons name="shirt-outline" size={60} color="#fff" />

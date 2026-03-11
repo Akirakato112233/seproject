@@ -21,6 +21,7 @@ export interface MerchantOrder {
   pickupText?: string;  // "Looking for rider" | "Waiting for rider" | etc.
   completedAt?: Date;
   items?: MerchantOrderItem[];
+  note?: string;  // หมายเหตุจาก user (additionalRequest)
 }
 
 interface OrdersContextType {
@@ -68,7 +69,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) return;
       const data = await res.json();
       if (data.success && Array.isArray(data.orders)) {
-        const mapped: MerchantOrder[] = data.orders.map((o: { id: string; customerName: string; orderId: string; serviceType: string; total: number; paymentMethod?: string; completedAt?: string; items?: MerchantOrderItem[] }) => ({
+        const mapped: MerchantOrder[] = data.orders.map((o: { id: string; customerName: string; orderId: string; serviceType: string; total: number; paymentMethod?: string; completedAt?: string; items?: MerchantOrderItem[]; note?: string }) => ({
           id: o.id,
           customerName: o.customerName,
           orderId: o.orderId,
@@ -78,6 +79,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
           paymentMethod: o.paymentMethod,
           completedAt: o.completedAt ? new Date(o.completedAt) : undefined,
           items: o.items || [],
+          note: o.note,
         }));
         setCompletedOrders(mapped);
       }

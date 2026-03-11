@@ -7,6 +7,7 @@ import {
   updateShopById,
   depositBalance,
   withdrawBalance,
+  addCoinRevenue,
 } from '../controllers/shopController';
 import { registerShop, publishShop } from '../controllers/shopRegistrationController';
 
@@ -33,6 +34,7 @@ router.get('/:id', getShopById);
 router.put('/:id', updateShopById);
 router.post('/:id/balance/deposit', depositBalance);
 router.post('/:id/balance/withdraw', withdrawBalance);
+router.post('/:id/coin-revenue', addCoinRevenue);
 
 // Upload shop profile image
 router.post('/:id/upload-image', uploadShopImage.single('image'), async (req, res) => {
