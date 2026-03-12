@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
     View,
     Text,
@@ -10,6 +10,7 @@ import {
     useWindowDimensions,
     ActivityIndicator,
     RefreshControl,
+    Linking,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,8 +34,12 @@ interface OrderItem {
     status: string;
     note?: string;
     shopRating?: number;
+    riderRating?: number;
     createdAt?: string;
     updatedAt?: string;
+    riderId?: string;
+    riderDisplayName?: string;
+    riderPhone?: string;
 }
 
 function getOrderDate(o: OrderItem): Date | null {
@@ -179,6 +184,8 @@ export default function ActivityScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<OrderItem | null>(null);
+    const [riderInfo, setRiderInfo] = useState<{ name: string; phone?: string } | null>(null);
+    const selectedOrderRef = useRef<OrderItem | null>(null);
 
     const [dayCursor, setDayCursor] = useState<Date>(todayStart);
 
@@ -193,7 +200,16 @@ export default function ActivityScreen() {
             });
             if (res.ok) {
                 const data = await res.json();
-                setOrders(data.orders ?? []);
+                const newOrders = data.orders ?? [];
+                setOrders(newOrders);
+                // อัพเดท selectedOrder ถ้ากำลังเปิดอยู่
+                if (selectedOrderRef.current) {
+                    const updated = newOrders.find((o: OrderItem) => o._id === selectedOrderRef.current?._id);
+                    if (updated) {
+                        setSelectedOrder(updated);
+                        selectedOrderRef.current = updated;
+                    }
+                }
             }
         } catch (e) {
             console.error('Failed to fetch order history:', e);
@@ -207,6 +223,39 @@ export default function ActivityScreen() {
             setLoading(false);
         })();
     }, [fetchOrders]);
+
+    // Auto-refresh ทุก 5 วินาที
+    useEffect(() => {
+        const interval = setInterval(() => {
+            fetchOrders();
+        }, 5000);
+        return () => clearInterval(interval);
+    }, [fetchOrders]);
+
+    // ดึง rider info เมื่อ selectedOrder มี riderId
+    useEffect(() => {
+        const fetchRiderInfo = async () => {
+            if (!selectedOrder?.riderId) {
+                setRiderInfo(null);
+                return;
+            }
+            try {
+                const res = await fetch(`${BASE_URL}/api/riders/${selectedOrder.riderId}`, {
+                    headers: { ...NGROK_HEADERS },
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setRiderInfo({
+                        name: data.displayName || data.fullName || 'Rider',
+                        phone: data.phone,
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to fetch rider info:', e);
+            }
+        };
+        fetchRiderInfo();
+    }, [selectedOrder?.riderId]);
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
@@ -319,7 +368,7 @@ export default function ActivityScreen() {
                         <TouchableOpacity
                             key={o._id}
                             activeOpacity={0.8}
-                            onPress={() => setSelectedOrder(o)}
+                            onPress={() => { setSelectedOrder(o); selectedOrderRef.current = o; }}
                         >
                             <OrderRow o={o} />
                         </TouchableOpacity>
@@ -339,7 +388,7 @@ export default function ActivityScreen() {
                         <TouchableOpacity
                             key={o._id}
                             activeOpacity={0.8}
-                            onPress={() => setSelectedOrder(o)}
+                            onPress={() => { setSelectedOrder(o); selectedOrderRef.current = o; }}
                         >
                             <OrderRow o={o} />
                         </TouchableOpacity>
@@ -359,7 +408,7 @@ export default function ActivityScreen() {
                         <TouchableOpacity
                             key={o._id}
                             activeOpacity={0.8}
-                            onPress={() => setSelectedOrder(o)}
+                            onPress={() => { setSelectedOrder(o); selectedOrderRef.current = o; }}
                         >
                             <OrderRow o={o} />
                         </TouchableOpacity>
@@ -387,7 +436,7 @@ export default function ActivityScreen() {
                     <TouchableOpacity
                         style={s.sheetOverlay}
                         activeOpacity={1}
-                        onPress={() => setSelectedOrder(null)}
+                        onPress={() => { setSelectedOrder(null); selectedOrderRef.current = null; }}
                     />
                     {selectedOrder && (
                         <View style={s.bottomSheet}>
@@ -419,7 +468,7 @@ export default function ActivityScreen() {
                                 </View>
 
                                 <TouchableOpacity
-                                    onPress={() => setSelectedOrder(null)}
+                                    onPress={() => { setSelectedOrder(null); selectedOrderRef.current = null; }}
                                     hitSlop={12}
                                     style={s.sheetCloseBtn}
                                 >
@@ -452,6 +501,36 @@ export default function ActivityScreen() {
                                     <Ionicons name="star" size={16} color="#FFB800" />
                                     <Text style={[s.ratedShopText, { fontWeight: 'bold', marginLeft: 4 }]}>
                                         {selectedOrder.shopRating}
+                                    </Text>
+                                </View>
+                            )}
+
+                            {/* Rate Rider Section */}
+                            {isCompletedStatus(selectedOrder.status) && selectedOrder.riderId && !selectedOrder.riderRating && (
+                                <TouchableOpacity
+                                    style={[s.rateShopButton, { backgroundColor: '#EBF5FF', marginTop: 8 }]}
+                                    onPress={() => {
+                                        setSelectedOrder(null);
+                                        router.push({
+                                            pathname: '/activity/rate-rider/[id]' as any,
+                                            params: {
+                                                id: selectedOrder._id,
+                                                riderName: selectedOrder.riderDisplayName || 'Rider',
+                                                riderId: selectedOrder.riderId,
+                                            }
+                                        });
+                                    }}
+                                >
+                                    <Ionicons name="bicycle" size={20} color="#3B82F6" />
+                                    <Text style={[s.rateShopText, { color: '#3B82F6' }]}>ให้คะแนน Rider</Text>
+                                </TouchableOpacity>
+                            )}
+                            {isCompletedStatus(selectedOrder.status) && selectedOrder.riderId && selectedOrder.riderRating && (
+                                <View style={[s.ratedShopContainer, { marginTop: 8 }]}>
+                                    <Text style={s.ratedShopText}>คุณให้คะแนน Rider แล้ว: </Text>
+                                    <Ionicons name="star" size={16} color="#FFB800" />
+                                    <Text style={[s.ratedShopText, { fontWeight: 'bold', marginLeft: 4 }]}>
+                                        {selectedOrder.riderRating}
                                     </Text>
                                 </View>
                             )}
@@ -505,6 +584,65 @@ export default function ActivityScreen() {
                                     </View>
                                 </View>
 
+                                {/* Rider Details */}
+                                <View style={s.sheetCard}>
+                                    <View style={s.sheetCardTitleRow}>
+                                        <Ionicons name="bicycle-outline" size={18} color="#334155" />
+                                        <Text style={s.sheetCardTitle}>Rider Details</Text>
+                                    </View>
+                                    {selectedOrder.riderId && riderInfo ? (
+                                        <>
+                                            <View style={s.sheetDetailRow}>
+                                                <Text style={s.sheetDetailLabel}>Name</Text>
+                                                <Text style={s.sheetDetailValue}>
+                                                    {riderInfo.name}
+                                                </Text>
+                                            </View>
+                                            {riderInfo.phone && (
+                                                <View style={s.sheetDetailRow}>
+                                                    <Text style={s.sheetDetailLabel}>Phone</Text>
+                                                    <Text style={s.sheetDetailValue}>
+                                                        {riderInfo.phone}
+                                                    </Text>
+                                                </View>
+                                            )}
+                                            <View style={s.riderActionRow}>
+                                                {riderInfo.phone && (
+                                                    <TouchableOpacity
+                                                        style={s.riderActionBtn}
+                                                        onPress={() => Linking.openURL(`tel:${riderInfo.phone}`)}
+                                                    >
+                                                        <Ionicons name="call" size={18} color="#fff" />
+                                                        <Text style={s.riderActionText}>โทร</Text>
+                                                    </TouchableOpacity>
+                                                )}
+                                                <TouchableOpacity
+                                                    style={[s.riderActionBtn, s.riderChatBtn]}
+                                                    onPress={() => {
+                                                        setSelectedOrder(null);
+                                                        selectedOrderRef.current = null;
+                                                        router.push({
+                                                            pathname: '/shop/chat' as any,
+                                                            params: {
+                                                                id: selectedOrder._id,
+                                                                riderId: selectedOrder.riderId,
+                                                            },
+                                                        });
+                                                    }}
+                                                >
+                                                    <Ionicons name="chatbubble" size={18} color="#fff" />
+                                                    <Text style={s.riderActionText}>แชท</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        </>
+                                    ) : (
+                                        <View style={s.riderWaitingRow}>
+                                            <Ionicons name="time-outline" size={20} color="#94A3B8" />
+                                            <Text style={s.riderWaitingText}>รอไรเดอร์รับงาน...</Text>
+                                        </View>
+                                    )}
+                                </View>
+
                                 {/* Service List */}
                                 <View style={s.sheetCard}>
                                     <View style={s.sheetCardTitleRow}>
@@ -550,7 +688,7 @@ export default function ActivityScreen() {
                             {/* Close button */}
                             <TouchableOpacity
                                 style={s.sheetCloseAction}
-                                onPress={() => setSelectedOrder(null)}
+                                onPress={() => { setSelectedOrder(null); selectedOrderRef.current = null; }}
                             >
                                 <Text style={s.sheetCloseActionText}>ปิด</Text>
                             </TouchableOpacity>
@@ -809,5 +947,40 @@ const s = StyleSheet.create({
     ratedShopText: {
         color: '#64748B',
         fontSize: 14,
+    },
+    riderActionRow: {
+        flexDirection: 'row',
+        gap: 10,
+        marginTop: 12,
+    },
+    riderActionBtn: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#22C55E',
+        paddingVertical: 12,
+        borderRadius: 10,
+        gap: 6,
+    },
+    riderChatBtn: {
+        backgroundColor: '#3B82F6',
+    },
+    riderActionText: {
+        color: '#fff',
+        fontWeight: '800',
+        fontSize: 14,
+    },
+    riderWaitingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 12,
+    },
+    riderWaitingText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#94A3B8',
     },
 });

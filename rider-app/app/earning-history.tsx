@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
+    Alert,
     View,
     Text,
     StyleSheet,
@@ -11,6 +12,7 @@ import {
     Linking,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useAuth } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useDelivery } from '../context/DeliveryContext';
 import type { Order, CompletedOrder } from '../context/DeliveryContext';
@@ -89,6 +91,7 @@ function OrderRow({ o }: { o: Order & { completedAt?: string } }) {
 
 export default function EarningHistoryScreen() {
     const router = useRouter();
+    const { user } = useAuth();
     const params = useLocalSearchParams<{
         period?: string;
         date?: string;
@@ -234,6 +237,37 @@ export default function EarningHistoryScreen() {
                                             </Text>
                                         </View>
                                     )}
+                                    <View style={s.riderActionRow}>
+                                        <TouchableOpacity
+                                            style={s.riderActionBtn}
+                                            onPress={() => {
+                                                const ph = (selectedOrder as any).customerPhone;
+                                                if (!ph) { Alert.alert('ไม่มีเบอร์โทร', 'ลูกค้าไม่ได้ระบุเบอร์โทร'); return; }
+                                                Linking.openURL(`tel:${String(ph).replace(/\D/g, '')}`).catch(() => {});
+                                            }}
+                                        >
+                                            <Ionicons name="call" size={16} color="#fff" />
+                                            <Text style={s.riderActionText}>โทร</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={[s.riderActionBtn, s.riderChatBtn]}
+                                            onPress={() => {
+                                                setSelectedOrder(null);
+                                                router.push({
+                                                    pathname: '/chat',
+                                                    params: {
+                                                        orderId: selectedOrder.id,
+                                                        riderId: user?.id || user?._id || '',
+                                                        customerName: selectedOrder.customerName,
+                                                        customerUserId: String((selectedOrder as any).userId || ''),
+                                                    },
+                                                });
+                                            }}
+                                        >
+                                            <Ionicons name="chatbubble" size={16} color="#fff" />
+                                            <Text style={s.riderActionText}>แชท</Text>
+                                        </TouchableOpacity>
+                                    </View>
                                     <View style={s.sheetDetailRow}>
                                         <Text style={s.sheetDetailLabel}>Order Date</Text>
                                         <Text style={s.sheetDetailValue}>
@@ -560,5 +594,28 @@ const s = StyleSheet.create({
         paddingVertical: 4,
         borderRadius: 999,
         backgroundColor: 'rgba(14,165,233,0.08)',
+    },
+    riderActionRow: {
+        flexDirection: 'row',
+        gap: 8,
+        marginTop: 8,
+        marginBottom: 4,
+    },
+    riderActionBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: '#22C55E',
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 10,
+    },
+    riderChatBtn: {
+        backgroundColor: '#3B82F6',
+    },
+    riderActionText: {
+        color: '#fff',
+        fontWeight: '800',
+        fontSize: 13,
     },
 });

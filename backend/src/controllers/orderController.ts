@@ -332,6 +332,70 @@ export const rateShop = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// User ให้คะแนน Rider
+export const rateRider = async (req: AuthRequest, res: Response) => {
+  try {
+    const { orderId } = req.params;
+    const { rating, riderId } = req.body;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ success: false, message: 'Rating must be between 1 and 5' });
+    }
+
+    const foundOrder = await findOrderWithModel(orderId);
+    const order = foundOrder?.order;
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    if (String(order.status) !== 'completed' && String(order.status) !== 'Completed') {
+      return res.status(400).json({ success: false, message: 'Only completed orders can be rated' });
+    }
+
+    if ((order as any).riderRating) {
+      return res.status(400).json({ success: false, message: 'Rider already rated for this order' });
+    }
+
+    // อัปเดตคะแนนใน Order
+    const updateId = String(order._id);
+    await foundOrder!.model.findByIdAndUpdate(updateId, { riderRating: rating });
+
+    // sync ไป Order / OrderForMerchant หากมีการเชื่อมกับอีกตาราง
+    if ((order as any).merchantOrderId) {
+      await OrderForMerchant.findByIdAndUpdate((order as any).merchantOrderId, { riderRating: rating });
+    } else if ((order as any).ordersId) {
+      await Order.findByIdAndUpdate((order as any).ordersId, { riderRating: rating });
+    }
+
+    // อัปเดตคะแนนเฉลี่ยใน User (rider)
+    const riderIdToUpdate = riderId || order.riderId;
+    if (riderIdToUpdate) {
+      const riderUser = await User.findById(riderIdToUpdate);
+      if (riderUser) {
+        const currentRating = typeof (riderUser as any).riderRating === 'number' ? (riderUser as any).riderRating : 5.0;
+        const currentReviewCount = typeof (riderUser as any).riderReviewCount === 'number' ? (riderUser as any).riderReviewCount : 0;
+
+        let newRating = rating;
+        if (currentReviewCount > 0) {
+          newRating = ((currentRating * currentReviewCount) + rating) / (currentReviewCount + 1);
+        }
+        newRating = Math.round(newRating * 10) / 10;
+
+        await User.findByIdAndUpdate(riderIdToUpdate, {
+          $inc: { riderReviewCount: 1 },
+          $set: { riderRating: newRating }
+        });
+      }
+    }
+
+    res.json({ success: true, message: 'Rider rated successfully' });
+  } catch (error) {
+    console.error('Rate Rider Error:', error);
+    res.status(500).json({ success: false, message: 'Failed to rate rider' });
+  }
+};
+
 // ดึง Order ที่กำลังดำเนินการ (ยังไม่เสร็จ/ยกเลิก)
 export const getActiveOrder = async (req: AuthRequest, res: Response) => {
   try {
@@ -737,13 +801,48 @@ export const getOrderHistory = async (req: AuthRequest, res: Response) => {
     }
 
     const [orders, merchantOrders] = await Promise.all([
-      Order.find({ userId }).sort({ createdAt: -1 }).limit(20),
-      OrderForMerchant.find({ userId }).sort({ createdAt: -1 }).limit(20),
+      Order.find({ userId }).sort({ createdAt: -1 }).limit(20).lean(),
+      OrderForMerchant.find({ userId }).sort({ createdAt: -1 }).limit(20).lean(),
     ]);
 
     const mergedOrders = mergeAndSortByCreatedAt(orders, merchantOrders).slice(0, 20);
 
-    res.json({ orders: mergedOrders });
+    // เพิ่ม rider info ให้แต่ละ order
+    const ordersWithRider = await Promise.all(
+      mergedOrders.map(async (order: any) => {
+        if (order.riderId) {
+          try {
+            // ดึงข้อมูล rider จาก User
+            const riderUser = await User.findById(order.riderId).lean();
+            if (riderUser) {
+              // ดึง phone จาก RiderRegistration
+              let riderPhone: string | undefined;
+              if (riderUser.email) {
+                const registration = await RiderRegistration.findOne({
+                  email: { $regex: new RegExp(`^${riderUser.email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+                }).lean();
+                if (registration) {
+                  riderPhone = registration.phone;
+                }
+              }
+              if (!riderPhone && riderUser.phone) {
+                riderPhone = riderUser.phone;
+              }
+              return {
+                ...order,
+                riderDisplayName: riderUser.displayName || 'Rider',
+                riderPhone,
+              };
+            }
+          } catch (e) {
+            console.error('Error fetching rider info:', e);
+          }
+        }
+        return order;
+      })
+    );
+
+    res.json({ orders: ordersWithRider });
   } catch (error) {
     console.error('Get Order History Error:', error);
     res.status(500).json({ success: false, message: 'Failed to get order history' });
@@ -1013,9 +1112,15 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
 
         // โทรลูกค้า: ดึงจาก User (คนสั่ง) ถ้า order ไม่มี customerPhone
         let customerPhone = (order as any).customerPhone || '';
-        if (!customerPhone && order.userId && /^[0-9a-fA-F]{24}$/.test(String(order.userId))) {
-          const customerUser = await User.findById(order.userId).select('phone').lean();
-          customerPhone = (customerUser as any)?.phone || '';
+        if (!customerPhone && order.userId) {
+          try {
+            const customerUser = /^[0-9a-fA-F]{24}$/.test(String(order.userId))
+              ? await User.findById(order.userId).select('phone').lean()
+              : await User.findOne({ $or: [{ username: order.userId }, { email: order.userId }] }).select('phone').lean();
+            customerPhone = (customerUser as any)?.phone || '';
+          } catch (e) {
+            console.error('Error fetching customerPhone:', e);
+          }
         }
 
         // โทรร้าน: ดึงจาก MerchantUser
@@ -1142,6 +1247,17 @@ export const getRiderOrderHistory = async (req: AuthRequest, res: Response) => {
         const items = order.items || [];
         const washDry = parseWashDryFromItems(items);
 
+        // fallback ดึง customerPhone จาก User ถ้า order ไม่มี
+        let customerPhoneHist = (order as any).customerPhone || '';
+        if (!customerPhoneHist && order.userId) {
+          try {
+            const customerUser = /^[0-9a-fA-F]{24}$/.test(String(order.userId))
+              ? await User.findById(order.userId).select('phone').lean()
+              : await User.findOne({ $or: [{ username: order.userId }, { email: order.userId }] }).select('phone').lean();
+            customerPhoneHist = (customerUser as any)?.phone || '';
+          } catch (e) { /* ignore */ }
+        }
+
         return {
           id: String(order._id),
           shopName: order.shopName || shop?.name || 'Unknown Shop',
@@ -1149,6 +1265,8 @@ export const getRiderOrderHistory = async (req: AuthRequest, res: Response) => {
           shopPhone: merchantUser?.phone || (shop as any)?.phone || '',
           customerName: order.userDisplayName || 'Customer',
           customerAddress: order.userAddress || '',
+          customerPhone: customerPhoneHist,
+          userId: order.userId || '',
           distance: '1.5 km',
           fee: order.deliveryFee ?? order.total ?? 0,
           items: items.length,
@@ -1251,6 +1369,17 @@ export const getRiderReadyForPickup = async (req: AuthRequest, res: Response) =>
         const items = order.items || [];
         const washDry = parseWashDryFromItems(items);
 
+        // fallback ดึง customerPhone จาก User ถ้า order ไม่มี
+        let customerPhoneActive = (order as any).customerPhone || '';
+        if (!customerPhoneActive && order.userId) {
+          try {
+            const customerUser = /^[0-9a-fA-F]{24}$/.test(String(order.userId))
+              ? await User.findById(order.userId).select('phone').lean()
+              : await User.findOne({ $or: [{ username: order.userId }, { email: order.userId }] }).select('phone').lean();
+            customerPhoneActive = (customerUser as any)?.phone || '';
+          } catch (e) { /* ignore */ }
+        }
+
         return {
           id: String(order._id),
           orderId: `ORD-${String(order._id).slice(-4)}`,
@@ -1261,7 +1390,7 @@ export const getRiderReadyForPickup = async (req: AuthRequest, res: Response) =>
           paymentLabel: order.paymentMethod === 'wallet' ? 'Wallet' : 'เงินสด',
           customerName: order.userDisplayName || 'Customer',
           customerAddress: order.userAddress || '',
-          customerPhone: (order as any).customerPhone || '',
+          customerPhone: customerPhoneActive,
           shopName: order.shopName || shop?.name || 'Unknown Shop',
           shopAddress: shop?.address || 'ไม่ระบุที่อยู่ร้าน',
           shopPhone: merchantUser?.phone || (shop as any)?.phone || '',
@@ -1362,6 +1491,17 @@ export const getRiderAtShopOrders = async (req: AuthRequest, res: Response) => {
         const items = order.items || [];
         const washDry = parseWashDryFromItems(items);
 
+        // fallback ดึง customerPhone จาก User ถ้า order ไม่มี
+        let customerPhoneAtShop = (order as any).customerPhone || '';
+        if (!customerPhoneAtShop && order.userId) {
+          try {
+            const customerUser = /^[0-9a-fA-F]{24}$/.test(String(order.userId))
+              ? await User.findById(order.userId).select('phone').lean()
+              : await User.findOne({ $or: [{ username: order.userId }, { email: order.userId }] }).select('phone').lean();
+            customerPhoneAtShop = (customerUser as any)?.phone || '';
+          } catch (e) { /* ignore */ }
+        }
+
         return {
           id: String(order._id),
           orderId: `ORD-${String(order._id).slice(-4)}`,
@@ -1372,6 +1512,8 @@ export const getRiderAtShopOrders = async (req: AuthRequest, res: Response) => {
           paymentLabel: order.paymentMethod === 'wallet' ? 'Wallet' : 'เงินสด',
           customerName: order.userDisplayName || 'Customer',
           customerAddress: order.userAddress || '',
+          customerPhone: customerPhoneAtShop,
+          userId: order.userId || '',
           shopName: order.shopName || shop?.name || 'Unknown Shop',
           shopAddress: shop?.address || 'ไม่ระบุที่อยู่ร้าน',
           shopPhone: merchantUser?.phone || (shop as any)?.phone || '',

@@ -18,6 +18,7 @@ import {
   startCoinDry,
   rateOrder,
   rateShop,
+  rateRider,
 } from '../controllers/orderController';
 import { authenticateToken } from '../middleware/auth';
 
@@ -76,6 +77,9 @@ router.post('/:orderId/rate', rateOrder);
 
 // POST /api/orders/:orderId/rate-shop - User ให้คะแนนร้านค้า
 router.post('/:orderId/rate-shop', rateShop);
+
+// POST /api/orders/:orderId/rate-rider - User ให้คะแนน Rider
+router.post('/:orderId/rate-rider', rateRider);
 
 // (moved above auth middleware)
 

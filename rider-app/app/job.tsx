@@ -261,20 +261,22 @@ export default function JobScreen() {
     };
 
     const callPhone = async (phone?: string) => {
-        if (!phone || !phone.trim()) return;
-        const cleaned = phone.replace(/\s|-|\(|\)/g, '');
-        const digits = cleaned.replace(/\D/g, '');
-        if (!digits.length) return;
-        const forTel = digits.length === 9 && !cleaned.startsWith('+')
-            ? `0${digits}`
-            : cleaned.startsWith('+')
-                ? `+${digits}`
-                : digits;
-        try {
-            await Linking.openURL(`tel:${forTel}`);
-        } catch {
-            // ignore
+        if (!phone || !phone.trim()) {
+            Alert.alert('ไม่มีเบอร์โทร', 'ไม่พบเบอร์โทรของลูกค้า');
+            return;
         }
+        const digits = phone.replace(/\D/g, '');
+        if (!digits.length) {
+            Alert.alert('เบอร์ไม่ถูกต้อง', `เบอร์: ${phone}`);
+            return;
+        }
+        const url = `tel:${digits}`;
+        const supported = await Linking.canOpenURL(url);
+        if (!supported) {
+            Alert.alert('ไม่สามารถโทรได้', `เบอร์: ${digits}`);
+            return;
+        }
+        await Linking.openURL(url);
     };
 
     const messagePhone = async (phone?: string) => {
