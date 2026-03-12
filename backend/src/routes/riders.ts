@@ -23,6 +23,7 @@ import {
   updateCommunications,
   updateLinkedAccounts,
   updateRegistrationPhone,
+  updateRegistrationSelfie,
 } from '../controllers/riderController';
 
 const router = Router();
@@ -74,6 +75,9 @@ router.patch('/registrations/:registrationId/communications', updateCommunicatio
 
 // PATCH /api/riders/registrations/:registrationId/phone - แก้ไขเบอร์โทร
 router.patch('/registrations/:registrationId/phone', authenticateToken, updateRegistrationPhone);
+
+// PATCH /api/riders/registrations/:registrationId/selfie - อัปเดตรูปโปรไฟล์
+router.patch('/registrations/:registrationId/selfie', authenticateToken, updateRegistrationSelfie);
 
 // Emergency Contacts
 router.get('/registrations/:registrationId/emergency-contacts', getEmergencyContacts);

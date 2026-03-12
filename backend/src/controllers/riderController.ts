@@ -806,6 +806,42 @@ export const updateRegistrationPhone = async (req: AuthRequest, res: Response) =
   }
 };
 
+// PATCH /api/riders/registrations/:registrationId/selfie - อัปเดตรูปโปรไฟล์ (selfieUri)
+export const updateRegistrationSelfie = async (req: AuthRequest, res: Response) => {
+  try {
+    const { registrationId } = req.params;
+    const { selfieUri } = req.body;
+
+    if (!registrationId) {
+      return res.status(400).json({ success: false, message: 'Missing registrationId' });
+    }
+    if (!selfieUri || typeof selfieUri !== 'string' || !selfieUri.trim()) {
+      return res.status(400).json({ success: false, message: 'selfieUri is required' });
+    }
+    if (!selfieUri.startsWith('http://') && !selfieUri.startsWith('https://')) {
+      return res.status(400).json({ success: false, message: 'selfieUri must be a valid URL' });
+    }
+
+    const updated = await RiderRegistration.findByIdAndUpdate(
+      registrationId,
+      { selfieUri: selfieUri.trim() },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Registration not found' });
+    }
+
+    return res.json({
+      success: true,
+      data: { selfieUri: (updated as any).selfieUri },
+    });
+  } catch (error) {
+    console.error('❌ Update Registration Selfie Error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
 // GET /api/riders/registrations/:registrationId/emergency-contacts
 export const getEmergencyContacts = async (req: Request, res: Response) => {
   try {

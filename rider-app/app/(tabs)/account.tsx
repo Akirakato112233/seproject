@@ -172,19 +172,41 @@ export default function AccountScreen() {
                 {/* Personal Information card */}
                 <View style={s.card}>
                     <Text style={s.sectionTitle}>Personal Information</Text>
-                    <View style={s.profileRow}>
-                        <View>
-                            <Text style={s.label}>Profile Photo</Text>
-                            <Text style={s.labelHint}>Selfie from registration</Text>
-                        </View>
-                        {data?.selfieUri ? (
-                            <Image source={{ uri: data.selfieUri }} style={s.avatar} />
-                        ) : (
-                            <View style={[s.avatar, s.avatarPlaceholder]}>
-                                <Ionicons name="person" size={28} color="#94A3B8" />
+                    <TouchableOpacity
+                        style={s.profileSection}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                            if (data?._id) {
+                                router.push({
+                                    pathname: '/update-profile-photo',
+                                    params: { registrationId: data._id },
+                                });
+                            }
+                        }}
+                    >
+                        <View style={s.avatarWrap}>
+                            <View style={s.avatarRing}>
+                                {data?.selfieUri ? (
+                                    <Image source={{ uri: data.selfieUri }} style={s.avatar} />
+                                ) : (
+                                    <View style={[s.avatar, s.avatarPlaceholder]}>
+                                        <Ionicons name="person" size={36} color="#94A3B8" />
+                                    </View>
+                                )}
                             </View>
-                        )}
-                    </View>
+                            <View style={s.cameraBadge}>
+                                <Ionicons name="camera" size={14} color="#fff" />
+                            </View>
+                        </View>
+                        <View style={s.profileInfo}>
+                            <Text style={s.profileLabel}>Profile Photo</Text>
+                            <Text style={s.profileHint}>Tap to take a new photo</Text>
+                            <View style={s.profileEditRow}>
+                                <Text style={s.profileEditText}>Change photo</Text>
+                                <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+                            </View>
+                        </View>
+                    </TouchableOpacity>
                     <View style={s.divider} />
                     <View style={s.field}>
                         <Text style={s.fieldLabel}>Name</Text>
@@ -328,19 +350,62 @@ const s = StyleSheet.create({
         color: '#0F172A',
         marginBottom: 16,
     },
-    profileRow: {
+    profileSection: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 4,
     },
-    label: { fontSize: 15, color: '#334155' },
-    labelHint: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
-    avatar: { width: 56, height: 56, borderRadius: 28 },
-    avatarPlaceholder: {
+    avatarWrap: {
+        position: 'relative',
+        marginRight: 20,
+    },
+    avatarRing: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        borderWidth: 3,
+        borderColor: '#E2E8F0',
+        overflow: 'hidden',
+        backgroundColor: '#F8FAFC',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    avatar: {
+        width: 74,
+        height: 74,
+        borderRadius: 37,
         backgroundColor: '#F1F5F9',
+    },
+    avatarPlaceholder: {
         justifyContent: 'center',
         alignItems: 'center',
     },
+    cameraBadge: {
+        position: 'absolute',
+        right: -2,
+        bottom: -2,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: '#0E3A78',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: '#FFFFFF',
+    },
+    profileInfo: { flex: 1, justifyContent: 'center' },
+    profileLabel: { fontSize: 16, fontWeight: '600', color: '#0F172A' },
+    profileHint: { fontSize: 13, color: '#94A3B8', marginTop: 4 },
+    profileEditRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginTop: 8,
+    },
+    profileEditText: { fontSize: 14, color: '#0E3A78', fontWeight: '500' },
+    label: { fontSize: 15, color: '#334155' },
+    labelHint: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
     divider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 12 },
     field: { paddingVertical: 4 },
     ratingRow: { paddingVertical: 4 },
