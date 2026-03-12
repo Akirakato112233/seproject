@@ -1,7 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Alert, StyleSheet, Text, TouchableOpacity, View, ImageBackground } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+    Alert,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+    ImageBackground,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import * as AuthSession from 'expo-auth-session';
@@ -20,6 +27,7 @@ const ROLE = 'rider';
 export default function CreateAccountScreen() {
     const router = useRouter();
     const { login } = useAuth();
+    const insets = useSafeAreaInsets();
     const [isLoading, setIsLoading] = useState(false);
 
     const redirectUri = AuthSession.makeRedirectUri();
@@ -119,58 +127,56 @@ export default function CreateAccountScreen() {
     };
 
     return (
-        <SafeAreaView style={s.safe}>
+        <View style={s.safe}>
             <ImageBackground
                 source={require('../assets/images/image.png')}
                 style={StyleSheet.absoluteFillObject}
                 resizeMode="cover"
             >
-                {/* Dark overlay */}
                 <View style={s.overlay} />
             </ImageBackground>
 
-            {/* Content */}
-            <View style={s.content}>
-                {/* Top branding */}
-                <View style={s.brandSection}>
-                    <Text style={s.partner}>Wit Partner</Text>
-                    <Text style={s.headline}>
-                        Drive and <Text style={s.highlight}>Earn</Text>
-                    </Text>
-                    <Text style={s.headline}>with Wit</Text>
+            <SafeAreaView style={s.safeContent} edges={['top', 'bottom']}>
+                <View style={s.content}>
+                    {/* Top branding */}
+                    <View style={s.brandSection}>
+                        <Text style={s.partner}>Wit Partner</Text>
+                        <Text style={s.headline}>
+                            Drive and <Text style={s.highlight}>Earn</Text>
+                        </Text>
+                        <Text style={s.headline}>with Wit</Text>
+                    </View>
+
+                    {/* Create account + button — overlay on background, no card */}
+                    <View style={[s.bottomBlock, { paddingBottom: 24 + insets.bottom, marginBottom: 36 }]}>
+                        <Text style={s.cardTitle}>Create an account</Text>
+                        <Text style={s.cardSub}>
+                            Save time by linking your social account. We will{'\n'}never share any personal data.
+                        </Text>
+
+                        <TouchableOpacity
+                            style={[
+                                s.btn,
+                                s.btnGoogle,
+                                (Platform.OS === 'web' ? !request : isLoading) && s.disabledBtn,
+                            ]}
+                            activeOpacity={0.85}
+                            onPress={handleGoogleSignIn}
+                            disabled={Platform.OS === 'web' ? !request : isLoading}
+                        >
+                            <View style={s.googleIconWrapper}>
+                                <Ionicons name="logo-google" size={20} color="#EA4335" />
+                            </View>
+                            <Text style={s.btnText}>Continue with Google</Text>
+                        </TouchableOpacity>
+
+                        <Text style={s.terms}>
+                            By continuing, you agree to our Terms of Service and Privacy Policy
+                        </Text>
+                    </View>
                 </View>
-
-                {/* Bottom card */}
-                <View style={s.card}>
-                    <Text style={s.cardTitle}>Create an account</Text>
-                    <Text style={s.cardSub}>
-                        Save time by linking your social account. We will never share any personal
-                        data.
-                    </Text>
-
-                    {/* Google Sign In: web needs request; native uses backend OAuth */}
-                    <TouchableOpacity
-                        style={[
-                            s.btn,
-                            s.btnGoogle,
-                            (Platform.OS === 'web' ? !request : isLoading) && s.disabledBtn,
-                        ]}
-                        activeOpacity={0.85}
-                        onPress={handleGoogleSignIn}
-                        disabled={Platform.OS === 'web' ? !request : isLoading}
-                    >
-                        <View style={s.googleIconWrapper}>
-                            <Ionicons name="logo-google" size={18} color="#EA4335" />
-                        </View>
-                        <Text style={s.btnText}>Continue with Google</Text>
-                    </TouchableOpacity>
-
-                    <Text style={s.terms}>
-                        By continuing, you agree to our Terms of Service and Privacy Policy
-                    </Text>
-                </View>
-            </View>
-        </SafeAreaView>
+            </SafeAreaView>
+        </View>
     );
 }
 
@@ -182,16 +188,17 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.55)',
     },
 
+    safeContent: { flex: 1 },
     content: {
         flex: 1,
         justifyContent: 'space-between',
         paddingHorizontal: 24,
-        paddingTop: 40,
+        paddingTop: 56,
         paddingBottom: 0,
     },
 
     brandSection: {
-        marginTop: 20,
+        paddingTop: 8,
     },
     partner: {
         color: '#fff',
@@ -209,63 +216,63 @@ const s = StyleSheet.create({
         color: '#00D4FF',
     },
 
-    card: {
-        backgroundColor: '#fff',
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        padding: 28,
-        paddingBottom: 40,
-        gap: 16,
+    bottomBlock: {
         alignItems: 'center',
+        gap: 16,
+        marginBottom: 40,
     },
     cardTitle: {
         fontSize: 22,
         fontWeight: '900',
-        color: '#0F172A',
+        color: '#fff',
     },
     cardSub: {
         textAlign: 'center',
-        color: '#64748B',
-        fontSize: 13,
+        color: 'rgba(255,255,255,0.9)',
+        fontSize: 14,
         lineHeight: 20,
-        paddingHorizontal: 10,
+        paddingHorizontal: 8,
     },
 
     btn: {
-        width: '100%',
-        height: 52,
-        borderRadius: 26,
-        paddingHorizontal: 20,
+        alignSelf: 'center',
+        width: '78%',
+        maxWidth: 280,
+        height: 48,
+        borderRadius: 24,
+        paddingHorizontal: 24,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 12,
+        gap: 10,
     },
     btnGoogle: {
-        backgroundColor: '#0E3A78',
-        shadowColor: '#0E3A78',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#D1D5DB',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
         shadowRadius: 8,
-        elevation: 4,
+        elevation: 3,
     },
     googleIconWrapper: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
+        width: 24,
+        height: 24,
+        borderRadius: 12,
         backgroundColor: '#fff',
         alignItems: 'center',
         justifyContent: 'center',
     },
     btnText: {
         fontSize: 16,
-        fontWeight: '700',
-        color: '#fff',
+        fontWeight: '600',
+        color: '#1F2937',
     },
 
     terms: {
         textAlign: 'center',
-        color: '#94A3B8',
+        color: 'rgba(255,255,255,0.7)',
         fontSize: 11,
         lineHeight: 16,
         paddingHorizontal: 20,
