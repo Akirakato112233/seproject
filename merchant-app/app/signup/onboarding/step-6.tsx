@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -17,7 +16,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StepNav } from '../../../components/registration/StepNav';
 import { step6Schema } from '../../../lib/registrationSchemas';
 import { useRegistrationStore, build24hBusinessHours } from '../../../stores/registrationStore';
-import { saveRegistration } from '../../../lib/registrationApi';
 import { z } from 'zod';
 
 type Step6Form = z.infer<typeof step6Schema>;
@@ -67,12 +65,14 @@ export default function Step6Screen() {
         business_hours: hours,
         cut_off_time: formData.cut_off_time || '18:00',
       });
-      setStep(7);
-      router.replace('/signup/onboarding/step-7');
+    setStep(6);
+    router.replace('/signup/onboarding/step-7');
       return;
     }
-    setStep(6);
+    setStep(5);
   }, [businessType, formData.cut_off_time, router, setStep, updateForm]);
+
+  // coin flow uses step 6 for step-7 screen
 
   const toggleDay = (idx: number) => {
     setSelectedDays((prev) =>
@@ -102,13 +102,6 @@ export default function Step6Screen() {
       cut_off_time: data.cut_off_time,
     };
     updateForm(nextForm);
-    if (merchantUserId) {
-      const ok = await saveRegistration(nextForm, merchantUserId, { convertImages: false });
-      if (!ok.success) {
-        Alert.alert('Error', ok.message || 'ไม่สามารถบันทึกได้');
-        return;
-      }
-    }
     setStep(7);
     router.push('/signup/onboarding/step-7');
   });
@@ -125,7 +118,7 @@ export default function Step6Screen() {
           showsVerticalScrollIndicator={false}
         >
           <Text style={s.title}>เวลาทำการ</Text>
-          <Text style={s.subtitle}>ขั้นตอนที่ 6 จาก 9</Text>
+          <Text style={s.subtitle}>ขั้นตอนที่ 5 จาก 8</Text>
 
           <View style={s.actions}>
             <TouchableOpacity style={s.actionBtn} onPress={selectAllDays}>
@@ -197,10 +190,10 @@ export default function Step6Screen() {
         </ScrollView>
 
         <StepNav
-          step={6}
-          total={9}
+          step={5}
+          total={8}
           onBack={() => {
-            setStep(5);
+            setStep(4);
             router.back();
           }}
           onNext={onNext}

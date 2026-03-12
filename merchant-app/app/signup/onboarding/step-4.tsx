@@ -3,7 +3,6 @@ import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -17,7 +16,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StepNav } from '../../../components/registration/StepNav';
 import { step4Schema } from '../../../lib/registrationSchemas';
 import { useRegistrationStore } from '../../../stores/registrationStore';
-import { saveRegistration } from '../../../lib/registrationApi';
 import { z } from 'zod';
 
 type Step4Form = z.infer<typeof step4Schema>;
@@ -53,13 +51,6 @@ export default function Step4Screen() {
       account_type: 'savings',
     };
     updateForm(nextForm);
-    if (merchantUserId) {
-      const ok = await saveRegistration(nextForm, merchantUserId, { convertImages: true });
-      if (!ok.success) {
-        Alert.alert('Error', ok.message || 'ไม่สามารถบันทึกได้');
-        return;
-      }
-    }
     setStep(5);
     router.push('/signup/onboarding/step-5');
   });

@@ -7,7 +7,6 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import Slider from '@react-native-community/slider';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -23,7 +22,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { StepNav } from '../../../components/registration/StepNav';
 import { step5Schema } from '../../../lib/registrationSchemas';
 import { useRegistrationStore } from '../../../stores/registrationStore';
-import { saveRegistration } from '../../../lib/registrationApi';
 import { z } from 'zod';
 
 type Step5Form = z.infer<typeof step5Schema>;
@@ -92,7 +90,6 @@ export default function Step5Screen() {
       latitude: formData.latitude ?? 13.7563,
       longitude: formData.longitude ?? 100.5018,
       service_radius_km: formData.service_radius_km ?? 5,
-      capacity_per_day: formData.capacity_per_day,
     },
   });
 
@@ -100,7 +97,7 @@ export default function Step5Screen() {
   const radius = watch('service_radius_km') ?? 5;
 
   useEffect(() => {
-    setStep(5);
+    setStep(4);
   }, [setStep]);
 
   // sync map params into form when returning from location screens
@@ -178,16 +175,8 @@ export default function Step5Screen() {
       latitude: data.latitude,
       longitude: data.longitude,
       service_radius_km: data.service_radius_km,
-      capacity_per_day: data.capacity_per_day,
     };
     updateForm(nextForm);
-    if (merchantUserId) {
-      const ok = await saveRegistration(nextForm, merchantUserId, { convertImages: true });
-      if (!ok.success) {
-        Alert.alert('Error', ok.message || 'ไม่สามารถบันทึกได้');
-        return;
-      }
-    }
     setStep(6);
     router.push('/signup/onboarding/step-6');
   });
@@ -204,42 +193,9 @@ export default function Step5Screen() {
           showsVerticalScrollIndicator={false}
         >
           <Text style={s.title}>รูปร้านและที่อยู่</Text>
-          <Text style={s.subtitle}>ขั้นตอนที่ 5 จาก 9</Text>
+          <Text style={s.subtitle}>ขั้นตอนที่ 4 จาก 8</Text>
 
           <View style={s.form}>
-            <View style={s.field}>
-              <Text style={s.label}>รูปร้าน (1-5 รูป) *</Text>
-              <View style={s.photoGrid}>
-                {shopPhotos.map((uri, i) => (
-                  <View key={i} style={s.photoWrap}>
-                    <Image source={{ uri }} style={s.photo} />
-                    <TouchableOpacity
-                      style={s.removePhoto}
-                      onPress={() => removePhoto(i)}
-                    >
-                      <Text style={s.removeText}>×</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-                {shopPhotos.length < 5 && (
-                  <TouchableOpacity
-                    style={s.addPhoto}
-                    onPress={addPhotos}
-                    disabled={loadingPhotos}
-                  >
-                    {loadingPhotos ? (
-                      <ActivityIndicator size="small" color="#0E3A78" />
-                    ) : (
-                      <Text style={s.addPhotoText}>+ เพิ่มรูป</Text>
-                    )}
-                  </TouchableOpacity>
-                )}
-              </View>
-              {errors.shop_photos && (
-                <Text style={s.error}>{errors.shop_photos.message}</Text>
-              )}
-            </View>
-
             <View style={s.field}>
               <TouchableOpacity
                 style={s.mapButton}
@@ -362,33 +318,46 @@ export default function Step5Screen() {
               </View>
             </View>
 
-
-
             <View style={s.field}>
-              <Text style={s.label}>ความจุต่อวัน (ถ้ามี)</Text>
-              <Controller
-                control={control}
-                name="capacity_per_day"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    style={s.input}
-                    placeholder="จำนวนออเดอร์สูงสุดต่อวัน"
-                    value={value?.toString() || ''}
-                    onChangeText={(t) => onChange(t ? parseInt(t, 10) : undefined)}
-                    onBlur={onBlur}
-                    keyboardType="number-pad"
-                  />
+              <Text style={s.label}>รูปร้าน (1-5 รูป) *</Text>
+              <View style={s.photoGrid}>
+                {shopPhotos.map((uri, i) => (
+                  <View key={i} style={s.photoWrap}>
+                    <Image source={{ uri }} style={s.photo} />
+                    <TouchableOpacity
+                      style={s.removePhoto}
+                      onPress={() => removePhoto(i)}
+                    >
+                      <Text style={s.removeText}>×</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                {shopPhotos.length < 5 && (
+                  <TouchableOpacity
+                    style={s.addPhoto}
+                    onPress={addPhotos}
+                    disabled={loadingPhotos}
+                  >
+                    {loadingPhotos ? (
+                      <ActivityIndicator size="small" color="#0E3A78" />
+                    ) : (
+                      <Text style={s.addPhotoText}>+ เพิ่มรูป</Text>
+                    )}
+                  </TouchableOpacity>
                 )}
-              />
+              </View>
+              {errors.shop_photos && (
+                <Text style={s.error}>{errors.shop_photos.message}</Text>
+              )}
             </View>
           </View>
         </ScrollView>
 
         <StepNav
-          step={5}
-          total={9}
+          step={4}
+          total={8}
           onBack={() => {
-            setStep(4);
+            setStep(3);
             router.back();
           }}
           onNext={onNext}

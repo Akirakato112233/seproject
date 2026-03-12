@@ -20,9 +20,9 @@ export default function OnboardingLayout() {
   return (
     <View style={{ flex: 1, backgroundColor: '#fff' }}>
       <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 8 }}>
-        <ProgressBar current={currentStep} total={9} />
+        <ProgressBar current={currentStep} total={8} />
         <View style={{ flexDirection: 'row', marginTop: 8, gap: 4 }}>
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
             <View
               key={n}
               style={{

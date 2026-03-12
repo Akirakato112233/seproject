@@ -9,7 +9,7 @@ export default function Step8Screen() {
   const { setStep } = useRegistrationStore();
 
   useEffect(() => {
-    setStep(8);
+    setStep(7);
   }, []);
 
   return (
@@ -50,7 +50,7 @@ export default function Step8Screen() {
         <Text
           style={s.link}
           onPress={() => {
-            setStep(9);
+            setStep(8);
             router.push('/signup/onboarding/step-9');
           }}
         >

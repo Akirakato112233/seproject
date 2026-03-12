@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -10,62 +10,104 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { step1Schema, formatPhoneDisplay, type step1SchemaType } from '../../../lib/registrationSchemas';
-import { StepNav } from '../../../components/registration/StepNav';
-import { useRegistrationStore } from '../../../stores/registrationStore';
+import { Ionicons } from '@expo/vector-icons';
+import {
+  step1Schema,
+  formatPhoneDisplay,
+  type step1SchemaType,
+} from '../../lib/registrationSchemas';
+import { useRegistrationStore } from '../../stores/registrationStore';
 
-export default function Step1Screen() {
+/**
+ * Shop Info Screen - หน้าแรกหลัง Google Sign-In
+ * แสดงแบบฟอร์มข้อมูลร้านค้า + checkbox ยอมรับข้อตกลง
+ * กด Continue → ไปหน้า Choose service preference
+ */
+export default function ShopInfoScreen() {
   const router = useRouter();
-  const { formData, updateForm, setStep, prefillEmail, prefillDisplayName, prefillPhone } =
-    useRegistrationStore();
+  const params = useLocalSearchParams<{
+    tempToken?: string;
+    email?: string;
+    displayName?: string;
+  }>();
+  const { formData, updateForm, setPrefill } = useRegistrationStore();
 
-  const names = (prefillDisplayName || '').trim().split(/\s+/);
+  const names = (params.displayName || '').trim().split(/\s+/);
   const defaultFirstName = names[0] || formData.owner_first_name || '';
   const defaultLastName = names.slice(1).join(' ') || formData.owner_last_name || '';
+
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const submittedRef = useRef(false);
 
   const {
     control,
     handleSubmit,
-    setValue,
-    watch,
     formState: { errors },
   } = useForm<step1SchemaType>({
     resolver: zodResolver(step1Schema),
     defaultValues: {
       shop_name: formData.shop_name || '',
-      phone: formData.phone || prefillPhone?.replace(/^\+66/, '0') || '',
-      email: formData.email || prefillEmail || '',
+      phone: formData.phone || '',
+      email: formData.email || params.email || '',
       owner_first_name: formData.owner_first_name || defaultFirstName,
       owner_last_name: formData.owner_last_name || defaultLastName,
       owner_phone: formData.owner_phone || '',
     },
   });
 
-  useEffect(() => {
-    setStep(1);
-  }, []);
+  const onContinue = handleSubmit((data) => {
+    if (!acceptedTerms) {
+      Alert.alert('กรุณายอมรับข้อตกลง', 'กรุณายอมรับข้อตกลงและเงื่อนไขการใช้งาน');
+      return;
+    }
+    if (submittedRef.current) return;
+    submittedRef.current = true;
 
-  const onNext = handleSubmit((data) => {
     const phoneDigits = data.phone.replace(/\D/g, '');
+    const phone = phoneDigits.length >= 10 ? `0${phoneDigits.slice(-9)}` : data.phone;
+    const displayName = `${data.owner_first_name} ${data.owner_last_name}`.trim();
+
     const nextForm = {
       ...formData,
       shop_name: data.shop_name,
-      phone: phoneDigits.length >= 10 ? `0${phoneDigits.slice(-9)}` : data.phone,
+      phone,
       email: data.email,
       owner_first_name: data.owner_first_name,
       owner_last_name: data.owner_last_name,
       owner_phone: data.owner_phone || undefined,
     };
     updateForm(nextForm);
-    setStep(2);
-    router.push('/signup/onboarding/step-2');
+    setPrefill({
+      email: data.email,
+      displayName,
+      phone: `+66${phone.replace(/^0/, '')}`,
+    });
+
+    router.push({
+      pathname: '/signup/service-preference',
+      params: {
+        tempToken: params.tempToken,
+        email: data.email,
+        displayName,
+        phone: `+66${phone.replace(/^0/, '')}`,
+      },
+    });
+    submittedRef.current = false;
   });
+
+  const isValid = acceptedTerms;
 
   return (
     <SafeAreaView style={s.safe} edges={['bottom']}>
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => router.replace('/create-account')} style={s.backBtn}>
+          <Ionicons name="arrow-back" size={24} color="#111" />
+        </TouchableOpacity>
+      </View>
       <KeyboardAvoidingView
         style={s.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -203,16 +245,40 @@ export default function Step1Screen() {
                 <Text style={s.error}>{errors.owner_phone.message}</Text>
               )}
             </View>
-
           </View>
-        </ScrollView>
 
-        <StepNav
-          step={1}
-          total={8}
-          onBack={() => router.back()}
-          onNext={onNext}
-        />
+          <View style={s.termsContainer}>
+            <TouchableOpacity
+              style={s.checkbox}
+              onPress={() => setAcceptedTerms(!acceptedTerms)}
+              activeOpacity={0.7}
+            >
+              <View style={[s.checkboxBox, acceptedTerms && s.checkboxBoxChecked]}>
+                {acceptedTerms && (
+                  <Ionicons name="checkmark" size={16} color="#fff" />
+                )}
+              </View>
+              <Text style={s.termsText}>
+                ยอมรับ{' '}
+                <Text
+                  style={s.termsLink}
+                  onPress={() => router.push('/signup/terms')}
+                >
+                  ข้อตกลง
+                </Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={[s.cta, !isValid && s.ctaDisabled]}
+            activeOpacity={0.85}
+            onPress={onContinue}
+            disabled={!isValid}
+          >
+            <Text style={s.ctaText}>ถัดไป</Text>
+          </TouchableOpacity>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -221,10 +287,19 @@ export default function Step1Screen() {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#fff' },
   flex: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  backBtn: { padding: 4 },
   scroll: {
     paddingHorizontal: 24,
     paddingTop: 16,
-    paddingBottom: 24,
+    paddingBottom: 32,
   },
   title: { fontSize: 22, fontWeight: '800', color: '#111', marginBottom: 4 },
   subtitle: { fontSize: 14, color: '#666', marginBottom: 24 },
@@ -243,4 +318,39 @@ const s = StyleSheet.create({
   },
   inputError: { borderColor: '#E53935' },
   error: { fontSize: 12, color: '#E53935' },
+  termsContainer: { marginTop: 24, marginBottom: 24 },
+  checkbox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  checkboxBox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  checkboxBoxChecked: {
+    backgroundColor: '#0E3A78',
+    borderColor: '#0E3A78',
+  },
+  termsText: { fontSize: 14, color: '#444' },
+  termsLink: {
+    color: '#0E3A78',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  cta: {
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#0E3A78',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctaDisabled: { opacity: 0.5 },
+  ctaText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 });

@@ -3,7 +3,6 @@ import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -17,7 +16,6 @@ import { ImagePickerField } from '../../../components/registration/ImagePickerFi
 import { StepNav } from '../../../components/registration/StepNav';
 import { step2Schema, formatIdNumber } from '../../../lib/registrationSchemas';
 import { useRegistrationStore } from '../../../stores/registrationStore';
-import { saveRegistration } from '../../../lib/registrationApi';
 import { z } from 'zod';
 
 type Step2Form = z.infer<typeof step2Schema>;
@@ -60,13 +58,6 @@ export default function Step2Screen() {
       address_on_card: data.address_on_card,
     };
     updateForm(nextForm);
-    if (merchantUserId) {
-      const ok = await saveRegistration(nextForm, merchantUserId, { convertImages: true });
-      if (!ok.success) {
-        Alert.alert('Error', ok.message || 'ไม่สามารถบันทึกได้');
-        return;
-      }
-    }
     setStep(3);
     router.push('/signup/onboarding/step-3');
   });
@@ -83,7 +74,7 @@ export default function Step2Screen() {
           showsVerticalScrollIndicator={false}
         >
           <Text style={s.title}>บัตรประชาชน</Text>
-          <Text style={s.subtitle}>ขั้นตอนที่ 2 จาก 9</Text>
+          <Text style={s.subtitle}>ขั้นตอนที่ 2 จาก 8</Text>
 
           <View style={s.form}>
             <Controller
@@ -246,7 +237,7 @@ export default function Step2Screen() {
 
         <StepNav
           step={2}
-          total={9}
+          total={8}
           onBack={() => {
             setStep(1);
             router.back();

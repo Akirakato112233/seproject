@@ -3,7 +3,6 @@ import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -18,7 +17,6 @@ import { ImagePickerField } from '../../../components/registration/ImagePickerFi
 import { StepNav } from '../../../components/registration/StepNav';
 import { step3Schema, formatTaxId } from '../../../lib/registrationSchemas';
 import { useRegistrationStore } from '../../../stores/registrationStore';
-import { saveRegistration } from '../../../lib/registrationApi';
 import { z } from 'zod';
 
 type Step3Form = z.infer<typeof step3Schema>;
@@ -60,15 +58,8 @@ export default function Step3Screen() {
       business_document: data.business_document,
     };
     updateForm(nextForm);
-    if (merchantUserId) {
-      const ok = await saveRegistration(nextForm, merchantUserId, { convertImages: true });
-      if (!ok.success) {
-        Alert.alert('Error', ok.message || 'ไม่สามารถบันทึกได้');
-        return;
-      }
-    }
     setStep(4);
-    router.push('/signup/onboarding/step-4');
+    router.push('/signup/onboarding/step-5');
   });
 
   return (
@@ -83,7 +74,7 @@ export default function Step3Screen() {
           showsVerticalScrollIndicator={false}
         >
           <Text style={s.title}>เอกสารธุรกิจ</Text>
-          <Text style={s.subtitle}>ขั้นตอนที่ 3 จาก 9</Text>
+          <Text style={s.subtitle}>ขั้นตอนที่ 3 จาก 8</Text>
 
           <View style={s.note}>
             <Text style={s.noteText}>
@@ -197,7 +188,7 @@ export default function Step3Screen() {
 
         <StepNav
           step={3}
-          total={9}
+          total={8}
           onBack={() => {
             setStep(2);
             router.back();

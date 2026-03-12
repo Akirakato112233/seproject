@@ -67,7 +67,7 @@ export default function CreateAccountScreen() {
       if (data.next === 'REGISTER') {
         const profile = data.profile as { email?: string; name?: string } | undefined;
         router.replace({
-          pathname: '/signup/register',
+          pathname: '/signup/shop-info',
           params: {
             tempToken: String(data.tempToken ?? ''),
             email: profile?.email || '',

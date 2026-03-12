@@ -39,7 +39,7 @@ export default function ServicePreferenceScreen() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
-  const { setPrefill, setBusinessType, setMerchantUser, setStep, resetForm } = useRegistrationStore();
+  const { setPrefill, setBusinessType, setMerchantUser, setStep } = useRegistrationStore();
 
   const handleContinue = async () => {
     if (!selected) {
@@ -51,12 +51,22 @@ export default function ServicePreferenceScreen() {
       return;
     }
 
+    // ใช้ข้อมูลจาก store (ที่ shop-info กรอกไว้) หรือจาก params
+    const fd = useRegistrationStore.getState().formData;
+    const displayName = params.displayName?.trim() || [fd.owner_first_name, fd.owner_last_name].filter(Boolean).join(' ').trim() || '';
+    const phone = params.phone?.trim() || fd.phone?.trim() || '';
+
+    if (!displayName || !phone) {
+      Alert.alert('Error', 'กรุณากรอกข้อมูลในขั้นตอนก่อนหน้าให้ครบ');
+      return;
+    }
+
     setLoading(true);
     try {
       const body = {
         tempToken: params.tempToken,
-        displayName: params.displayName?.trim(),
-        phone: params.phone?.trim(),
+        displayName,
+        phone,
         businessType: selected,
       };
       const response = await fetch(API.MERCHANTS_GOOGLE_REGISTER, {
@@ -72,15 +82,14 @@ export default function ServicePreferenceScreen() {
           await login(data.token, data.user);
         }
         setPrefill({
-          email: params.email,
-          displayName: params.displayName,
-          phone: params.phone,
+          email: params.email || fd.email,
+          displayName,
+          phone,
         });
         setBusinessType(selected);
         setMerchantUser(String(data.user.id || data.user._id || ''));
-        resetForm();
-        setStep(1);
-        router.replace('/signup/onboarding/step-1');
+        setStep(2);
+        router.replace('/signup/onboarding/step-2');
       } else {
         Alert.alert('Error', data.message || 'Registration failed');
       }

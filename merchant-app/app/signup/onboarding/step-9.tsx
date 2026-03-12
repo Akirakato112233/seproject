@@ -11,7 +11,7 @@ export default function Step9Screen() {
   const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
-    setStep(9);
+    setStep(8);
   }, []);
 
   const shopName = formData.shop_name || 'ร้านของคุณ';

@@ -52,7 +52,7 @@ export default function Step7Screen() {
   const categories = formData.service_categories || [];
 
   useEffect(() => {
-    setStep(7);
+    setStep(6);
   }, []);
 
   const toggleExpand = (id: string) => {
@@ -146,7 +146,7 @@ export default function Step7Screen() {
       });
 
       if (ok.success) {
-        setStep(8);
+        setStep(7);
         router.push('/signup/onboarding/step-8');
       } else {
         Alert.alert('Error', ok.message || 'Registration failed');
@@ -172,7 +172,7 @@ export default function Step7Screen() {
           showsVerticalScrollIndicator={false}
         >
           <Text style={s.title}>บริการและราคา</Text>
-          <Text style={s.subtitle}>ขั้นตอนที่ 7 จาก 9</Text>
+          <Text style={s.subtitle}>ขั้นตอนที่ 6 จาก 8</Text>
 
           {isCoin ? (
             <>
@@ -281,10 +281,10 @@ export default function Step7Screen() {
         </ScrollView>
 
         <StepNav
-          step={7}
-          total={9}
+          step={6}
+          total={8}
           onBack={() => {
-            setStep(6);
+            setStep(5);
             router.back();
           }}
           onNext={onNext}
