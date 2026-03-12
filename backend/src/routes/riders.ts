@@ -22,6 +22,7 @@ import {
   deleteEmergencyContact,
   updateCommunications,
   updateLinkedAccounts,
+  updateRegistrationPhone,
 } from '../controllers/riderController';
 
 const router = Router();
@@ -70,6 +71,9 @@ router.patch('/registrations/:registrationId/linked-accounts', updateLinkedAccou
 
 // Communications preferences
 router.patch('/registrations/:registrationId/communications', updateCommunications);
+
+// PATCH /api/riders/registrations/:registrationId/phone - แก้ไขเบอร์โทร
+router.patch('/registrations/:registrationId/phone', authenticateToken, updateRegistrationPhone);
 
 // Emergency Contacts
 router.get('/registrations/:registrationId/emergency-contacts', getEmergencyContacts);

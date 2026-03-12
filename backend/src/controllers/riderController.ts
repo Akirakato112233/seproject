@@ -757,6 +757,55 @@ export const updateCommunications = async (req: Request, res: Response) => {
   }
 };
 
+// PATCH /api/riders/registrations/:registrationId/phone - แก้ไขเบอร์โทรศัพท์
+export const updateRegistrationPhone = async (req: AuthRequest, res: Response) => {
+  try {
+    const { registrationId } = req.params;
+    const { phone, countryCode } = req.body;
+
+    if (!registrationId) {
+      return res.status(400).json({ success: false, message: 'Missing registrationId' });
+    }
+    if (!phone?.trim()) {
+      return res.status(400).json({ success: false, message: 'Phone is required' });
+    }
+    const digits = String(phone).replace(/\D/g, '');
+    if (!/^\d{9,10}$/.test(digits)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number must be 9-10 digits',
+      });
+    }
+    const normalizedPhone = digits.length === 9 && digits[0] !== '0' ? '0' + digits : digits;
+
+    const reg = await RiderRegistration.findById(registrationId);
+    if (!reg) {
+      return res.status(404).json({ success: false, message: 'Registration not found' });
+    }
+
+    const update: Record<string, string> = { phone: normalizedPhone };
+    if (countryCode?.trim()) update.countryCode = countryCode.trim();
+
+    const updated = await RiderRegistration.findByIdAndUpdate(
+      registrationId,
+      update,
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Registration not found' });
+    }
+
+    return res.json({
+      success: true,
+      data: { phone: updated.phone, countryCode: updated.countryCode || '+66' },
+    });
+  } catch (error) {
+    console.error('❌ Update Registration Phone Error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
 // GET /api/riders/registrations/:registrationId/emergency-contacts
 export const getEmergencyContacts = async (req: Request, res: Response) => {
   try {

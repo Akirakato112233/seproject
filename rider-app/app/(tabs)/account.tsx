@@ -25,6 +25,7 @@ interface RegistrationData {
     fullName: string;
     phone: string;
     countryCode: string;
+    email?: string;
     selfieUri?: string;
     totalRating?: number;
     ratingCount?: number;
@@ -190,10 +191,27 @@ export default function AccountScreen() {
                         <Text style={s.fieldValue}>{displayName}</Text>
                     </View>
                     <View style={s.divider} />
-                    <View style={s.field}>
-                        <Text style={s.fieldLabel}>Mobile Number</Text>
-                        <Text style={s.fieldValue}>{phoneDisplay}</Text>
-                    </View>
+                    <TouchableOpacity
+                        style={s.fieldRow}
+                        onPress={() => {
+                            if (data?._id) {
+                                router.push({
+                                    pathname: '/edit-phone',
+                                    params: {
+                                        registrationId: data._id,
+                                        phone: data.phone || '',
+                                        countryCode: data.countryCode || '+66',
+                                    },
+                                });
+                            }
+                        }}
+                    >
+                        <View style={s.fieldRowInner}>
+                            <Text style={s.fieldLabel}>Mobile Number</Text>
+                            <Text style={s.fieldValue}>{phoneDisplay}</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
+                    </TouchableOpacity>
                     <View style={s.divider} />
                     <View style={s.field}>
                         <Text style={s.fieldLabel}>Email Address</Text>
