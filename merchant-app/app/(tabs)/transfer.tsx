@@ -85,8 +85,8 @@ export default function MerchantTransferScreen() {
                 <View style={s.bannerIconRed}>
                   <Ionicons name="business" size={24} color={Colors.white} />
                 </View>
-                <Text style={s.bannerName}>กระเป๋าเงิน WIT</Text>
-                <Text style={s.bannerDetail}>*****9844</Text>
+                <Text style={s.bannerName}>Truemoney</Text>
+                
               </View>
             </View>
           </View>
