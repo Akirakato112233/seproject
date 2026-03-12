@@ -102,7 +102,9 @@ export default function HistoryScreen() {
       isPaid: true,
       paymentMethod: selectedOrder.paymentMethod || 'Cash',
       customerName: selectedOrder.customerName,
-      customerPhone: '086-555-4444',
+      customerPhone: selectedOrder.customerPhone || '-',
+      riderName: selectedOrder.riderDisplayName,
+      riderPhone: selectedOrder.riderPhone,
       orderDate: selectedOrder.completedAt
         ? new Date(selectedOrder.completedAt).toLocaleDateString('en-US', {
             day: 'numeric',

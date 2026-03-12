@@ -78,6 +78,48 @@ function parseWashDryFromItems(items: { name: string; details?: string; price?: 
   return result;
 }
 
+/** ดึงเบอร์ลูกค้าจาก order หรือ User */
+async function resolveCustomerPhone(order: any): Promise<string> {
+  let phone = (order as any).customerPhone || '';
+  if (!phone && order.userId && /^[0-9a-fA-F]{24}$/.test(String(order.userId))) {
+    const u = await User.findById(order.userId).select('phone').lean();
+    phone = (u as any)?.phone || '';
+  }
+  return phone;
+}
+
+/** ดึงชื่อและเบอร์ไรเดอร์จาก riderId */
+async function resolveRiderInfo(riderId: string): Promise<{ riderDisplayName: string; riderPhone: string }> {
+  if (!riderId) return { riderDisplayName: '', riderPhone: '' };
+  let riderReg = await RiderRegistration.findById(riderId).select('fullName phone').lean();
+  const riderUser = await User.findById(riderId).select('displayName phone').lean();
+  const riderDoc = await Rider.findById(riderId).select('displayName fullName').lean();
+  if (!riderReg && riderUser?.email) {
+    riderReg = await RiderRegistration.findOne({ email: { $regex: new RegExp(`^${String(riderUser.email).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } })
+      .select('fullName phone')
+      .sort({ createdAt: -1 })
+      .lean();
+  }
+  if (!riderReg && riderUser?.phone) {
+    riderReg = await RiderRegistration.findOne({
+      $or: [
+        { phone: String(riderUser.phone) },
+        { phone: String(riderUser.phone).replace(/^0/, '') },
+        { phone: '0' + String(riderUser.phone).replace(/^\+66/, '') },
+      ],
+    })
+      .select('fullName phone')
+      .sort({ createdAt: -1 })
+      .lean();
+  }
+  const name = riderReg?.fullName || riderUser?.displayName || riderDoc?.displayName || riderDoc?.fullName || '';
+  const phone = (riderReg as any)?.phone || (riderUser as any)?.phone || '';
+  return {
+    riderDisplayName: (name && String(name).trim()) || 'Rider',
+    riderPhone: phone ? String(phone).trim() : '',
+  };
+}
+
 // สร้าง Order ใหม่
 export const createOrder = async (req: AuthRequest, res: Response) => {
   try {
@@ -720,33 +762,43 @@ export const getMerchantPendingOrders = async (req: AuthRequest, res: Response) 
       createdAt: -1,
     });
 
-    const formattedOrders = allOrders.map((order) => {
-      const firstItem =
-        Array.isArray(order.items) && order.items.length > 0
-          ? order.items[0]
-          : { name: 'Wash & Fold Service', details: 'approx. 5-7 kg', price: 0 };
+    const formattedOrders = await Promise.all(
+      allOrders.map(async (order) => {
+        const firstItem =
+          Array.isArray(order.items) && order.items.length > 0
+            ? order.items[0]
+            : { name: 'Wash & Fold Service', details: 'approx. 5-7 kg', price: 0 };
 
-      const note = (order as any).note || (firstItem as any)?.additionalRequest || '';
-      return {
-        id: String(order._id),
-        _id: order._id,
-        orderId: `ORD-${String(order._id).slice(-4)}`,
-        customerName: order.userDisplayName || 'Customer',
-        userAddress: order.userAddress || '',
-        total: order.total || 0,
-        serviceTotal: order.serviceTotal || 0,
-        deliveryFee: order.deliveryFee || 0,
-        paymentMethod: order.paymentMethod === 'wallet' ? 'Wallet' : 'Cash',
-        paymentMethodRaw: order.paymentMethod,
-        serviceType: firstItem?.name || 'Wash & Fold Service',
-        serviceDetail: firstItem?.details || `approx. 5-7 kg`,
-        items: order.items || [],
-        note,
-        status: order.status,
-        createdAt: order.createdAt,
-        updatedAt: order.updatedAt,
-      };
-    });
+        const note = (order as any).note || (firstItem as any)?.additionalRequest || '';
+
+        let customerPhone = (order as any).customerPhone || '';
+        if (!customerPhone && order.userId && /^[0-9a-fA-F]{24}$/.test(String(order.userId))) {
+          const customerUser = await User.findById(order.userId).select('phone').lean();
+          customerPhone = (customerUser as any)?.phone || '';
+        }
+
+        return {
+          id: String(order._id),
+          _id: order._id,
+          orderId: `ORD-${String(order._id).slice(-4)}`,
+          customerName: order.userDisplayName || 'Customer',
+          customerPhone: customerPhone || undefined,
+          userAddress: order.userAddress || '',
+          total: order.total || 0,
+          serviceTotal: order.serviceTotal || 0,
+          deliveryFee: order.deliveryFee || 0,
+          paymentMethod: order.paymentMethod === 'wallet' ? 'Wallet' : 'Cash',
+          paymentMethodRaw: order.paymentMethod,
+          serviceType: firstItem?.name || 'Wash & Fold Service',
+          serviceDetail: firstItem?.details || `approx. 5-7 kg`,
+          items: order.items || [],
+          note,
+          status: order.status,
+          createdAt: order.createdAt,
+          updatedAt: order.updatedAt,
+        };
+      })
+    );
 
     res.json({ success: true, orders: formattedOrders });
   } catch (error) {
@@ -783,54 +835,72 @@ export const getMerchantCurrentOrders = async (req: AuthRequest, res: Response) 
 
     const allOrders = await OrderForMerchant.find(currentStatusQuery).sort({ updatedAt: -1 });
 
-    const formattedOrders = allOrders.map((order) => {
-      const firstItem =
-        Array.isArray(order.items) && order.items.length > 0
-          ? order.items[0]
-          : { name: 'Wash & Fold Service', details: '', price: 0 };
+    const formattedOrders = await Promise.all(
+      allOrders.map(async (order) => {
+        const firstItem =
+          Array.isArray(order.items) && order.items.length > 0
+            ? order.items[0]
+            : { name: 'Wash & Fold Service', details: '', price: 0 };
 
-      const s = String(order.status);
-      const isLookingForRider = s === 'Looking for rider';
-      const isRiderComing = s === 'Waiting for rider' || s === 'rider_coming';
-      const isAtShop = s === 'In progress' || s === 'at_shop';
-      const isDelivering = s === 'Delivering' || s === 'deliverying';
-      const isReady = [
-        'Ready for pickup',
-        'Delivering',
-        'in_progress',
-        'out_for_delivery',
-        'deliverying',
-      ].includes(s);
-      const displayStatus =
-        isLookingForRider || isRiderComing ? 'wait_for_rider' : isAtShop ? 'washing' : 'ready';
-      const dueText =
-        isLookingForRider || isRiderComing ? undefined : isAtShop ? 'Due in 2h' : undefined;
-      const pickupText = isLookingForRider
-        ? 'Looking for rider'
-        : isRiderComing
-          ? 'Waiting for rider'
-          : isAtShop
-            ? undefined
-            : isDelivering
-              ? 'Delivering'
-              : 'Waiting for rider to pick up';
+        const s = String(order.status);
+        const isLookingForRider = s === 'Looking for rider';
+        const isRiderComing = s === 'Waiting for rider' || s === 'rider_coming';
+        const isAtShop = s === 'In progress' || s === 'at_shop';
+        const isDelivering = s === 'Delivering' || s === 'deliverying';
+        const displayStatus =
+          isLookingForRider || isRiderComing ? 'wait_for_rider' : isAtShop ? 'washing' : 'ready';
+        const dueText =
+          isLookingForRider || isRiderComing ? undefined : isAtShop ? 'Due in 2h' : undefined;
+        const pickupText = isLookingForRider
+          ? 'Looking for rider'
+          : isRiderComing
+            ? 'Waiting for rider'
+            : isAtShop
+              ? undefined
+              : isDelivering
+                ? 'Delivering'
+                : 'Waiting for rider to pick up';
 
-      const note = (order as any).note || (firstItem as any)?.additionalRequest || '';
-      return {
-        id: String(order._id),
-        customerName: order.userDisplayName || 'Customer',
-        orderId: `ORD-${String(order._id).slice(-4)}`,
-        serviceType: firstItem?.name || 'Wash & Fold',
-        status: displayStatus,
-        statusRaw: s,
-        total: order.total || 0,
-        paymentMethod: order.paymentMethod === 'wallet' ? 'Wallet' : 'Cash',
-        dueText,
-        pickupText,
-        items: order.items || [],
-        note,
-      };
-    });
+        const note = (order as any).note || (firstItem as any)?.additionalRequest || '';
+
+        let customerPhone = (order as any).customerPhone || '';
+        if (!customerPhone && order.userId && /^[0-9a-fA-F]{24}$/.test(String(order.userId))) {
+          const customerUser = await User.findById(order.userId).select('phone').lean();
+          customerPhone = (customerUser as any)?.phone || '';
+        }
+
+        let riderDisplayName = '';
+        let riderPhone = '';
+        let riderId = (order as any).riderId;
+        if (!riderId && (order as any).ordersId) {
+          const linkedOrder = await Order.findById((order as any).ordersId).select('riderId').lean();
+          riderId = (linkedOrder as any)?.riderId;
+        }
+        if (riderId) {
+          const rider = await resolveRiderInfo(riderId);
+          riderDisplayName = rider.riderDisplayName;
+          riderPhone = rider.riderPhone;
+        }
+
+        return {
+          id: String(order._id),
+          customerName: order.userDisplayName || 'Customer',
+          customerPhone: customerPhone || undefined,
+          orderId: `ORD-${String(order._id).slice(-4)}`,
+          serviceType: firstItem?.name || 'Wash & Fold',
+          status: displayStatus,
+          statusRaw: s,
+          total: order.total || 0,
+          paymentMethod: order.paymentMethod === 'wallet' ? 'Wallet' : 'Cash',
+          dueText,
+          pickupText,
+          items: order.items || [],
+          note,
+          riderDisplayName: riderDisplayName || undefined,
+          riderPhone: riderPhone || undefined,
+        };
+      })
+    );
 
     res.json({ success: true, orders: formattedOrders });
   } catch (error) {
@@ -857,26 +927,51 @@ export const getMerchantOrderHistory = async (req: AuthRequest, res: Response) =
 
     const allOrders = await OrderForMerchant.find(historyQuery).sort({ updatedAt: -1 }).limit(100);
 
-    const formattedOrders = allOrders.map((order) => {
-      const firstItem =
-        Array.isArray(order.items) && order.items.length > 0
-          ? order.items[0]
-          : { name: 'Wash & Fold Service', details: '', price: 0 };
+    const formattedOrders = await Promise.all(
+      allOrders.map(async (order) => {
+        const firstItem =
+          Array.isArray(order.items) && order.items.length > 0
+            ? order.items[0]
+            : { name: 'Wash & Fold Service', details: '', price: 0 };
 
-      const note = (order as any).note || (firstItem as any)?.additionalRequest || '';
-      return {
-        id: String(order._id),
-        customerName: order.userDisplayName || 'Customer',
-        orderId: `ORD-${String(order._id).slice(-4)}`,
-        serviceType: firstItem?.name || 'Wash & Fold',
-        status: 'completed', // merchant app ใช้ 'completed' สำหรับ display
-        total: order.total || 0,
-        paymentMethod: order.paymentMethod === 'wallet' ? 'Wallet' : 'Cash',
-        completedAt: order.updatedAt || order.createdAt,
-        items: order.items || [],
-        note,
-      };
-    });
+        const note = (order as any).note || (firstItem as any)?.additionalRequest || '';
+
+        let customerPhone = (order as any).customerPhone || '';
+        if (!customerPhone && order.userId && /^[0-9a-fA-F]{24}$/.test(String(order.userId))) {
+          const customerUser = await User.findById(order.userId).select('phone').lean();
+          customerPhone = (customerUser as any)?.phone || '';
+        }
+
+        let riderDisplayName = '';
+        let riderPhone = '';
+        const oid = (order as any).ordersId;
+        if (oid) {
+          const linkedOrder = await Order.findById(oid).lean();
+          const rid = linkedOrder ? (linkedOrder as any).riderId : null;
+          if (rid) {
+            const riderInfo = await resolveRiderInfo(rid);
+            riderDisplayName = riderInfo.riderDisplayName;
+            riderPhone = riderInfo.riderPhone;
+          }
+        }
+
+        return {
+          id: String(order._id),
+          customerName: order.userDisplayName || 'Customer',
+          customerPhone: customerPhone || undefined,
+          riderDisplayName: riderDisplayName || undefined,
+          riderPhone: riderPhone || undefined,
+          orderId: `ORD-${String(order._id).slice(-4)}`,
+          serviceType: firstItem?.name || 'Wash & Fold',
+          status: 'completed',
+          total: order.total || 0,
+          paymentMethod: order.paymentMethod === 'wallet' ? 'Wallet' : 'Cash',
+          completedAt: order.updatedAt || order.createdAt,
+          items: order.items || [],
+          note,
+        };
+      })
+    );
 
     res.json({ success: true, orders: formattedOrders });
   } catch (error) {

@@ -152,8 +152,8 @@ export function OrderDetailSheet({
               <View style={s.detailRow}>
                 <Text style={s.detailLabel}>Phone</Text>
                 <View style={s.phoneRow}>
-                  <Text style={s.detailValue}>{order.customerPhone}</Text>
-                  {!!order.customerPhone && (
+                  <Text style={s.detailValue}>{order.customerPhone || '-'}</Text>
+                  {!!order.customerPhone && order.customerPhone !== '-' && (
                     <TouchableOpacity onPress={() => Linking.openURL(`tel:${order.customerPhone}`)}>
                       <Ionicons name="call" size={16} color={Colors.successGreen} style={{ marginLeft: 6 }} />
                     </TouchableOpacity>
@@ -185,8 +185,8 @@ export function OrderDetailSheet({
                     <View style={s.detailRow}>
                       <Text style={s.detailLabel}>Phone</Text>
                       <View style={s.phoneRow}>
-                        <Text style={s.detailValue}>{order.riderPhone}</Text>
-                        {!!order.riderPhone && (
+                        <Text style={s.detailValue}>{order.riderPhone || '-'}</Text>
+                        {!!order.riderPhone && order.riderPhone !== '-' && (
                           <TouchableOpacity onPress={() => Linking.openURL(`tel:${order.riderPhone}`)}>
                             <Ionicons name="call" size={16} color={Colors.successGreen} style={{ marginLeft: 6 }} />
                           </TouchableOpacity>

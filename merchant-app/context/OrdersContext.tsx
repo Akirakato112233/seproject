@@ -22,6 +22,9 @@ export interface MerchantOrder {
   completedAt?: Date;
   items?: MerchantOrderItem[];
   note?: string;  // หมายเหตุจาก user (additionalRequest)
+  customerPhone?: string;
+  riderDisplayName?: string;
+  riderPhone?: string;
 }
 
 interface OrdersContextType {
@@ -69,7 +72,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) return;
       const data = await res.json();
       if (data.success && Array.isArray(data.orders)) {
-        const mapped: MerchantOrder[] = data.orders.map((o: { id: string; customerName: string; orderId: string; serviceType: string; total: number; paymentMethod?: string; completedAt?: string; items?: MerchantOrderItem[]; note?: string }) => ({
+        const mapped: MerchantOrder[] = data.orders.map((o: { id: string; customerName: string; orderId: string; serviceType: string; total: number; paymentMethod?: string; completedAt?: string; items?: MerchantOrderItem[]; note?: string; customerPhone?: string; riderDisplayName?: string; riderPhone?: string }) => ({
           id: o.id,
           customerName: o.customerName,
           orderId: o.orderId,
@@ -80,6 +83,9 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
           completedAt: o.completedAt ? new Date(o.completedAt) : undefined,
           items: o.items || [],
           note: o.note,
+          customerPhone: o.customerPhone,
+          riderDisplayName: o.riderDisplayName,
+          riderPhone: o.riderPhone,
         }));
         setCompletedOrders(mapped);
       }

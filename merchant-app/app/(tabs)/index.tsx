@@ -30,13 +30,15 @@ interface ApiPendingOrder {
   id: string;
   orderId: string;
   customerName: string;
-  userAddress: string;
+  userAddress?: string;
+  customerPhone?: string;
   total: number;
   paymentMethod: string;
   serviceType: string;
   serviceDetail: string;
   items: { name: string; details: string; price: number }[];
   createdAt: string;
+  note?: string;
 }
 
 function formatPickupTime(createdAt: string): string {
@@ -349,7 +351,7 @@ export default function DashboardScreen() {
         isPaid: false,
         paymentMethod: o.paymentMethod || 'Cash',
         customerName: o.customerName || 'Customer',
-        customerPhone: '086-555-4444',
+        customerPhone: o.customerPhone || '',
         orderDate: o.createdAt ? formatPickupTime(typeof o.createdAt === 'string' ? o.createdAt : new Date(o.createdAt).toISOString()) : 'Today, 2:00 PM - 4:00 PM',
         services: services.length > 0 ? services : [{ name: o.serviceType || 'Wash & Fold', qty: o.serviceDetail || '-', price: 0 }],
         note: o.note || (firstItem as any)?.additionalRequest || undefined,
@@ -370,7 +372,7 @@ export default function DashboardScreen() {
         isPaid: true,
         paymentMethod: selectedOrder.paymentMethod || 'Cash',
         customerName: selectedOrder.customerName,
-        customerPhone: '086-555-4444',
+        customerPhone: selectedOrder.customerPhone || '',
         orderDate: 'Completed',
         showAction: false,
         services,
@@ -421,10 +423,10 @@ export default function DashboardScreen() {
       isPaid: selectedOrder.status === 'ready',
       paymentMethod: selectedOrder.paymentMethod || 'Cash',
       customerName: selectedOrder.customerName,
-      customerPhone: '086-555-4444',
+      customerPhone: selectedOrder.customerPhone || '',
       orderDate: 'Today, 2:00 PM - 4:00 PM',
-      riderName: 'Natthapong Saehaw',
-      riderPhone: '093-579-2318',
+      riderName: selectedOrder.riderDisplayName || undefined,
+      riderPhone: selectedOrder.riderPhone || undefined,
       services,
       note,
       showAction,
@@ -448,22 +450,26 @@ export default function DashboardScreen() {
         <Text style={s.balanceAmount}>฿{(shop?.balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
       </TouchableOpacity>
 
-      <View style={s.summaryRow}>
-        <View style={[s.summaryCard, s.newOrderCard]}>
-          <Text style={[s.summaryLabel, s.newOrderValue]}>New order</Text>
-          <Text style={[s.summaryValue, s.newOrderValue]}>{newOrderCount}</Text>
+      <View style={s.summaryGrid}>
+        <View style={s.summaryRow}>
+          <View style={[s.summaryCard, s.newOrderCard]}>
+            <Text style={[s.summaryLabel, s.newOrderValue]}>New order</Text>
+            <Text style={[s.summaryValue, s.newOrderValue]}>{newOrderCount}</Text>
+          </View>
+          <View style={[s.summaryCard, s.washingCard]}>
+            <Text style={[s.summaryLabel, s.washingValue]}>In progress</Text>
+            <Text style={[s.summaryValue, s.washingValue]}>{inProgressCount}</Text>
+          </View>
         </View>
-        <View style={[s.summaryCard, s.washingCard]}>
-          <Text style={[s.summaryLabel, s.washingValue]}>In progress</Text>
-          <Text style={[s.summaryValue, s.washingValue]}>{inProgressCount}</Text>
-        </View>
-        <View style={[s.summaryCard, s.readyCard]}>
-          <Text style={[s.summaryLabel, s.readyValue]}>Ready for pickup</Text>
-          <Text style={[s.summaryValue, s.readyValue]}>{readyCount}</Text>
-        </View>
-        <View style={[s.summaryCard, s.completedCard]}>
-          <Text style={[s.summaryLabel, s.completedValue]}>Complete</Text>
-          <Text style={[s.summaryValue, s.completedValue]}>{completedCount}</Text>
+        <View style={s.summaryRow}>
+          <View style={[s.summaryCard, s.readyCard]}>
+            <Text style={[s.summaryLabel, s.readyValue]}>Ready for pickup</Text>
+            <Text style={[s.summaryValue, s.readyValue]}>{readyCount}</Text>
+          </View>
+          <View style={[s.summaryCard, s.completedCard]}>
+            <Text style={[s.summaryLabel, s.completedValue]}>Complete</Text>
+            <Text style={[s.summaryValue, s.completedValue]}>{completedCount}</Text>
+          </View>
         </View>
       </View>
 
@@ -667,14 +673,17 @@ const s = StyleSheet.create({
     fontWeight: '800',
     color: Colors.successGreen,
   },
+  summaryGrid: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
+    gap: 8,
+  },
   summaryRow: {
     flexDirection: 'row',
-    padding: 16,
     gap: 8,
-    flexWrap: 'wrap',
   },
   summaryCard: {
-    minWidth: 90,
     flex: 1,
     borderRadius: 12,
     padding: 12,
