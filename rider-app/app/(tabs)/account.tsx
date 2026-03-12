@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useSignup } from '../../context/SignupContext';
 import { API, NGROK_HEADERS } from '../../config';
 
 interface RegistrationData {
@@ -38,6 +39,7 @@ interface RegistrationData {
 export default function AccountScreen() {
     const router = useRouter();
     const { token, logout, user } = useAuth();
+    const { reset: resetSignup } = useSignup();
     const [data, setData] = useState<RegistrationData | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -102,6 +104,7 @@ export default function AccountScreen() {
                             });
                             const json = await res.json();
                             if (json.success) {
+                                resetSignup();
                                 await logout();
                                 router.replace('/create-account');
                             } else {
