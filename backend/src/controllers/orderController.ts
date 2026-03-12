@@ -134,6 +134,9 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
       orderData.deliveryTier = deliveryTier;
     }
     if (additionalRequest) orderData.note = additionalRequest;
+    // เบอร์โทรลูกค้า: สำหรับไรเดอร์โทรติดต่อ (ปุ่มโทรใน Job screen)
+    const customerPhone = (user as any).phone || '';
+    if (customerPhone) orderData.customerPhone = customerPhone;
     // พิกัดลูกค้า: ใช้จาก body (ที่ user-app ส่งมา) หรือจาก User ที่บันทึกไว้
     const lat = typeof userLat === 'number' ? userLat : (user as any).lat;
     const lon = typeof userLon === 'number' ? userLon : (user as any).lon;
@@ -461,7 +464,7 @@ export const merchantAcceptOrder = async (req: AuthRequest, res: Response) => {
 
     // ถ้า order มาจาก ordersformerchant ให้ copy ไป POST ลง orders collection
     if (foundOrder!.model.modelName === 'OrderForMerchant') {
-      const orderData = {
+      const orderData: any = {
         userId: order.userId,
         userDisplayName: order.userDisplayName,
         userAddress: order.userAddress,
@@ -474,8 +477,12 @@ export const merchantAcceptOrder = async (req: AuthRequest, res: Response) => {
         paymentMethod: order.paymentMethod,
         status: 'decision' as const, // ส่งให้ rider ตัดสินใจรับหรือไม่
         merchantOrderId: order._id,
-        ...((order as any).note && { note: (order as any).note }),
       };
+      if ((order as any).note) orderData.note = (order as any).note;
+      if ((order as any).customerPhone) orderData.customerPhone = (order as any).customerPhone;
+      if ((order as any).userLat != null) orderData.userLat = (order as any).userLat;
+      if ((order as any).userLon != null) orderData.userLon = (order as any).userLon;
+      if ((order as any).deliveryTier) orderData.deliveryTier = (order as any).deliveryTier;
       const newOrder = await Order.create(orderData);
 
       // อัปเดต ordersformerchant เป็น "Looking for rider" (ส่งให้ rider ตัดสินใจแล้ว)
@@ -902,12 +909,26 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
 
         let shop = null;
         if (order.shopId && /^[0-9a-fA-F]{24}$/.test(String(order.shopId))) {
-          shop = await Shop.findById(order.shopId);
+          shop = await Shop.findById(order.shopId).lean();
         }
 
         const shopCoords = shop?.location
           ? { latitude: shop.location.lat, longitude: shop.location.lng }
           : { latitude: 13.117629, longitude: 100.916613 };
+
+        // โทรลูกค้า: ดึงจาก User (คนสั่ง) ถ้า order ไม่มี customerPhone
+        let customerPhone = (order as any).customerPhone || '';
+        if (!customerPhone && order.userId && /^[0-9a-fA-F]{24}$/.test(String(order.userId))) {
+          const customerUser = await User.findById(order.userId).select('phone').lean();
+          customerPhone = (customerUser as any)?.phone || '';
+        }
+
+        // โทรร้าน: ดึงจาก MerchantUser
+        let shopPhone = '';
+        if (shop?.merchantUserId && /^[0-9a-fA-F]{24}$/.test(String(shop.merchantUserId))) {
+          const merchantUser = await MerchantUser.findById(shop.merchantUserId).select('phone').lean();
+          shopPhone = (merchantUser as any)?.phone || '';
+        }
 
         const items = order.items || [];
         const washDry = parseWashDryFromItems(items);
@@ -918,6 +939,8 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
           shopAddress: shop?.name || 'ไม่ระบุที่อยู่ร้าน',
           customerName: order.userDisplayName || 'Customer',
           customerAddress: order.userAddress || 'ไม่ระบุที่อยู่',
+          customerPhone,
+          shopPhone,
           userId: order.userId || undefined,
           note: (order as any).note || '',
           distance: '1.5 km',

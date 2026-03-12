@@ -261,9 +261,17 @@ export default function JobScreen() {
     };
 
     const callPhone = async (phone?: string) => {
-        if (!phone) return;
+        if (!phone || !phone.trim()) return;
+        const cleaned = phone.replace(/\s|-|\(|\)/g, '');
+        const digits = cleaned.replace(/\D/g, '');
+        if (!digits.length) return;
+        const forTel = digits.length === 9 && !cleaned.startsWith('+')
+            ? `0${digits}`
+            : cleaned.startsWith('+')
+                ? `+${digits}`
+                : digits;
         try {
-            await Linking.openURL(`tel:${phone}`);
+            await Linking.openURL(`tel:${forTel}`);
         } catch {
             // ignore
         }

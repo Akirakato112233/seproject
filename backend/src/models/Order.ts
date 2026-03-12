@@ -31,6 +31,7 @@ export interface IOrder extends Document {
   | 'cancelled';
   riderId?: string; // _id ของ rider ที่รับงาน ( set ตอน rider_coming )
   note?: string; // หมายเหตุจาก user
+  customerPhone?: string; // เบอร์โทรลูกค้า (คนสั่ง) — สำหรับปุ่มโทรใน rider app
   merchantOrderId?: string; // _id จาก ordersformerchant เมื่อ copy มา
   ordersId?: string; // _id ใน orders collection เมื่อ accept แล้ว (ใช้กับ ordersformerchant)
   // Coin shop: เวลาเครื่องซัก/อบจะเสร็จ (ใช้ cron อัปเดต order status)
@@ -127,6 +128,7 @@ const OrderSchema: Schema = new Schema(
     },
     riderId: { type: String, required: false },
     note: { type: String, required: false },
+    customerPhone: { type: String, required: false },
     merchantOrderId: { type: Schema.Types.ObjectId, ref: 'OrderForMerchant', required: false },
     ordersId: { type: Schema.Types.ObjectId, ref: 'Order', required: false },
     coinWashFinishTime: { type: Date, required: false },
