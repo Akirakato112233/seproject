@@ -21,8 +21,10 @@ import { Shop } from './models/Shop';
 
 dotenv.config();
 
+const dns = require("dns");
 const app = express();
 const PORT = process.env.PORT || 3000;
+dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
 // ต้อง trust proxy เมื่อใช้ ngrok (X-Forwarded-For)
 app.set('trust proxy', 1);

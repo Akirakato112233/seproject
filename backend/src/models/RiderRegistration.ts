@@ -118,6 +118,10 @@ export interface IRiderRegistration extends Document {
   packageDistrict?: string;
   packageChoice?: string;
   packageDisclaimerAgreed?: boolean;
+  /** ที่อยู่จัดส่งสินค้า (เมื่อเลือกซื้อแพ็กเกจ) */
+  packageShippingAddress?: string;
+  /** วิธีการชำระเงิน: 'cod' = เก็บเงินปลายทาง */
+  packagePaymentMethod?: string;
 
   // ── Linked accounts ─────────────────────────────────────────────
   /** Whether the rider's Google account is currently linked */
@@ -221,6 +225,8 @@ const RiderRegistrationSchema = new Schema<IRiderRegistration>(
     packageDistrict: { type: String },
     packageChoice: { type: String },
     packageDisclaimerAgreed: { type: Boolean },
+    packageShippingAddress: { type: String },
+    packagePaymentMethod: { type: String },
 
     linkedGoogle: { type: Boolean, default: false },
 

@@ -19,7 +19,7 @@ const ROLE = 'rider';
 
 export default function CreateAccountScreen() {
     const router = useRouter();
-    const { login, setDevMode } = useAuth();
+    const { login } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
 
     const redirectUri = AuthSession.makeRedirectUri();
@@ -118,15 +118,6 @@ export default function CreateAccountScreen() {
         }
     };
 
-    const handleDevModeMain = () => {
-        setDevMode(true);
-        router.replace('/(tabs)');
-    };
-
-    const handleDevModeRegister = () => {
-        router.push('/signup/register' as any);
-    };
-
     return (
         <SafeAreaView style={s.safe}>
             <ImageBackground
@@ -172,26 +163,6 @@ export default function CreateAccountScreen() {
                             <Ionicons name="logo-google" size={18} color="#EA4335" />
                         </View>
                         <Text style={s.btnText}>Continue with Google</Text>
-                    </TouchableOpacity>
-
-                    {/* Dev Mode - Skip to main */}
-                    <TouchableOpacity
-                        style={s.btnDev}
-                        activeOpacity={0.8}
-                        onPress={handleDevModeMain}
-                    >
-                        <Ionicons name="code-slash" size={16} color="#64748B" />
-                        <Text style={s.btnDevText}>Dev Mode (Skip Login)</Text>
-                    </TouchableOpacity>
-
-                    {/* Dev Mode - Go to Register */}
-                    <TouchableOpacity
-                        style={s.btnDevRegister}
-                        activeOpacity={0.8}
-                        onPress={handleDevModeRegister}
-                    >
-                        <Ionicons name="person-add-outline" size={16} color="#1976D2" />
-                        <Text style={s.btnDevRegisterText}>Dev Mode (Register)</Text>
                     </TouchableOpacity>
 
                     <Text style={s.terms}>
@@ -292,24 +263,6 @@ const s = StyleSheet.create({
         color: '#fff',
     },
 
-    btnDev: {
-        width: '100%',
-        height: 48,
-        borderRadius: 24,
-        borderWidth: 1.5,
-        borderColor: '#CBD5E1',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        backgroundColor: '#F8FAFC',
-    },
-    btnDevText: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#64748B',
-    },
-
     terms: {
         textAlign: 'center',
         color: '#94A3B8',
@@ -320,22 +273,5 @@ const s = StyleSheet.create({
     disabledBtn: {
         opacity: 0.5,
         backgroundColor: '#b0b0b0',
-    },
-    btnDevRegister: {
-        width: '100%',
-        height: 48,
-        borderRadius: 24,
-        borderWidth: 1.5,
-        borderColor: '#1976D2',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        backgroundColor: '#EFF6FF',
-    },
-    btnDevRegisterText: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#1976D2',
     },
 });

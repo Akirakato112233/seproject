@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Config } from '../../constants/config';
 
 const ILLUSTRATION = require('../../assets/images/vehicle-hero.png');
@@ -20,25 +20,20 @@ const QUESTION = 'Do you have the vehicle registration book ready?*';
 
 const OPTIONS = [
     { value: 'ready' as const, label: 'I have the vehicle and the registration book ready.' },
-    {
-        value: 'submit_later' as const,
-        label: 'I have the vehicle, but I want to submit the registration book later',
-    },
 ];
 
 export default function VehicleDetailsScreen() {
     const router = useRouter();
     const { registrationId } = useLocalSearchParams<{ registrationId?: string }>();
-    const insets = useSafeAreaInsets();
-    const [value, setValue] = useState<'ready' | 'submit_later' | null>(null);
+    const [value, setValue] = useState<'ready' | null>(null);
     const [showDropdown, setShowDropdown] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    const canContinue = value !== null;
     const selectedOption = value !== null ? OPTIONS.find((o) => o.value === value) : null;
 
-    const handleContinue = async () => {
-        if (!canContinue || !value) return;
+    const handleContinue = async (val?: 'ready') => {
+        const v = val ?? value;
+        if (!v) return;
         const regId = (registrationId ?? '').trim();
         if (!regId) {
             Alert.alert('ไม่พบข้อมูลการสมัคร', 'กรุณาทำขั้นตอนสมัครให้ครบก่อน', [
@@ -54,7 +49,7 @@ export default function VehicleDetailsScreen() {
                 {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ vehicleRegistrationBook: value }),
+                    body: JSON.stringify({ vehicleRegistrationBook: v }),
                 }
             );
             if (!res.ok) {
@@ -62,19 +57,10 @@ export default function VehicleDetailsScreen() {
                 throw new Error(err.message || `Request failed ${res.status}`);
             }
 
-            // ถ้ามีเล่มทะเบียนพร้อม ให้ไปหน้าอัปโหลดเล่มรถเลย
-            if (value === 'ready') {
-                router.replace({
-                    pathname: '/vehicle-registration',
-                    params: { registrationId: regId },
-                } as any);
-            } else {
-                // ยังไม่มีเล่มทะเบียน → ไปกรอกข้อมูลต่อ
-                router.replace({
-                    pathname: '/plate-color',
-                    params: { registrationId: regId },
-                } as any);
-            }
+            router.replace({
+                pathname: '/vehicle-registration',
+                params: { registrationId: regId },
+            } as any);
         } catch (e) {
             console.error(e);
             Alert.alert('เกิดข้อผิดพลาด', e instanceof Error ? e.message : 'บันทึกไม่สำเร็จ');
@@ -132,9 +118,12 @@ export default function VehicleDetailsScreen() {
                                 <TouchableOpacity
                                     style={s.option}
                                     onPress={() => {
+                                        if (loading) return;
                                         setValue(opt.value);
                                         setShowDropdown(false);
+                                        handleContinue(opt.value);
                                     }}
+                                    disabled={loading}
                                     activeOpacity={0.7}
                                 >
                                     <Text style={s.optionText}>{opt.label}</Text>
@@ -145,20 +134,11 @@ export default function VehicleDetailsScreen() {
                 )}
             </ScrollView>
 
-            <View style={[s.footer, { paddingBottom: Math.max(24, insets.bottom + 12) }]}>
-                <TouchableOpacity
-                    style={[s.continueBtn, (!canContinue || loading) && s.continueBtnDisabled]}
-                    disabled={!canContinue || loading}
-                    onPress={handleContinue}
-                    activeOpacity={0.85}
-                >
-                    {loading ? (
-                        <ActivityIndicator color="#FFFFFF" />
-                    ) : (
-                        <Text style={s.continueText}>Continue</Text>
-                    )}
-                </TouchableOpacity>
-            </View>
+            {loading && (
+                <View style={s.loadingOverlay}>
+                    <ActivityIndicator size="large" color="#0E3A78" />
+                </View>
+            )}
         </SafeAreaView>
     );
 }
@@ -245,22 +225,10 @@ const s = StyleSheet.create({
         color: '#334155',
         lineHeight: 22,
     },
-    footer: {
-        paddingHorizontal: 20,
-        paddingTop: 16,
-        backgroundColor: '#FFFFFF',
-        borderTopWidth: 1,
-        borderTopColor: '#F1F5F9',
-    },
-    continueBtn: {
-        backgroundColor: '#0E3A78',
-        paddingVertical: 16,
-        borderRadius: 12,
+    loadingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255,255,255,0.8)',
         alignItems: 'center',
+        justifyContent: 'center',
     },
-    continueBtnDisabled: {
-        backgroundColor: '#94A3B8',
-        opacity: 0.8,
-    },
-    continueText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
 });

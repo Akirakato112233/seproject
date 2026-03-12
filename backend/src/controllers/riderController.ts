@@ -526,7 +526,13 @@ export const updateRegistrationOwnership = async (req: Request, res: Response) =
 export const updateRegistrationPackage = async (req: Request, res: Response) => {
   try {
     const { registrationId } = req.params;
-    const { packageProvince, packageDistrict, packageChoice, packageDisclaimerAgreed } = req.body;
+    const {
+      packageProvince,
+      packageDistrict,
+      packageChoice,
+      packageDisclaimerAgreed,
+      packageShippingAddress,
+    } = req.body;
 
     if (!registrationId) {
       return res.status(400).json({ success: false, message: 'Missing registrationId' });
@@ -555,14 +561,28 @@ export const updateRegistrationPackage = async (req: Request, res: Response) => 
       });
     }
 
+    const isBuyingPackage = packageChoice === '990' || packageChoice === '1220';
+    if (isBuyingPackage && (!packageShippingAddress || !String(packageShippingAddress).trim())) {
+      return res.status(400).json({
+        success: false,
+        message: 'packageShippingAddress is required when selecting a paid package',
+      });
+    }
+
+    const updatePayload: Record<string, unknown> = {
+      packageProvince: String(packageProvince).trim(),
+      packageDistrict: String(packageDistrict).trim(),
+      packageChoice: String(packageChoice).trim(),
+      packageDisclaimerAgreed: !!packageDisclaimerAgreed,
+    };
+    if (isBuyingPackage) {
+      updatePayload.packageShippingAddress = String(packageShippingAddress).trim();
+      updatePayload.packagePaymentMethod = 'cod';
+    }
+
     const updated = await RiderRegistration.findByIdAndUpdate(
       registrationId,
-      {
-        packageProvince: String(packageProvince).trim(),
-        packageDistrict: String(packageDistrict).trim(),
-        packageChoice: String(packageChoice).trim(),
-        packageDisclaimerAgreed: !!packageDisclaimerAgreed,
-      },
+      updatePayload,
       { new: true }
     );
 

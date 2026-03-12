@@ -70,6 +70,9 @@ export default function VerifyDocumentsScreen() {
     const [consentB, setConsentB] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
 
+    const nationalIdDigits = nationalId.replace(/\D/g, '');
+    const nationalIdError = nationalId.length > 0 && nationalIdDigits.length !== 13;
+
     useEffect(() => {
         if (paramImageUri) {
             setImageUri(paramImageUri);
@@ -100,7 +103,7 @@ export default function VerifyDocumentsScreen() {
     ]);
 
     const isFormValid =
-        nationalId.trim().length >= 13 &&
+        nationalIdDigits.length >= 13 &&
         addressOnId.trim().length > 0 &&
         fatherFullName.trim().length > 0 &&
         motherFullName.trim().length > 0 &&
@@ -247,14 +250,19 @@ export default function VerifyDocumentsScreen() {
                 <Text style={s.sectionTitle}>Information for Criminal Background Check</Text>
 
                 <TextInput
-                    style={s.input}
+                    style={[s.input, nationalIdError && s.inputError]}
                     placeholder="Enter 13-digit national ID number"
                     placeholderTextColor="#94A3B8"
                     value={nationalId}
-                    onChangeText={setNationalId}
+                    onChangeText={(t) => setNationalId(t.replace(/\D/g, '').slice(0, 13))}
                     keyboardType="numeric"
                     maxLength={13}
                 />
+                {nationalId.length > 0 && nationalIdDigits.length < 13 && (
+                    <Text style={s.warningHint}>
+                        กรอกให้ครบ 13 หลัก ({nationalIdDigits.length}/13)
+                    </Text>
+                )}
 
                 <TextInput
                     style={[s.input, s.inputMultiline]}
@@ -495,6 +503,14 @@ const s = StyleSheet.create({
         paddingVertical: 12,
         fontSize: 15,
         color: '#0F172A',
+        marginBottom: 14,
+    },
+    inputError: { borderColor: '#EF4444' },
+    warningHint: {
+        color: '#F59E0B',
+        fontSize: 13,
+        fontWeight: '500',
+        marginTop: -8,
         marginBottom: 14,
     },
     inputMultiline: { minHeight: 64, textAlignVertical: 'top' },

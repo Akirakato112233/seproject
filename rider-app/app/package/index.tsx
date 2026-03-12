@@ -30,7 +30,6 @@ const PROVINCES = Object.keys(SUBDISTRICTS_BY_PROVINCE).sort();
 const PACKAGE_OPTIONS = [
     { value: '990', label: '990 บาท (กระเป๋าขนาดกลาง)' },
     { value: '1220', label: '1220 บาท (กระเป๋าขนาดใหญ่)' },
-    { value: 'later', label: 'ซื้ออุปกรณ์ภายหลัง' },
 ];
 
 const DISCLAIMER =
@@ -52,8 +51,11 @@ export default function PackageScreen() {
     const [provinceSearch, setProvinceSearch] = useState('');
     const [showDistrictModal, setShowDistrictModal] = useState(false);
     const [districtSearch, setDistrictSearch] = useState('');
+    const [shippingAddress, setShippingAddress] = useState('');
 
     const subdistrictOptions = SUBDISTRICTS_BY_PROVINCE[province] || [];
+
+    const isBuyingPackage = choice === '990' || choice === '1220';
 
     const onProvinceSelect = (p: string) => {
         setProvince(p);
@@ -63,7 +65,11 @@ export default function PackageScreen() {
 
     const selected = choice ? PACKAGE_OPTIONS.find((p) => p.value === choice) : null;
     const canContinue =
-        province.trim().length > 0 && district.trim().length > 0 && !!choice && consent;
+        province.trim().length > 0 &&
+        district.trim().length > 0 &&
+        !!choice &&
+        consent &&
+        (!isBuyingPackage || shippingAddress.trim().length > 0);
 
     const handleContinue = async () => {
         if (!canContinue || !choice) return;
@@ -87,6 +93,10 @@ export default function PackageScreen() {
                         packageDistrict: district.trim(),
                         packageChoice: choice,
                         packageDisclaimerAgreed: true,
+                        ...(isBuyingPackage && {
+                            packageShippingAddress: shippingAddress.trim(),
+                            packagePaymentMethod: 'cod',
+                        }),
                     }),
                 }
             );
@@ -106,7 +116,10 @@ export default function PackageScreen() {
                     await login(loginJson.token, loginJson.user);
                 }
             }
-            router.replace('/(tabs)');
+            router.replace({
+                pathname: '/waiting-results',
+                params: { registrationId: regId },
+            } as any);
         } catch (e) {
             console.error(e);
             Alert.alert('เกิดข้อผิดพลาด', e instanceof Error ? e.message : 'บันทึกไม่สำเร็จ');
@@ -128,105 +141,148 @@ export default function PackageScreen() {
             <ScrollView
                 style={s.scroll}
                 contentContainerStyle={[s.content, { paddingBottom: 120 }]}
-                showsVerticalScrollIndicator
+                showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
             >
-                <View style={s.illustration}>
+                <View style={s.illustrationWrap}>
                     <Image source={ILLUSTRATION} style={s.illustrationImage} resizeMode="cover" />
                 </View>
 
                 <Text style={s.title}>แพ็กเกจ</Text>
 
-                <View style={s.fieldWrap}>
-                    <Text style={s.label}>พื้นที่ทำการสมัครให้บริการ (จังหวัด)</Text>
-                    <TouchableOpacity
-                        style={s.selectBtn}
-                        onPress={() => {
-                            setProvinceSearch('');
-                            setShowProvinceModal(true);
-                        }}
-                    >
-                        <Text
-                            style={[s.selectBtnText, !province && s.selectBtnPlaceholder]}
-                            numberOfLines={1}
+                {/* พื้นที่ให้บริการ */}
+                <View style={s.card}>
+                    <View style={s.sectionLabel}>
+                        <Ionicons name="location-outline" size={18} color="#0E3A78" />
+                        <Text style={s.sectionTitle}>พื้นที่ให้บริการ</Text>
+                    </View>
+                    <View style={s.fieldWrap}>
+                        <Text style={s.label}>จังหวัด</Text>
+                        <TouchableOpacity
+                            style={s.selectBtn}
+                            onPress={() => {
+                                setProvinceSearch('');
+                                setShowProvinceModal(true);
+                            }}
                         >
-                            {province || 'เลือกจังหวัด'}
-                        </Text>
-                        <Ionicons name="chevron-down" size={20} color="#64748B" />
-                    </TouchableOpacity>
+                            <Text
+                                style={[s.selectBtnText, !province && s.selectBtnPlaceholder]}
+                                numberOfLines={1}
+                            >
+                                {province || 'เลือกจังหวัด'}
+                            </Text>
+                            <Ionicons name="chevron-down" size={20} color="#64748B" />
+                        </TouchableOpacity>
+                    </View>
+                    <View style={s.fieldWrap}>
+                        <Text style={s.label}>ตำบล/แขวง</Text>
+                        <TouchableOpacity
+                            style={s.selectBtn}
+                            onPress={() => {
+                                if (!province) return;
+                                setDistrictSearch('');
+                                setShowDistrictModal(true);
+                            }}
+                            disabled={!province}
+                        >
+                            <Text
+                                style={[s.selectBtnText, (!district || !province) && s.selectBtnPlaceholder]}
+                                numberOfLines={1}
+                            >
+                                {!province
+                                    ? 'เลือกจังหวัดก่อน'
+                                    : district || 'เลือกตำบล/แขวง'}
+                            </Text>
+                            <Ionicons name="chevron-down" size={20} color="#64748B" />
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
-                <View style={s.fieldWrap}>
-                    <Text style={s.label}>พื้นที่ที่ให้บริการบ่อย (ตำบล/แขวง)</Text>
+                {/* แพ็กเกจอุปกรณ์ */}
+                <View style={s.card}>
+                    <View style={s.sectionLabel}>
+                        <Ionicons name="bag-outline" size={18} color="#0E3A78" />
+                        <Text style={s.sectionTitle}>แพ็กเกจอุปกรณ์</Text>
+                    </View>
+                    <Text style={s.label}>โปรดเลือกแพ็กเกจ</Text>
                     <TouchableOpacity
-                        style={s.selectBtn}
-                        onPress={() => {
-                            if (!province) return;
-                            setDistrictSearch('');
-                            setShowDistrictModal(true);
-                        }}
-                        disabled={!province}
+                        style={[s.selectWrap, showDropdown && s.selectWrapOpen]}
+                        onPress={() => setShowDropdown(!showDropdown)}
+                        activeOpacity={0.8}
                     >
                         <Text
-                            style={[s.selectBtnText, (!district || !province) && s.selectBtnPlaceholder]}
+                            style={[s.selectText, !selected && s.selectPlaceholder]}
                             numberOfLines={1}
                         >
-                            {!province
-                                ? 'เลือกจังหวัดก่อน'
-                                : district || 'เลือกตำบล/แขวง'}
+                            {selected ? selected.label : 'เลือกแพ็กเกจ'}
                         </Text>
-                        <Ionicons name="chevron-down" size={20} color="#64748B" />
+                        <Ionicons
+                            name={showDropdown ? 'chevron-up' : 'chevron-down'}
+                            size={22}
+                            color="#64748B"
+                        />
                     </TouchableOpacity>
+                    {showDropdown && (
+                        <View style={s.dropdown}>
+                            {PACKAGE_OPTIONS.map((opt, index) => (
+                                <React.Fragment key={opt.value}>
+                                    {index > 0 && <View style={s.optionDivider} />}
+                                    <TouchableOpacity
+                                        style={[s.option, choice === opt.value && s.optionSelected]}
+                                        onPress={() => {
+                                            setChoice(opt.value);
+                                            setShowDropdown(false);
+                                        }}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={[s.optionText, choice === opt.value && s.optionTextSelected]}>
+                                            {opt.label}
+                                        </Text>
+                                        {choice === opt.value && (
+                                            <Ionicons name="checkmark-circle" size={20} color="#0E3A78" />
+                                        )}
+                                    </TouchableOpacity>
+                                </React.Fragment>
+                            ))}
+                        </View>
+                    )}
                 </View>
 
-                <Text style={[s.label, { marginTop: 4 }]}>โปรดเลือกแพ็กเกจอุปกรณ์การสมัคร</Text>
-                <TouchableOpacity
-                    style={[s.selectWrap, showDropdown && s.selectWrapOpen]}
-                    onPress={() => setShowDropdown(!showDropdown)}
-                    activeOpacity={0.8}
-                >
-                    <Text
-                        style={[s.selectText, !selected && s.selectPlaceholder]}
-                        numberOfLines={1}
-                    >
-                        {selected ? selected.label : 'เลือกแพ็กเกจ'}
-                    </Text>
-                    <Ionicons
-                        name={showDropdown ? 'chevron-up' : 'chevron-down'}
-                        size={22}
-                        color="#64748B"
-                    />
-                </TouchableOpacity>
-                {showDropdown && (
-                    <View style={s.dropdown}>
-                        {PACKAGE_OPTIONS.map((opt, index) => (
-                            <React.Fragment key={opt.value}>
-                                {index > 0 && <View style={s.optionDivider} />}
-                                <TouchableOpacity
-                                    style={s.option}
-                                    onPress={() => {
-                                        setChoice(opt.value);
-                                        setShowDropdown(false);
-                                    }}
-                                    activeOpacity={0.7}
-                                >
-                                    <Text style={s.optionText}>{opt.label}</Text>
-                                </TouchableOpacity>
-                            </React.Fragment>
-                        ))}
+                {isBuyingPackage && (
+                    <View style={s.card}>
+                        <View style={s.sectionLabel}>
+                            <Ionicons name="car-outline" size={18} color="#0E3A78" />
+                            <Text style={s.sectionTitle}>ที่อยู่จัดส่ง</Text>
+                        </View>
+                        <View style={s.codBadge}>
+                            <Ionicons name="wallet-outline" size={20} color="#059669" />
+                            <Text style={s.codText}>ชำระเงินเมื่อรับสินค้า (เก็บเงินปลายทาง)</Text>
+                        </View>
+                        <TextInput
+                            style={[s.input, s.inputMultiline]}
+                            placeholder="บ้านเลขที่ ถนน ตำบล อำเภอ จังหวัด รหัสไปรษณีย์"
+                            placeholderTextColor="#94A3B8"
+                            value={shippingAddress}
+                            onChangeText={setShippingAddress}
+                            multiline
+                            numberOfLines={4}
+                        />
                     </View>
                 )}
 
-                <TouchableOpacity
-                    style={s.checkRow}
-                    onPress={() => setConsent(!consent)}
-                    activeOpacity={0.7}
-                >
-                    <View style={[s.checkbox, consent && s.checkboxActive]}>
-                        {consent && <Ionicons name="checkmark" size={16} color="#FFF" />}
-                    </View>
-                    <Text style={s.consentText}>{DISCLAIMER}</Text>
-                </TouchableOpacity>
+                {/* ข้อความยอมรับ */}
+                <View style={s.card}>
+                    <TouchableOpacity
+                        style={s.checkRow}
+                        onPress={() => setConsent(!consent)}
+                        activeOpacity={0.7}
+                    >
+                        <View style={[s.checkbox, consent && s.checkboxActive]}>
+                            {consent && <Ionicons name="checkmark" size={14} color="#FFF" />}
+                        </View>
+                        <Text style={s.consentText}>{DISCLAIMER}</Text>
+                    </TouchableOpacity>
+                </View>
             </ScrollView>
 
             <Modal visible={showProvinceModal} animationType="slide">
@@ -368,7 +424,7 @@ export default function PackageScreen() {
 }
 
 const s = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
+    safeArea: { flex: 1, backgroundColor: '#F1F5F9' },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -377,43 +433,97 @@ const s = StyleSheet.create({
         paddingVertical: 14,
         backgroundColor: '#FFFFFF',
         borderBottomWidth: 1,
-        borderBottomColor: '#F1F5F9',
+        borderBottomColor: '#E2E8F0',
     },
     headerTitle: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
     backBtn: { padding: 4 },
-    scroll: { flex: 1, backgroundColor: '#F8FAFC' },
-    content: { padding: 20 },
-    illustration: {
-        height: 160,
-        borderRadius: 12,
-        marginBottom: 24,
+    scroll: { flex: 1, backgroundColor: '#F1F5F9' },
+    content: { padding: 16 },
+    illustrationWrap: {
+        height: 140,
+        borderRadius: 16,
+        marginBottom: 20,
         overflow: 'hidden',
-        backgroundColor: '#BFDBFE',
+        backgroundColor: '#DBEAFE',
+        shadowColor: '#0E3A78',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 4,
     },
     illustrationImage: { width: '100%', height: '100%' },
-    title: { fontSize: 22, fontWeight: '700', color: '#0F172A', marginBottom: 16 },
-    fieldWrap: { marginBottom: 14 },
-    label: { fontSize: 14, color: '#334155', marginBottom: 6 },
-    input: {
+    title: {
+        fontSize: 24,
+        fontWeight: '800',
+        color: '#0F172A',
+        marginBottom: 16,
+    },
+    card: {
         backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    sectionLabel: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 16,
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#0F172A',
+    },
+    fieldWrap: { marginBottom: 14 },
+    label: { fontSize: 13, color: '#64748B', marginBottom: 6, fontWeight: '500' },
+    input: {
+        backgroundColor: '#F8FAFC',
         borderWidth: 1,
         borderColor: '#E2E8F0',
-        borderRadius: 10,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
         fontSize: 16,
         color: '#0F172A',
+    },
+    inputMultiline: {
+        minHeight: 100,
+        textAlignVertical: 'top',
+    },
+    codBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        backgroundColor: '#ECFDF5',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        marginBottom: 14,
+        borderWidth: 1,
+        borderColor: '#A7F3D0',
+    },
+    codText: {
+        fontSize: 14,
+        color: '#047857',
+        fontWeight: '600',
+        flex: 1,
     },
     selectBtn: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#F8FAFC',
         borderWidth: 1,
         borderColor: '#E2E8F0',
-        borderRadius: 10,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
     },
     selectBtnText: { fontSize: 16, color: '#0F172A', flex: 1 },
     selectBtnPlaceholder: { color: '#94A3B8' },
@@ -457,16 +567,20 @@ const s = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: '#EFF6FF',
+        backgroundColor: '#F8FAFC',
         borderWidth: 1,
-        borderColor: '#BFDBFE',
+        borderColor: '#E2E8F0',
         borderRadius: 12,
         paddingHorizontal: 16,
         paddingVertical: 14,
         minHeight: 52,
         marginTop: 4,
     },
-    selectWrapOpen: { borderColor: '#0E3A78', backgroundColor: '#DBEAFE' },
+    selectWrapOpen: {
+        borderColor: '#0E3A78',
+        backgroundColor: '#EFF6FF',
+        borderWidth: 2,
+    },
     selectText: { fontSize: 16, color: '#0F172A', flex: 1 },
     selectPlaceholder: { color: '#94A3B8' },
     dropdown: {
@@ -478,10 +592,20 @@ const s = StyleSheet.create({
         overflow: 'hidden',
         marginBottom: 4,
     },
-    option: { paddingVertical: 16, paddingHorizontal: 16 },
+    option: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+    },
+    optionSelected: {
+        backgroundColor: '#EFF6FF',
+    },
     optionDivider: { height: 1, backgroundColor: '#E2E8F0', marginHorizontal: 12 },
-    optionText: { fontSize: 16, color: '#334155' },
-    checkRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 20 },
+    optionText: { fontSize: 16, color: '#334155', flex: 1 },
+    optionTextSelected: { color: '#0E3A78', fontWeight: '600' },
+    checkRow: { flexDirection: 'row', alignItems: 'flex-start' },
     checkbox: {
         width: 24,
         height: 24,
@@ -494,20 +618,29 @@ const s = StyleSheet.create({
         justifyContent: 'center',
     },
     checkboxActive: { backgroundColor: '#0E3A78', borderColor: '#0E3A78' },
-    consentText: { flex: 1, fontSize: 13, color: '#475569', lineHeight: 20 },
+    consentText: { flex: 1, fontSize: 13, color: '#64748B', lineHeight: 20 },
     footer: {
         paddingHorizontal: 20,
         paddingTop: 16,
         backgroundColor: '#FFFFFF',
         borderTopWidth: 1,
-        borderTopColor: '#F1F5F9',
+        borderTopColor: '#E2E8F0',
     },
     continueBtn: {
         backgroundColor: '#0E3A78',
         paddingVertical: 16,
-        borderRadius: 12,
+        borderRadius: 14,
         alignItems: 'center',
+        shadowColor: '#0E3A78',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+        elevation: 4,
     },
-    continueBtnDisabled: { backgroundColor: '#94A3B8', opacity: 0.8 },
+    continueBtnDisabled: {
+        backgroundColor: '#94A3B8',
+        opacity: 0.7,
+        shadowOpacity: 0,
+    },
     continueText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
 });

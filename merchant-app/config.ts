@@ -3,9 +3,9 @@ import { Platform } from 'react-native';
 
 // Web: ใช้ localhost (เครื่องเดียวกับ backend)
 // Mobile: ใช้ ngrok (ต้องรัน ngrok http 3000 ก่อน)
-// เปลี่ยนใน .env ได้: EXPO_PUBLIC_BASE_URL='https://unwainscotted-unshoved-deborah.ngrok-free.dev'
+// เปลี่ยนใน .env ได้: EXPO_PUBLIC_BASE_URL='https://unsure-smectic-alondra.ngrok-free.dev'
 const NGROK_URL =
-  process.env.EXPO_PUBLIC_BASE_URL || 'https://unwainscotted-unshoved-deborah.ngrok-free.dev';
+  process.env.EXPO_PUBLIC_BASE_URL || 'https://unsure-smectic-alondra.ngrok-free.dev';
 export const BASE_URL = Platform.OS === 'web'
   ? 'http://localhost:3000'
   : NGROK_URL;

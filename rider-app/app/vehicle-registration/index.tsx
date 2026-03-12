@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -106,19 +106,58 @@ const PROVINCES = [
     'อุบลราชธานี',
 ];
 
+const FUEL_OPTIONS = [
+    'เบนซิน',
+    'แก๊สโซฮอล์',
+    'ดีเซล',
+    'ไฟฟ้า',
+    'ไฮบริด',
+    'LPG',
+    'NGV',
+    'อื่น ๆ',
+];
+
+/* ───── helpers ───── */
+
+function stripEmoji(str: string): string {
+    return str.replace(
+        /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{27BF}\u{2300}-\u{23FF}\u{200D}\u{FE0F}\u{20E3}\u{E0020}-\u{E007F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}]/gu,
+        '',
+    );
+}
+
+function collapseSpaces(str: string): string {
+    return str.replace(/[ \t]{2,}/g, ' ');
+}
+
+function sanitize(str: string): string {
+    return collapseSpaces(stripEmoji(str.replace(/[\r\n]/g, ' ')));
+}
+
+function isValidThaiNationalId(id: string): boolean {
+    if (!/^\d{13}$/.test(id)) return false;
+    let sum = 0;
+    for (let i = 0; i < 12; i++) {
+        sum += parseInt(id[i], 10) * (13 - i);
+    }
+    return (11 - (sum % 11)) % 10 === parseInt(id[12], 10);
+}
+
+/* ───── field definitions ───── */
+
 const FIELDS = [
-    { key: 'vehicleRegistrationNo', label: 'ทะเบียนรถ', placeholder: '' },
-    { key: 'vehicleBrand', label: 'ยี่ห้อรถของคุณคืออะไร?', placeholder: '' },
-    { key: 'vehicleModel', label: 'รุ่นรถของคุณคืออะไร?', placeholder: '' },
-    { key: 'vehicleColor', label: 'สีของรถคุณ', placeholder: '' },
-    { key: 'vehicleYear', label: 'ปีที่ผลิต (ค.ศ.)', placeholder: '' },
-    { key: 'vehicleRegistrationProvince', label: 'จังหวัดจดทะเบียนรถ', placeholder: '' },
-    { key: 'vehicleFuel', label: 'เชื้อเพลิง', placeholder: '' },
-    { key: 'vehicleEngineCc', label: 'เครื่องยนต์ (CC)', placeholder: '' },
-    { key: 'rightsHolderName', label: 'ชื่อเจ้าของสิทธิ์', placeholder: '' },
-    { key: 'rightsHolderId', label: 'เลขที่บัตรผู้ถือกรรมสิทธิ์', placeholder: '' },
-    { key: 'possessorName', label: 'ผู้ครอบครอง', placeholder: '' },
-    { key: 'possessorId', label: 'เลขบัตรผู้ครอบครอง', placeholder: '' },
+    { key: 'vehicleRegistrationNo', label: 'ทะเบียนรถ' },
+    { key: 'vehicleBrand', label: 'ยี่ห้อรถของคุณคืออะไร?' },
+    { key: 'vehicleModel', label: 'รุ่นรถของคุณคืออะไร?' },
+    { key: 'vehicleColor', label: 'สีของรถคุณ' },
+    { key: 'vehicleYear', label: 'ปีที่ผลิต (ค.ศ.)' },
+    { key: 'vehicleRegistrationProvince', label: 'จังหวัดจดทะเบียนรถ' },
+    { key: 'vehicleFuel', label: 'เชื้อเพลิง' },
+    { key: 'vehicleEngineCc', label: 'เครื่องยนต์ (CC)' },
+    { key: 'rightsHolderName', label: 'ชื่อเจ้าของสิทธิ์' },
+    { key: 'rightsHolderId', label: 'เลขที่บัตรผู้ถือกรรมสิทธิ์' },
+    { key: 'possessorName', label: 'ผู้ครอบครอง' },
+    { key: 'possessorId', label: 'เลขบัตรผู้ครอบครอง' },
 ] as const;
 
 type FieldKey = (typeof FIELDS)[number]['key'];
@@ -126,6 +165,8 @@ type FieldKey = (typeof FIELDS)[number]['key'];
 function getInitialValues(): Record<FieldKey, string> {
     return FIELDS.reduce((acc, f) => ({ ...acc, [f.key]: '' }), {} as Record<FieldKey, string>);
 }
+
+/* ───── component ───── */
 
 export default function VehicleRegistrationScreen() {
     const router = useRouter();
@@ -143,6 +184,8 @@ export default function VehicleRegistrationScreen() {
         disclaimerAgreed?: string;
     }>();
     const insets = useSafeAreaInsets();
+    const scrollRef = useRef<ScrollView>(null);
+
     const [values, setValues] = useState(getInitialValues);
     const [photoUri, setPhotoUri] = useState<string | null>(null);
     const [photoUploadUrl, setPhotoUploadUrl] = useState<string | null>(null);
@@ -151,6 +194,8 @@ export default function VehicleRegistrationScreen() {
     const [loading, setLoading] = useState(false);
     const [showProvinceModal, setShowProvinceModal] = useState(false);
     const [provinceSearch, setProvinceSearch] = useState('');
+    const [showFuelModal, setShowFuelModal] = useState(false);
+    const [submitted, setSubmitted] = useState(false);
 
     useEffect(() => {
         if (paramUploadUrl && paramPhotoUri) {
@@ -172,9 +217,169 @@ export default function VehicleRegistrationScreen() {
         if (paramDisclaimerAgreed === '1') setDisclaimerAgreed(true);
     }, [paramDisclaimerAgreed]);
 
-    const updateField = (key: FieldKey, text: string) => {
+    /* ── input sanitisation & per-field filtering ── */
+
+    const updateField = (key: FieldKey, raw: string) => {
+        let text = sanitize(raw);
+        switch (key) {
+            case 'vehicleRegistrationNo':
+                text = text.replace(/[^\u0E00-\u0E7F0-9\s]/g, '').slice(0, 10);
+                break;
+            case 'vehicleBrand':
+                text = text.slice(0, 50);
+                break;
+            case 'vehicleModel':
+                text = text.replace(/[^\u0E00-\u0E7Fa-zA-Z0-9\s\-.]/g, '').slice(0, 50);
+                break;
+            case 'vehicleColor':
+                text = text.slice(0, 30);
+                break;
+            case 'vehicleYear':
+                text = text.replace(/\D/g, '').slice(0, 4);
+                break;
+            case 'vehicleEngineCc':
+                text = text.replace(/\D/g, '').slice(0, 5);
+                break;
+            case 'rightsHolderName':
+            case 'possessorName':
+                text = text.slice(0, 100);
+                break;
+            case 'rightsHolderId':
+            case 'possessorId':
+                text = text.replace(/\D/g, '').slice(0, 13);
+                break;
+            default:
+                break;
+        }
         setValues((prev) => ({ ...prev, [key]: text }));
     };
+
+    /* ── validation ── */
+
+    const getFormatError = (key: FieldKey): string | null => {
+        const v = values[key].trim();
+        if (!v) return null;
+        switch (key) {
+            case 'vehicleRegistrationNo':
+                if (!/^[\u0E00-\u0E7F0-9\s]+$/.test(v)) return 'รูปแบบทะเบียนรถไม่ถูกต้อง';
+                if (v.length < 2) return 'ทะเบียนรถต้องมีอย่างน้อย 2 ตัวอักษร';
+                return null;
+            case 'vehicleBrand':
+                if (/^\d+$/.test(v)) return 'ยี่ห้อรถไม่ถูกต้อง';
+                if (v.length < 2) return 'ยี่ห้อรถต้องมีอย่างน้อย 2 ตัวอักษร';
+                return null;
+            case 'vehicleModel':
+                if (!/^[\u0E00-\u0E7Fa-zA-Z0-9\s\-.]+$/.test(v)) return 'รุ่นรถไม่ถูกต้อง';
+                return null;
+            case 'vehicleColor':
+                if (/^\d+$/.test(v)) return 'สีรถไม่ถูกต้อง';
+                if (v.length < 2) return 'สีรถต้องมีอย่างน้อย 2 ตัวอักษร';
+                return null;
+            case 'vehicleYear': {
+                if (!/^\d+$/.test(v)) return 'ปีที่ผลิตต้องเป็นตัวเลข';
+                if (v.length === 4) {
+                    const year = parseInt(v, 10);
+                    const curYear = new Date().getFullYear();
+                    if (year > 2500) return 'กรุณากรอกเป็น ค.ศ. เช่น 2024';
+                    if (year < 1950) return 'ปีที่ผลิตไม่ถูกต้อง';
+                    if (year > curYear + 1) return `ปีที่ผลิตต้องไม่มากกว่า ${curYear + 1}`;
+                }
+                return null;
+            }
+            case 'vehicleEngineCc': {
+                if (!/^\d+$/.test(v)) return 'เครื่องยนต์ต้องเป็นตัวเลข';
+                const cc = parseInt(v, 10);
+                if (cc < 50 || cc > 2500) return 'ขนาดเครื่องยนต์ไม่ถูกต้อง (50-2500 CC)';
+                return null;
+            }
+            case 'rightsHolderName':
+                if (/^\d+$/.test(v)) return 'ชื่อเจ้าของสิทธิ์ไม่ถูกต้อง';
+                if (v.length < 2) return 'ชื่อเจ้าของสิทธิ์ต้องมีอย่างน้อย 2 ตัวอักษร';
+                return null;
+            case 'rightsHolderId':
+                if (v.length === 13 && !isValidThaiNationalId(v)) return 'เลขบัตรประชาชนไม่ถูกต้อง';
+                return null;
+            case 'possessorName':
+                if (/^\d+$/.test(v)) return 'ชื่อผู้ครอบครองไม่ถูกต้อง';
+                if (v.length < 2) return 'ชื่อผู้ครอบครองต้องมีอย่างน้อย 2 ตัวอักษร';
+                return null;
+            case 'possessorId':
+                if (v.length === 13 && !isValidThaiNationalId(v)) return 'เลขบัตรผู้ครอบครองไม่ถูกต้อง';
+                return null;
+            default:
+                return null;
+        }
+    };
+
+    const getRequiredMessage = (key: FieldKey): string => {
+        const messages: Record<FieldKey, string> = {
+            vehicleRegistrationNo: 'กรุณากรอกทะเบียนรถ',
+            vehicleBrand: 'กรุณากรอกยี่ห้อรถ',
+            vehicleModel: 'กรุณากรอกรุ่นรถ',
+            vehicleColor: 'กรุณากรอกสีรถ',
+            vehicleYear: 'กรุณากรอกปีที่ผลิตเป็น ค.ศ. 4 หลัก',
+            vehicleRegistrationProvince: 'กรุณาเลือกจังหวัดจดทะเบียนรถ',
+            vehicleFuel: 'กรุณาเลือกประเภทเชื้อเพลิง',
+            vehicleEngineCc: 'กรุณากรอกขนาดเครื่องยนต์เป็นตัวเลข',
+            rightsHolderName: 'กรุณากรอกชื่อเจ้าของสิทธิ์',
+            rightsHolderId: 'กรุณากรอกเลขบัตรประชาชน 13 หลัก',
+            possessorName: 'กรุณากรอกชื่อผู้ครอบครอง',
+            possessorId: 'กรุณากรอกเลขบัตรผู้ครอบครอง 13 หลัก',
+        };
+        return messages[key];
+    };
+
+    const getDisplayError = (key: FieldKey): string | null => {
+        const v = values[key].trim();
+        if (!v) return submitted ? getRequiredMessage(key) : null;
+        return getFormatError(key);
+    };
+
+    const getDisplayWarning = (key: FieldKey): string | null => {
+        const v = values[key];
+        if (!v || getDisplayError(key)) return null;
+        switch (key) {
+            case 'vehicleYear':
+                if (v.length > 0 && v.length < 4) return `กรอกให้ครบ 4 หลัก (${v.length}/4)`;
+                return null;
+            case 'rightsHolderId':
+            case 'possessorId':
+                if (v.length > 0 && v.length < 13)
+                    return `กรอกให้ครบ 13 หลัก (${v.length}/13)`;
+                return null;
+            case 'vehicleEngineCc':
+                if (v.length > 0 && parseInt(v, 10) > 0 && parseInt(v, 10) < 50)
+                    return 'ขนาดเครื่องยนต์ต้องอย่างน้อย 50 CC';
+                return null;
+            default:
+                return null;
+        }
+    };
+
+    /* ── form validity & error count ── */
+
+    const isFormValid = (() => {
+        if (!photoUploadUrl || !disclaimerAgreed) return false;
+        for (const f of FIELDS) {
+            const v = values[f.key].trim();
+            if (!v) return false;
+            if (getFormatError(f.key)) return false;
+        }
+        return true;
+    })();
+
+    const errorCount = (() => {
+        let count = 0;
+        if (!photoUploadUrl) count++;
+        for (const f of FIELDS) {
+            const v = values[f.key].trim();
+            if (!v || getFormatError(f.key)) count++;
+        }
+        if (!disclaimerAgreed) count++;
+        return count;
+    })();
+
+    /* ── photo upload ── */
 
     const pickAndUploadPhoto = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -203,30 +408,37 @@ export default function VehicleRegistrationScreen() {
         }
     };
 
-    const canContinue = disclaimerAgreed && photoUploadUrl;
+    /* ── submit ── */
 
     const handleContinue = async () => {
-        if (!canContinue) return;
+        setSubmitted(true);
+
+        if (!photoUploadUrl) {
+            Alert.alert('กรุณาอัปโหลดเอกสาร', 'กรุณาอัปโหลดรูปรายการจดทะเบียนรถ');
+            scrollRef.current?.scrollTo({ y: 0, animated: true });
+            return;
+        }
+
+        for (const f of FIELDS) {
+            const v = values[f.key].trim();
+            if (!v) {
+                scrollRef.current?.scrollTo({ y: 0, animated: true });
+                return;
+            }
+            const fmtErr = getFormatError(f.key);
+            if (fmtErr) {
+                scrollRef.current?.scrollTo({ y: 0, animated: true });
+                return;
+            }
+        }
+
+        if (!disclaimerAgreed) return;
+
         const regId = (registrationId ?? '').trim();
         if (!regId) {
             Alert.alert('ไม่พบข้อมูลการสมัคร', 'กรุณาทำขั้นตอนสมัครให้ครบก่อน', [
                 { text: 'ตกลง', onPress: () => router.replace('/(tabs)') },
             ]);
-            return;
-        }
-        const yearStr = values.vehicleYear.trim();
-        if (yearStr.length !== 4 || !/^\d{4}$/.test(yearStr)) {
-            Alert.alert('กรุณากรอกข้อมูล', 'ปีที่ผลิต (ค.ศ.) ต้องเป็นตัวเลข 4 หลัก');
-            return;
-        }
-        const year = parseInt(yearStr, 10);
-        const currentYear = new Date().getFullYear();
-        if (year < 1900 || year > currentYear + 1) {
-            Alert.alert('กรุณากรอกข้อมูล', `ปีที่ผลิตต้องอยู่ระหว่าง 1900 - ${currentYear + 1}`);
-            return;
-        }
-        if (!values.vehicleRegistrationProvince.trim()) {
-            Alert.alert('กรุณากรอกข้อมูล', 'กรุณาเลือกจังหวัดจดทะเบียนรถ');
             return;
         }
 
@@ -239,22 +451,22 @@ export default function VehicleRegistrationScreen() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         vehicleBookPhotoUri: photoUploadUrl,
-                        vehicleRegistrationNo: values.vehicleRegistrationNo.trim() || undefined,
-                        vehicleBrand: values.vehicleBrand.trim() || undefined,
-                        vehicleModel: values.vehicleModel.trim() || undefined,
-                        vehicleColor: values.vehicleColor.trim() || undefined,
-                        vehicleYear: values.vehicleYear.trim() || undefined,
+                        vehicleRegistrationNo: values.vehicleRegistrationNo.trim(),
+                        vehicleBrand: values.vehicleBrand.trim(),
+                        vehicleModel: values.vehicleModel.trim(),
+                        vehicleColor: values.vehicleColor.trim(),
+                        vehicleYear: values.vehicleYear.trim(),
                         vehicleRegistrationProvince:
-                            values.vehicleRegistrationProvince.trim() || undefined,
-                        vehicleFuel: values.vehicleFuel.trim() || undefined,
-                        vehicleEngineCc: values.vehicleEngineCc.trim() || undefined,
-                        rightsHolderName: values.rightsHolderName.trim() || undefined,
-                        rightsHolderId: values.rightsHolderId.trim() || undefined,
-                        possessorName: values.possessorName.trim() || undefined,
-                        possessorId: values.possessorId.trim() || undefined,
+                            values.vehicleRegistrationProvince.trim(),
+                        vehicleFuel: values.vehicleFuel.trim(),
+                        vehicleEngineCc: values.vehicleEngineCc.trim(),
+                        rightsHolderName: values.rightsHolderName.trim(),
+                        rightsHolderId: values.rightsHolderId.trim(),
+                        possessorName: values.possessorName.trim(),
+                        possessorId: values.possessorId.trim(),
                         vehicleBookDisclaimerAgreed: true,
                     }),
-                }
+                },
             );
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
@@ -270,6 +482,19 @@ export default function VehicleRegistrationScreen() {
         } finally {
             setLoading(false);
         }
+    };
+
+    /* ── render helpers ── */
+
+    const renderHints = (key: FieldKey) => {
+        const error = getDisplayError(key);
+        const warning = !error ? getDisplayWarning(key) : null;
+        return (
+            <>
+                {error && <Text style={s.errorHint}>{error}</Text>}
+                {warning && <Text style={s.warningHint}>{warning}</Text>}
+            </>
+        );
     };
 
     return (
@@ -290,11 +515,13 @@ export default function VehicleRegistrationScreen() {
                 keyboardVerticalOffset={0}
             >
                 <ScrollView
+                    ref={scrollRef}
                     style={s.scroll}
                     contentContainerStyle={[s.content, { paddingBottom: 120 }]}
                     showsVerticalScrollIndicator
                     keyboardShouldPersistTaps="handled"
                 >
+                    {/* ── illustration ── */}
                     <View style={s.illustration}>
                         <Image
                             source={ILLUSTRATION}
@@ -303,6 +530,7 @@ export default function VehicleRegistrationScreen() {
                         />
                     </View>
 
+                    {/* ── title + upload ── */}
                     <View style={s.titleUploadRow}>
                         <View style={s.titleBlock}>
                             <Text style={s.title}>รูปรายการจดทะเบียนรถ</Text>
@@ -344,6 +572,9 @@ export default function VehicleRegistrationScreen() {
                             </TouchableOpacity>
                         </View>
                     </View>
+                    {submitted && !photoUploadUrl && (
+                        <Text style={s.errorHint}>กรุณาอัปโหลดรูปรายการจดทะเบียนรถ</Text>
+                    )}
 
                     <TouchableOpacity
                         onPress={() =>
@@ -362,31 +593,109 @@ export default function VehicleRegistrationScreen() {
                         <Ionicons name="chevron-forward" size={18} color="#0E3A78" />
                     </TouchableOpacity>
 
+                    {/* ══════════════ FIELDS ══════════════ */}
                     {FIELDS.map(({ key, label }) => {
+                        const error = getDisplayError(key);
+                        const hasErr = !!error;
+
+                        /* ── ทะเบียนรถ ── */
+                        if (key === 'vehicleRegistrationNo') {
+                            return (
+                                <View key={key} style={s.fieldWrap}>
+                                    <Text style={s.fieldLabel}>{label} *</Text>
+                                    <TextInput
+                                        style={[s.input, hasErr && s.inputError]}
+                                        value={values[key]}
+                                        onChangeText={(t) => updateField(key, t)}
+                                        placeholder="ทะเบียนรถ..."
+                                        placeholderTextColor="#94A3B8"
+                                        maxLength={10}
+                                    />
+                                    {renderHints(key)}
+                                </View>
+                            );
+                        }
+
+                        /* ── ยี่ห้อ ── */
+                        if (key === 'vehicleBrand') {
+                            return (
+                                <View key={key} style={s.fieldWrap}>
+                                    <Text style={s.fieldLabel}>{label} *</Text>
+                                    <TextInput
+                                        style={[s.input, hasErr && s.inputError]}
+                                        value={values[key]}
+                                        onChangeText={(t) => updateField(key, t)}
+                                        placeholder="ยี่ห้อรถของคุณคืออะไร?..."
+                                        placeholderTextColor="#94A3B8"
+                                        maxLength={50}
+                                    />
+                                    {renderHints(key)}
+                                </View>
+                            );
+                        }
+
+                        /* ── รุ่นรถ ── */
+                        if (key === 'vehicleModel') {
+                            return (
+                                <View key={key} style={s.fieldWrap}>
+                                    <Text style={s.fieldLabel}>{label} *</Text>
+                                    <TextInput
+                                        style={[s.input, hasErr && s.inputError]}
+                                        value={values[key]}
+                                        onChangeText={(t) => updateField(key, t)}
+                                        placeholder="รุ่นรถของคุณคืออะไร?..."
+                                        placeholderTextColor="#94A3B8"
+                                        maxLength={50}
+                                    />
+                                    {renderHints(key)}
+                                </View>
+                            );
+                        }
+
+                        /* ── สีรถ ── */
+                        if (key === 'vehicleColor') {
+                            return (
+                                <View key={key} style={s.fieldWrap}>
+                                    <Text style={s.fieldLabel}>{label} *</Text>
+                                    <TextInput
+                                        style={[s.input, hasErr && s.inputError]}
+                                        value={values[key]}
+                                        onChangeText={(t) => updateField(key, t)}
+                                        placeholder="สีของรถคุณ..."
+                                        placeholderTextColor="#94A3B8"
+                                        maxLength={30}
+                                    />
+                                    {renderHints(key)}
+                                </View>
+                            );
+                        }
+
+                        /* ── ปีที่ผลิต ── */
                         if (key === 'vehicleYear') {
                             return (
                                 <View key={key} style={s.fieldWrap}>
-                                    <Text style={s.fieldLabel}>{label}</Text>
+                                    <Text style={s.fieldLabel}>{label} *</Text>
                                     <TextInput
-                                        style={s.input}
-                                        value={values.vehicleYear}
-                                        onChangeText={(t) =>
-                                            updateField('vehicleYear', t.replace(/\D/g, '').slice(0, 4))
-                                        }
+                                        style={[s.input, hasErr && s.inputError]}
+                                        value={values[key]}
+                                        onChangeText={(t) => updateField(key, t)}
                                         placeholder="เช่น 2020"
                                         placeholderTextColor="#94A3B8"
                                         keyboardType="number-pad"
                                         maxLength={4}
                                     />
+                                    {renderHints(key)}
                                 </View>
                             );
                         }
+
+                        /* ── จังหวัด (dropdown) ── */
                         if (key === 'vehicleRegistrationProvince') {
                             return (
                                 <View key={key} style={s.fieldWrap}>
-                                    <Text style={s.fieldLabel}>{label}</Text>
+                                    <Text style={s.fieldLabel}>{label} *</Text>
                                     <TouchableOpacity
-                                        style={s.provinceBtn}
+                                        style={[s.dropdown, hasErr && s.inputError]}
                                         onPress={() => {
                                             setProvinceSearch('');
                                             setShowProvinceModal(true);
@@ -394,31 +703,116 @@ export default function VehicleRegistrationScreen() {
                                     >
                                         <Text
                                             style={[
-                                                s.provinceBtnText,
-                                                !values.vehicleRegistrationProvince && { color: '#94A3B8' },
+                                                s.dropdownText,
+                                                !values[key] && s.dropdownPlaceholder,
                                             ]}
                                         >
-                                            {values.vehicleRegistrationProvince || 'เลือกจังหวัดจดทะเบียนรถ'}
+                                            {values[key] || 'เลือกจังหวัดจดทะเบียนรถ'}
                                         </Text>
                                         <Ionicons name="chevron-down" size={20} color="#64748B" />
                                     </TouchableOpacity>
+                                    {renderHints(key)}
                                 </View>
                             );
                         }
+
+                        /* ── เชื้อเพลิง (dropdown) ── */
+                        if (key === 'vehicleFuel') {
+                            return (
+                                <View key={key} style={s.fieldWrap}>
+                                    <Text style={s.fieldLabel}>{label} *</Text>
+                                    <TouchableOpacity
+                                        style={[s.dropdown, hasErr && s.inputError]}
+                                        onPress={() => setShowFuelModal(true)}
+                                    >
+                                        <Text
+                                            style={[
+                                                s.dropdownText,
+                                                !values[key] && s.dropdownPlaceholder,
+                                            ]}
+                                        >
+                                            {values[key] || 'เลือกเชื้อเพลิง...'}
+                                        </Text>
+                                        <Ionicons name="chevron-down" size={20} color="#64748B" />
+                                    </TouchableOpacity>
+                                    {renderHints(key)}
+                                </View>
+                            );
+                        }
+
+                        /* ── CC ── */
+                        if (key === 'vehicleEngineCc') {
+                            return (
+                                <View key={key} style={s.fieldWrap}>
+                                    <Text style={s.fieldLabel}>{label} *</Text>
+                                    <TextInput
+                                        style={[s.input, hasErr && s.inputError]}
+                                        value={values[key]}
+                                        onChangeText={(t) => updateField(key, t)}
+                                        placeholder="เช่น 150"
+                                        placeholderTextColor="#94A3B8"
+                                        keyboardType="number-pad"
+                                        maxLength={5}
+                                    />
+                                    {renderHints(key)}
+                                </View>
+                            );
+                        }
+
+                        /* ── เลขบัตร 13 หลัก (ผู้ถือกรรมสิทธิ์ / ผู้ครอบครอง) ── */
+                        if (key === 'rightsHolderId' || key === 'possessorId') {
+                            return (
+                                <View key={key} style={s.fieldWrap}>
+                                    <Text style={s.fieldLabel}>{label} *</Text>
+                                    <TextInput
+                                        style={[s.input, hasErr && s.inputError]}
+                                        value={values[key]}
+                                        onChangeText={(t) => updateField(key, t)}
+                                        placeholder={`${label}...`}
+                                        placeholderTextColor="#94A3B8"
+                                        keyboardType="number-pad"
+                                        maxLength={13}
+                                    />
+                                    {renderHints(key)}
+                                </View>
+                            );
+                        }
+
+                        /* ── ชื่อ (เจ้าของสิทธิ์ / ผู้ครอบครอง) ── */
+                        if (key === 'rightsHolderName' || key === 'possessorName') {
+                            return (
+                                <View key={key} style={s.fieldWrap}>
+                                    <Text style={s.fieldLabel}>{label} *</Text>
+                                    <TextInput
+                                        style={[s.input, hasErr && s.inputError]}
+                                        value={values[key]}
+                                        onChangeText={(t) => updateField(key, t)}
+                                        placeholder={`${label}...`}
+                                        placeholderTextColor="#94A3B8"
+                                        maxLength={100}
+                                    />
+                                    {renderHints(key)}
+                                </View>
+                            );
+                        }
+
+                        /* ── fallback (ไม่ควรถึง) ── */
                         return (
                             <View key={key} style={s.fieldWrap}>
-                                <Text style={s.fieldLabel}>{label}</Text>
+                                <Text style={s.fieldLabel}>{label} *</Text>
                                 <TextInput
-                                    style={s.input}
+                                    style={[s.input, hasErr && s.inputError]}
                                     value={values[key]}
                                     onChangeText={(t) => updateField(key, t)}
                                     placeholder={`${label}...`}
                                     placeholderTextColor="#94A3B8"
                                 />
+                                {renderHints(key)}
                             </View>
                         );
                     })}
 
+                    {/* ── disclaimer checkbox ── */}
                     <TouchableOpacity
                         style={s.checkRow}
                         onPress={() => setDisclaimerAgreed(!disclaimerAgreed)}
@@ -431,8 +825,14 @@ export default function VehicleRegistrationScreen() {
                         </View>
                         <Text style={s.disclaimerText}>{DISCLAIMER}</Text>
                     </TouchableOpacity>
+                    {submitted && !disclaimerAgreed && (
+                        <Text style={[s.errorHint, { marginTop: -8 }]}>
+                            กรุณายืนยันความถูกต้องของข้อมูล
+                        </Text>
+                    )}
                 </ScrollView>
 
+                {/* ══════════════ PROVINCE MODAL ══════════════ */}
                 <Modal visible={showProvinceModal} animationType="slide">
                     <SafeAreaView style={s.provinceModalFull}>
                         <View style={s.provinceHeader}>
@@ -461,7 +861,7 @@ export default function VehicleRegistrationScreen() {
                         </View>
                         <FlatList
                             data={PROVINCES.filter((p) =>
-                                p.toLowerCase().includes(provinceSearch.trim().toLowerCase())
+                                p.toLowerCase().includes(provinceSearch.trim().toLowerCase()),
                             )}
                             keyExtractor={(item) => item}
                             keyboardShouldPersistTaps="handled"
@@ -496,10 +896,65 @@ export default function VehicleRegistrationScreen() {
                     </SafeAreaView>
                 </Modal>
 
-                <View style={[s.footer, { paddingBottom: Math.max(24, insets.bottom + 12) }]}>
+                {/* ══════════════ FUEL MODAL ══════════════ */}
+                <Modal visible={showFuelModal} transparent animationType="fade">
                     <TouchableOpacity
-                        style={[s.continueBtn, (!canContinue || loading) && s.continueBtnDisabled]}
-                        disabled={!canContinue || loading}
+                        style={s.fuelOverlay}
+                        activeOpacity={1}
+                        onPress={() => setShowFuelModal(false)}
+                    >
+                        <View
+                            style={s.fuelSheet}
+                            onStartShouldSetResponder={() => true}
+                        >
+                            <Text style={s.fuelSheetTitle}>เลือกเชื้อเพลิง</Text>
+                            {FUEL_OPTIONS.map((fuel) => (
+                                <TouchableOpacity
+                                    key={fuel}
+                                    style={s.fuelOption}
+                                    onPress={() => {
+                                        updateField('vehicleFuel', fuel);
+                                        setShowFuelModal(false);
+                                    }}
+                                >
+                                    <Text
+                                        style={[
+                                            s.fuelOptionText,
+                                            values.vehicleFuel === fuel && {
+                                                color: '#0E3A78',
+                                                fontWeight: '700',
+                                            },
+                                        ]}
+                                    >
+                                        {fuel}
+                                    </Text>
+                                    {values.vehicleFuel === fuel && (
+                                        <Ionicons name="checkmark" size={20} color="#0E3A78" />
+                                    )}
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </TouchableOpacity>
+                </Modal>
+
+                {/* ══════════════ FOOTER ══════════════ */}
+                <View style={[s.footer, { paddingBottom: Math.max(24, insets.bottom + 12) }]}>
+                    {!isFormValid && !submitted && (
+                        <Text style={s.formHint}>
+                            กรอกข้อมูลให้ครบถ้วนเพื่อดำเนินการต่อ
+                        </Text>
+                    )}
+                    {submitted && errorCount > 0 && (
+                        <Text style={s.errorSummary}>
+                            กรุณาตรวจสอบข้อมูล {errorCount} รายการด้านบน
+                        </Text>
+                    )}
+                    <TouchableOpacity
+                        style={[
+                            s.continueBtn,
+                            (!isFormValid || loading) && s.continueBtnDisabled,
+                        ]}
+                        disabled={loading}
                         onPress={handleContinue}
                         activeOpacity={0.85}
                     >
@@ -514,6 +969,8 @@ export default function VehicleRegistrationScreen() {
         </SafeAreaView>
     );
 }
+
+/* ───── styles ───── */
 
 const s = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
@@ -574,8 +1031,10 @@ const s = StyleSheet.create({
         marginBottom: 20,
     },
     guidelineLinkText: { fontSize: 14, color: '#0E3A78', marginRight: 4 },
+
+    /* ── fields ── */
     fieldWrap: { marginBottom: 14 },
-    fieldLabel: { fontSize: 14, color: '#334155', marginBottom: 6 },
+    fieldLabel: { fontSize: 14, color: '#334155', marginBottom: 6, fontWeight: '500' },
     input: {
         backgroundColor: '#FFFFFF',
         borderWidth: 1,
@@ -586,6 +1045,38 @@ const s = StyleSheet.create({
         fontSize: 16,
         color: '#0F172A',
     },
+    inputError: { borderColor: '#EF4444' },
+    errorHint: {
+        color: '#EF4444',
+        fontSize: 13,
+        fontWeight: '500',
+        marginTop: 4,
+        marginBottom: 2,
+    },
+    warningHint: {
+        color: '#F59E0B',
+        fontSize: 13,
+        fontWeight: '500',
+        marginTop: 4,
+        marginBottom: 2,
+    },
+
+    /* ── dropdown (province / fuel) ── */
+    dropdown: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderRadius: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+    },
+    dropdownText: { fontSize: 16, color: '#0F172A' },
+    dropdownPlaceholder: { color: '#94A3B8' },
+
+    /* ── checkbox ── */
     checkRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 8, marginBottom: 16 },
     checkbox: {
         width: 24,
@@ -600,12 +1091,27 @@ const s = StyleSheet.create({
     },
     checkboxActive: { backgroundColor: '#0E3A78', borderColor: '#0E3A78' },
     disclaimerText: { flex: 1, fontSize: 13, color: '#475569', lineHeight: 20 },
+
+    /* ── footer ── */
     footer: {
         paddingHorizontal: 20,
-        paddingTop: 16,
+        paddingTop: 12,
         backgroundColor: '#FFFFFF',
         borderTopWidth: 1,
         borderTopColor: '#F1F5F9',
+    },
+    formHint: {
+        color: '#64748B',
+        fontSize: 13,
+        textAlign: 'center',
+        marginBottom: 10,
+    },
+    errorSummary: {
+        color: '#EF4444',
+        fontSize: 14,
+        fontWeight: '600',
+        textAlign: 'center',
+        marginBottom: 10,
     },
     continueBtn: {
         backgroundColor: '#0E3A78',
@@ -615,18 +1121,8 @@ const s = StyleSheet.create({
     },
     continueBtnDisabled: { backgroundColor: '#94A3B8', opacity: 0.8 },
     continueText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
-    provinceBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        borderRadius: 10,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-    },
-    provinceBtnText: { fontSize: 16, color: '#0F172A' },
+
+    /* ── province modal ── */
     provinceModalFull: { flex: 1, backgroundColor: '#fff' },
     provinceHeader: {
         flexDirection: 'row',
@@ -663,4 +1159,37 @@ const s = StyleSheet.create({
     },
     provinceText: { fontSize: 16, color: '#0F172A' },
     emptySearch: { textAlign: 'center', color: '#94A3B8', fontSize: 15, marginTop: 24 },
+
+    /* ── fuel modal ── */
+    fuelOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        justifyContent: 'center',
+        padding: 24,
+    },
+    fuelSheet: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        paddingVertical: 8,
+        overflow: 'hidden',
+    },
+    fuelSheetTitle: {
+        fontSize: 17,
+        fontWeight: '700',
+        color: '#0F172A',
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
+    },
+    fuelOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
+    },
+    fuelOptionText: { fontSize: 16, color: '#0F172A' },
 });
