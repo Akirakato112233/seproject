@@ -2,9 +2,11 @@ import React from 'react';
 import { Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
     const isIOS = Platform.OS === 'ios';
+    const insets = useSafeAreaInsets();
 
     return (
         <Tabs
@@ -31,26 +33,27 @@ export default function TabLayout() {
                     paddingVertical: isIOS ? 4 : 6,
                 },
 
-                // กล่อง Tab bar (โค้ง + เงาแบบ Figma)
+                // Tab bar ติดขอบล่าง เต็มความกว้าง แบบมาตรฐานสากล
                 tabBarStyle: {
                     position: 'absolute',
-                    left: 14,
-                    right: 14,
-                    bottom: isIOS ? 12 : 10,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
 
-                    height: isIOS ? 86 : 78,
-                    paddingTop: 10,
-                    paddingBottom: isIOS ? 18 : 14,
+                    height: 56 + insets.bottom,
+                    paddingTop: 8,
+                    paddingBottom: insets.bottom || 8,
 
-                    borderTopWidth: 0,
-                    borderRadius: 22,
+                    borderTopWidth: 1,
+                    borderTopColor: '#E2E8F0',
+                    borderRadius: 0,
                     backgroundColor: '#FFFFFF',
 
                     shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 8 },
-                    shadowOpacity: 0.08,
-                    shadowRadius: 18,
-                    elevation: 16,
+                    shadowOffset: { width: 0, height: -2 },
+                    shadowOpacity: 0.06,
+                    shadowRadius: 8,
+                    elevation: 8,
                 },
             }}
         >

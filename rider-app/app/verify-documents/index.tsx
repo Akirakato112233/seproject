@@ -17,6 +17,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { uploadDocument } from '../../services/uploadBackgroundDoc';
+import { validateThaiNationalId } from '../../services/validation';
 import { Config } from '../../constants/config';
 import { NGROK_HEADERS } from '../../config';
 
@@ -71,7 +72,9 @@ export default function VerifyDocumentsScreen() {
     const [showDropdown, setShowDropdown] = useState(false);
 
     const nationalIdDigits = nationalId.replace(/\D/g, '');
-    const nationalIdError = nationalId.length > 0 && nationalIdDigits.length !== 13;
+    const nationalIdError =
+        nationalId.length > 0 &&
+        (nationalIdDigits.length !== 13 || (nationalIdDigits.length === 13 && !validateThaiNationalId(nationalIdDigits)));
 
     useEffect(() => {
         if (paramImageUri) {
@@ -103,7 +106,8 @@ export default function VerifyDocumentsScreen() {
     ]);
 
     const isFormValid =
-        nationalIdDigits.length >= 13 &&
+        nationalIdDigits.length === 13 &&
+        validateThaiNationalId(nationalIdDigits) &&
         addressOnId.trim().length > 0 &&
         fatherFullName.trim().length > 0 &&
         motherFullName.trim().length > 0 &&
@@ -262,6 +266,9 @@ export default function VerifyDocumentsScreen() {
                     <Text style={s.warningHint}>
                         กรอกให้ครบ 13 หลัก ({nationalIdDigits.length}/13)
                     </Text>
+                )}
+                {nationalIdDigits.length === 13 && !validateThaiNationalId(nationalIdDigits) && (
+                    <Text style={s.errorHint}>เลขบัตรประชาชนไม่ถูกต้อง</Text>
                 )}
 
                 <TextInput
@@ -508,6 +515,13 @@ const s = StyleSheet.create({
     inputError: { borderColor: '#EF4444' },
     warningHint: {
         color: '#F59E0B',
+        fontSize: 13,
+        fontWeight: '500',
+        marginTop: -8,
+        marginBottom: 14,
+    },
+    errorHint: {
+        color: '#EF4444',
         fontSize: 13,
         fontWeight: '500',
         marginTop: -8,

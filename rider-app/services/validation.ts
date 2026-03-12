@@ -54,6 +54,24 @@ export function validatePhoneNumber(phone: string): string | null {
 }
 
 /**
+ * Validate Thai National ID (บัตรประจำตัวประชาชน) 13 digits with checksum.
+ * Same algorithm as merchant app.
+ *
+ * @param id  Raw input (digits only, 13 chars)
+ * @returns true if valid
+ */
+export function validateThaiNationalId(id: string): boolean {
+    const digits = id.replace(/\D/g, '');
+    if (digits.length !== 13) return false;
+    let sum = 0;
+    for (let i = 0; i < 12; i++) {
+        sum += parseInt(digits[i], 10) * (13 - i);
+    }
+    const checkDigit = (11 - (sum % 11)) % 10;
+    return checkDigit === parseInt(digits[12], 10);
+}
+
+/**
  * Validate that a required text field is not blank.
  *
  * @param value      Raw input

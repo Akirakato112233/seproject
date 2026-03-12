@@ -1,7 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ImageBackground } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
+
+const BG_IMAGE = require('../../assets/images/image.png');
+const COLOR_WHITE = '#FFFFFF';
+const COLOR_CYAN = '#0CFBFF';
 
 export default function WaitingResultsScreen() {
     const router = useRouter();
@@ -11,17 +14,16 @@ export default function WaitingResultsScreen() {
     };
 
     return (
-        <LinearGradient
-            colors={['#0F172A', '#1E293B', '#0F172A']}
-            style={s.gradient}
-        >
+        <ImageBackground source={BG_IMAGE} style={s.bg} resizeMode="cover">
+            <View style={s.overlay} />
             <View style={s.content}>
-                <Text style={s.brand}>Wit Partner</Text>
-                <Text style={s.title}>
-                    Drive and <Text style={s.titleHighlight}>Earn</Text> with Wit
-                </Text>
-                <Text style={s.status}>กำลังตรวจสอบเอกสาร</Text>
-                <Text style={s.subStatus}>เราจะติดต่อภายใน 1-2 วัน</Text>
+                <Text style={s.line1}>Your information</Text>
+                <Text style={[s.line2, { color: COLOR_CYAN }]}>is under</Text>
+                <Text style={[s.line2, { color: COLOR_CYAN }]}>verification</Text>
+                <Text style={s.line3}>The review will be</Text>
+                <Text style={s.line3}>completed</Text>
+                <Text style={[s.line2, { color: COLOR_CYAN }]}>within 1-2</Text>
+                <Text style={s.line3}>business days.</Text>
                 <TouchableOpacity
                     style={s.skipBtn}
                     onPress={handleSkip}
@@ -30,13 +32,15 @@ export default function WaitingResultsScreen() {
                     <Text style={s.skipText}>ข้ามไปในแอป</Text>
                 </TouchableOpacity>
             </View>
-        </LinearGradient>
+        </ImageBackground>
     );
 }
 
 const s = StyleSheet.create({
-    gradient: {
-        flex: 1,
+    bg: { flex: 1 },
+    overlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.55)',
     },
     content: {
         flex: 1,
@@ -44,40 +48,36 @@ const s = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: 32,
     },
-    brand: {
-        fontSize: 14,
-        color: 'rgba(255,255,255,0.8)',
-        marginBottom: 8,
-    },
-    title: {
-        fontSize: 28,
+    line1: {
+        fontSize: 32,
         fontWeight: '800',
-        color: '#FFFFFF',
+        color: COLOR_WHITE,
         textAlign: 'center',
-        marginBottom: 48,
+        marginBottom: 4,
     },
-    titleHighlight: {
-        color: '#60A5FA',
+    line2: {
+        fontSize: 32,
+        fontWeight: '800',
+        textAlign: 'center',
+        marginBottom: 4,
     },
-    status: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#FFFFFF',
-        marginBottom: 8,
-    },
-    subStatus: {
-        fontSize: 15,
-        color: 'rgba(255,255,255,0.9)',
-        marginBottom: 40,
+    line3: {
+        fontSize: 32,
+        fontWeight: '800',
+        color: COLOR_WHITE,
+        textAlign: 'center',
+        marginBottom: 4,
     },
     skipBtn: {
-        paddingVertical: 12,
-        paddingHorizontal: 20,
+        marginTop: 48,
+        paddingVertical: 14,
+        paddingHorizontal: 28,
+        backgroundColor: COLOR_CYAN,
+        borderRadius: 30,
     },
     skipText: {
         fontSize: 16,
-        fontWeight: '600',
-        color: '#60A5FA',
-        textDecorationLine: 'underline',
+        fontWeight: '700',
+        color: '#0F172A',
     },
 });

@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSignup } from '../../context/SignupContext';
+import { validateThaiNationalId } from '../../services/validation';
 
 const SHORT_DESC = 'บัตรประจำตัวประชาชนที่ถูกต้อง..';
 const FULL_DESC =
@@ -159,7 +160,9 @@ export default function NationalIdScreen() {
     const nameTHError = nameTH.length > 0 && !THAI_REGEX.test(nameTH);
     const nameENError = nameEN.length > 0 && !EN_REGEX.test(nameEN);
     const idDigits = idNumber.replace(/\D/g, '');
-    const idError = idNumber.length > 0 && idDigits.length !== 13;
+    const idError =
+        (idNumber.length > 0 && idDigits.length !== 13) ||
+        (idDigits.length === 13 && !validateThaiNationalId(idDigits));
 
     const canContinue =
         nameTH.trim().length > 0 &&
@@ -167,6 +170,7 @@ export default function NationalIdScreen() {
         nameEN.trim().length > 0 &&
         !nameENError &&
         idDigits.length === 13 &&
+        validateThaiNationalId(idDigits) &&
         issueDate.length > 0 &&
         expiryDate.length > 0 &&
         dob.length > 0 &&
@@ -237,6 +241,10 @@ export default function NationalIdScreen() {
         }
         if (idDigits.length !== 13) {
             Alert.alert('ข้อมูลไม่ถูกต้อง', 'หมายเลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก');
+            return;
+        }
+        if (!validateThaiNationalId(idDigits)) {
+            Alert.alert('ข้อมูลไม่ถูกต้อง', 'เลขบัตรประชาชนไม่ถูกต้อง');
             return;
         }
         if (!issueDate) {
@@ -389,6 +397,9 @@ export default function NationalIdScreen() {
                     />
                     {idNumber.length > 0 && idDigits.length < 13 && (
                         <Text style={s.warningHint}>กรอกให้ครบ 13 หลัก ({idDigits.length}/13)</Text>
+                    )}
+                    {idDigits.length === 13 && !validateThaiNationalId(idDigits) && (
+                        <Text style={s.errorHint}>เลขบัตรประชาชนไม่ถูกต้อง</Text>
                     )}
 
                     {/* วันออกบัตร */}
