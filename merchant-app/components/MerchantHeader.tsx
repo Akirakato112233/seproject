@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../constants/colors';
+import { BASE_URL } from '../config';
 import { useShop } from '../context/ShopContext';
 
 const shopAvatarImg = require('../assets/images/shop-avatar.png');
@@ -50,10 +51,20 @@ export function MerchantHeader({
     setUpdating(false);
   };
 
+  const shopImageUri = shop?.imageUrl
+    ? shop.imageUrl.startsWith('http')
+      ? shop.imageUrl
+      : `${BASE_URL}${shop.imageUrl}`
+    : null;
+
   return (
     <View style={s.header}>
       <View style={s.headerLeft}>
-        <Image source={shopAvatarImg} style={s.avatar} />
+        {shopImageUri ? (
+          <Image source={{ uri: shopImageUri }} style={s.avatar} />
+        ) : (
+          <Image source={shopAvatarImg} style={s.avatar} />
+        )}
         <Text style={s.shopName} numberOfLines={1} ellipsizeMode="tail">{shopName}</Text>
       </View>
       <View style={s.headerRight}>

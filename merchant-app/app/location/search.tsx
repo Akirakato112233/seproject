@@ -200,7 +200,10 @@ export default function MerchantLocationSearchScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.navigate('/signup/onboarding/step-5')}
+          >
             <Ionicons name="arrow-back" size={24} color="#333" />
           </TouchableOpacity>
 

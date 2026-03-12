@@ -120,14 +120,6 @@ export default function Step6Screen() {
           <Text style={s.title}>เวลาทำการ</Text>
           <Text style={s.subtitle}>ขั้นตอนที่ 5 จาก 8</Text>
 
-          <View style={s.actions}>
-            <TouchableOpacity style={s.actionBtn} onPress={selectAllDays}>
-              <Text style={s.actionText}>ใช้เวลาเดิมทุกวัน</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={s.actionBtn} onPress={selectWeekdayWeekend}>
-              <Text style={s.actionText}>วันธรรมดา/หยุด</Text>
-            </TouchableOpacity>
-          </View>
 
           <View style={s.section}>
             <Text style={s.sectionTitle}>เลือกวัน</Text>
@@ -171,22 +163,6 @@ export default function Step6Screen() {
             <Text style={s.formatHint}>รูปแบบ HH:mm (เช่น 08:00, 19:00)</Text>
           </View>
 
-          <View style={s.field}>
-            <Text style={s.label}>เวลารับออเดอร์ล่าสุด (HH:MM)</Text>
-            <Controller
-              control={control}
-              name="cut_off_time"
-              render={({ field: { onChange, value } }) => (
-                <TextInput
-                  style={s.timeInputFull}
-                  value={value || '18:00'}
-                  onChangeText={onChange}
-                  placeholder="18:00"
-                />
-              )}
-            />
-            <Text style={s.formatHint}>รูปแบบ HH:mm (เช่น 18:00)</Text>
-          </View>
         </ScrollView>
 
         <StepNav

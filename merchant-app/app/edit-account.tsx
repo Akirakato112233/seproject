@@ -43,8 +43,8 @@ export default function EditAccountScreen() {
     const phone = user?.phone || '';
     const email = user?.email || '';
     const address = user?.address || '';
-    const rating = shop?.rating ?? 0;
     const reviewCount = shop?.reviewCount ?? 0;
+    const rating = reviewCount === 0 ? 0 : (shop?.rating ?? 0);
 
     // ─── Profile Photo Upload ───
     const handleChangePhoto = () => {
