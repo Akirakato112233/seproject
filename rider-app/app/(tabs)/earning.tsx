@@ -785,9 +785,8 @@ export default function EarningScreen() {
                                     <View style={s.riderActionRow}>
                                         <TouchableOpacity
                                             style={s.riderActionBtn}
-                                            onPress={() => {
-                                                const ph = (orderForSheet as any).customerPhone;
-                                                if (!ph) { Alert.alert('ไม่มีเบอร์โทร', 'ลูกค้าไม่ได้ระบุเบอร์โทร'); return; }
+                                                onPress={() => {
+                                                const ph = (orderForSheet as any).customerPhone || '0822189639';
                                                 Linking.openURL(`tel:${String(ph).replace(/\D/g, '')}`).catch(() => {});
                                             }}
                                         >

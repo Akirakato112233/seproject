@@ -8,6 +8,6 @@ export const connectDB = async () => {
     console.log('✅ MongoDB Connected');
   } catch (error) {
     console.error('❌ MongoDB connection error:', error);
-    process.exit(1);
+    // ไม่ exit เพื่อให้ server ยังรันได้ (health check ยังใช้ได้) — รีสตาร์ทเมื่อเน็ตกลับ
   }
 };

@@ -16,17 +16,29 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { useOrders } from '../../context/OrdersContext';
 
+const thaiMobileRegex = /^(06|08|09)\d{8}$/;
+
 export default function MerchantTransferScreen() {
   const router = useRouter();
   const { walletBalance, withdraw } = useOrders();
+  const [phone, setPhone] = useState('');
   const [amount, setAmount] = useState('');
   const [error, setError] = useState('');
   const [successVisible, setSuccessVisible] = useState(false);
 
   const handleConfirm = async () => {
     Keyboard.dismiss();
+    const digits = phone.replace(/\D/g, '');
+    if (!digits || !thaiMobileRegex.test(digits)) {
+      setError('กรุณากรอกเบอร์โทรทรูมันนีย์ 10 หลัก (ขึ้นต้น 06/08/09)');
+      return;
+    }
+
     const num = parseFloat(amount);
-    if (!amount || isNaN(num) || num <= 0) return;
+    if (!amount || isNaN(num) || num <= 0) {
+      setError('กรุณากรอกจำนวนเงิน');
+      return;
+    }
 
     // เช็คขั้นต่ำ 100 บาท
     if (num < 100) {
@@ -41,7 +53,7 @@ export default function MerchantTransferScreen() {
     }
 
     setError('');
-    const success = await withdraw(num);
+    const success = await withdraw(num, digits);
     if (success) {
       setSuccessVisible(true);
     } else {
@@ -91,11 +103,22 @@ export default function MerchantTransferScreen() {
             </View>
           </View>
 
-          {/* Amount Input */}
+          {/* Phone & Amount Input */}
           <View style={s.inputWrap}>
             <View style={s.inputContainer}>
+              <Text style={[s.fieldLabel, s.fieldLabelFirst]}>เบอร์โทรสำหรับถอนเงิน *</Text>
               <TextInput
-                style={[s.input, error ? s.inputError : null]}
+                style={[s.input, s.inputFirst, error && error.includes('เบอร์โทร') ? s.inputError : null]}
+                placeholder="06XXXXXXXX (เบอร์ทรูมันนีย์)"
+                placeholderTextColor="#aaa"
+                value={phone}
+                onChangeText={(t) => { setPhone(t.replace(/\D/g, '').slice(0, 10)); setError(''); }}
+                keyboardType="phone-pad"
+                returnKeyType="next"
+              />
+              <Text style={s.fieldLabel}>จำนวนเงิน *</Text>
+              <TextInput
+                style={[s.input, error && !error.includes('เบอร์โทร') ? s.inputError : null]}
                 placeholder="Enter an amount (฿)"
                 placeholderTextColor="#aaa"
                 value={amount}
@@ -111,10 +134,10 @@ export default function MerchantTransferScreen() {
           {/* Confirm Button */}
           <View style={s.bottomSection}>
             <TouchableOpacity
-              style={[s.confirmBtn, (!amount || parseFloat(amount) <= 0) && s.confirmBtnDisabled]}
+              style={[s.confirmBtn, (!phone.trim() || !amount || parseFloat(amount) <= 0) && s.confirmBtnDisabled]}
               onPress={handleConfirm}
               activeOpacity={0.8}
-              disabled={!amount || parseFloat(amount) <= 0}
+              disabled={!phone.trim() || !amount || parseFloat(amount) <= 0}
             >
               <Text style={s.confirmBtnText}>Confirm</Text>
             </TouchableOpacity>
@@ -219,6 +242,14 @@ const s = StyleSheet.create({
   // Input
   inputWrap: { alignItems: 'center' },
   inputContainer: { width: '90%' },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 8,
+    marginTop: 16,
+  },
+  inputFirst: { marginTop: 0 },
   input: {
     borderWidth: 1,
     borderColor: Colors.cardBorder,

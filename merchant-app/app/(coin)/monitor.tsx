@@ -16,12 +16,13 @@ import {
 } from 'react-native';
 
 const shopAvatarImg = require('../../assets/images/shop-avatar.png');
+import { BASE_URL } from '../../config';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { useCoinShop } from '../../context/CoinShopContext';
 import { useMachines, type Machine, type MachineStatus, type MachineOption } from '../../context/MachineContext';
 
-type FilterKey = 'all' | 'available' | 'running' | 'ready';
+type FilterKey = 'all' | 'available' | 'running' | 'ready' | 'offline';
 
 const CYCLE_TIME_OPTIONS = ['30 minutes', '45 minutes', '60 minutes', '90 minutes'];
 
@@ -46,7 +47,7 @@ export default function LiveMonitorScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ openAdd?: string }>();
   const insets = useSafeAreaInsets();
-  const { shop, refreshShop } = useCoinShop();
+  const { shop, refreshShopSilent } = useCoinShop();
   const { machines, addMachine, startMachine, skipMachine, collectMachine, todayRevenue } = useMachines();
   const [filter, setFilter] = useState<FilterKey>('all');
   const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
@@ -74,9 +75,9 @@ export default function LiveMonitorScreen() {
 
   // โพล์ข้อมูลร้านทุก 4 วินาที เพื่อให้เห็นเครื่องที่ไรเดอร์เริ่ม (start-coin-wash) ทันที
   useEffect(() => {
-    const interval = setInterval(refreshShop, 4000);
+    const interval = setInterval(refreshShopSilent, 4000);
     return () => clearInterval(interval);
-  }, [refreshShop]);
+  }, [refreshShopSilent]);
 
   const filteredMachines = useMemo(() => {
     if (filter === 'all') return machines;
@@ -89,6 +90,7 @@ export default function LiveMonitorScreen() {
       available: machines.filter((m) => m.status === 'available').length,
       running: machines.filter((m) => m.status === 'running').length,
       ready: machines.filter((m) => m.status === 'ready').length,
+      offline: machines.filter((m) => m.status === 'offline').length,
     }),
     [machines]
   );
@@ -194,6 +196,7 @@ export default function LiveMonitorScreen() {
     { key: 'available', label: 'Available', count: counts.available, icon: 'checkmark-circle' },
     { key: 'running', label: 'Running', count: counts.running, icon: 'time' },
     { key: 'ready', label: 'Ready', count: counts.ready, icon: 'checkmark-done' },
+    { key: 'offline', label: 'Offline', count: counts.offline, icon: 'power' },
   ];
 
   return (
@@ -208,8 +211,15 @@ export default function LiveMonitorScreen() {
           <Text style={s.headerTitle}>Live Monitor</Text>
         </View>
         <View style={s.headerRight}>
+          <Image
+            source={
+              shop?.imageUrl
+                ? { uri: shop.imageUrl.startsWith('http') ? shop.imageUrl : `${BASE_URL}${shop.imageUrl}` }
+                : shopAvatarImg
+            }
+            style={s.avatar}
+          />
           <Text style={s.shopName}>{shop?.name ?? 'Loading...'}</Text>
-          <Image source={shopAvatarImg} style={s.avatar} />
         </View>
       </View>
 

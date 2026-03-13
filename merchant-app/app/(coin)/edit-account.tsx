@@ -42,7 +42,6 @@ export default function CoinEditAccountScreen() {
     const storeName = shop?.name || '';
     const phone = user?.phone || '';
     const email = user?.email || '';
-    const address = user?.address || '';
     const reviewCount = shop?.reviewCount ?? 0;
     const rating = reviewCount === 0 ? 0 : (shop?.rating ?? 0);
 
@@ -167,13 +166,9 @@ export default function CoinEditAccountScreen() {
                 <View style={s.card}>
                     <Text style={s.cardTitle}>Personal Information</Text>
 
-                    {/* Profile Photo */}
-                    <TouchableOpacity style={s.photoRow} onPress={handleChangePhoto}>
-                        <View>
-                            <Text style={s.fieldLabel}>Profile Photo</Text>
-                            <Text style={s.fieldHint}>Tap to change</Text>
-                        </View>
-                        <View style={s.avatarWrap}>
+                    {/* Profile Photo + Name (รูปก่อนชื่อ, ดึงจาก shop.imageUrl) */}
+                    <View style={s.profileHeaderRow}>
+                        <TouchableOpacity style={s.avatarWrap} onPress={handleChangePhoto}>
                             {uploading ? (
                                 <ActivityIndicator size="small" color={Colors.primaryBlue} />
                             ) : profileImage ? (
@@ -186,17 +181,17 @@ export default function CoinEditAccountScreen() {
                             <View style={s.cameraBadge}>
                                 <Ionicons name="camera" size={14} color="#fff" />
                             </View>
-                        </View>
-                    </TouchableOpacity>
-
-                    {/* Name */}
-                    <TouchableOpacity style={s.fieldRow} onPress={() => openEdit('displayName', 'Name', displayName)}>
-                        <View style={s.fieldContent}>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={s.nameNextToAvatar}
+                            onPress={() => openEdit('displayName', 'Name', displayName)}
+                        >
                             <Text style={s.fieldLabel}>Name</Text>
                             <Text style={s.fieldValue}>{displayName || '-'}</Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={18} color="#d1d5db" />
-                    </TouchableOpacity>
+                            <Ionicons name="chevron-forward" size={18} color="#d1d5db" />
+                        </TouchableOpacity>
+                    </View>
+                    <Text style={s.fieldHint}>Tap photo to change</Text>
 
                     {/* Store Name */}
                     <TouchableOpacity style={s.fieldRow} onPress={() => openEdit('storeName', 'Store Name', storeName)}>
@@ -217,21 +212,12 @@ export default function CoinEditAccountScreen() {
                     </TouchableOpacity>
 
                     {/* Email */}
-                    <View style={s.fieldRow}>
+                    <View style={[s.fieldRow, { borderBottomWidth: 0 }]}>
                         <View style={s.fieldContent}>
                             <Text style={s.fieldLabel}>Email Address</Text>
                             <Text style={s.fieldValue}>{email || '-'}</Text>
                         </View>
                     </View>
-
-                    {/* Address */}
-                    <TouchableOpacity style={[s.fieldRow, { borderBottomWidth: 0 }]} onPress={() => openEdit('address', 'Address', address)}>
-                        <View style={s.fieldContent}>
-                            <Text style={s.fieldLabel}>Address</Text>
-                            <Text style={s.fieldValue}>{address || '-'}</Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={18} color="#d1d5db" />
-                    </TouchableOpacity>
                 </View>
 
                 {/* Store Rating */}
@@ -309,6 +295,13 @@ const s = StyleSheet.create({
         elevation: 2,
     },
     cardTitle: { fontSize: 17, fontWeight: '700', color: '#1f2937', marginBottom: 16 },
+    profileHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
+        marginBottom: 4,
+    },
+    nameNextToAvatar: { flex: 1 },
     photoRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',

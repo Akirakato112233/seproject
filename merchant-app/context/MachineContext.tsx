@@ -74,7 +74,10 @@ function buildMachinesFromShop(
       const finishTime = ws.finishTime ?? null;
       let machineStatus: MachineStatus = 'available';
       let secondsLeft: number | undefined;
-      if (status === 'busy' && finishTime) {
+      const enabled = status !== 'offline';
+      if (status === 'offline') {
+        machineStatus = 'offline';
+      } else if (status === 'busy' && finishTime) {
         const remaining = Math.floor((new Date(finishTime).getTime() - Date.now()) / 1000);
         if (remaining <= 0) {
           machineStatus = 'ready';
@@ -97,8 +100,8 @@ function buildMachinesFromShop(
         capacity: String(ws.weight),
         price: String(firstOption?.price ?? 0),
         cycleTime: String(firstOption?.duration ?? 45),
-        enabled: true,
-        program: 'Ready',
+        enabled,
+        program: enabled ? 'Ready' : 'Maintenance',
         options: ws.options ?? [],
         finishTime,
         secondsLeft,
@@ -115,7 +118,10 @@ function buildMachinesFromShop(
       const finishTime = ds.finishTime ?? null;
       let machineStatus: MachineStatus = 'available';
       let secondsLeft: number | undefined;
-      if (status === 'busy' && finishTime) {
+      const enabled = status !== 'offline';
+      if (status === 'offline') {
+        machineStatus = 'offline';
+      } else if (status === 'busy' && finishTime) {
         const remaining = Math.floor((new Date(finishTime).getTime() - Date.now()) / 1000);
         if (remaining <= 0) {
           machineStatus = 'ready';
@@ -138,8 +144,8 @@ function buildMachinesFromShop(
         capacity: String(ds.weight),
         price: String(firstOption?.price ?? 0),
         cycleTime: String(firstOption?.duration ?? 45),
-        enabled: true,
-        program: 'Ready',
+        enabled,
+        program: enabled ? 'Ready' : 'Maintenance',
         options: ds.options ?? [],
         finishTime,
         secondsLeft,
@@ -174,25 +180,31 @@ export function MachineProvider({ children }: { children: React.ReactNode }) {
     }
   }, [shop]);
 
-  // โหลด todayRevenue จาก shop (เก็บไว้แล้ว) — ใช้เฉพาะเมื่อวันที่ตรงกัน
+  // โหลด todayRevenue จาก shop — อัปเดตเมื่อไรเดอร์มารับผ้า (deliverying) จะบวกเพิ่มใน backend
   useEffect(() => {
-    if (shop?.todayRevenue != null && shop.todayRevenueDate === todayStr) {
+    if (!shop) return;
+    // วันที่ตรงกัน → ใช้ todayRevenue จาก backend
+    if (shop.todayRevenueDate === todayStr && shop.todayRevenue != null) {
       setTodayRevenue(shop.todayRevenue);
-    } else if (shop && shop.todayRevenueDate !== todayStr) {
-      setTodayRevenue(0); // วันที่เปลี่ยนแล้ว
+    } else if (shop.todayRevenueDate && shop.todayRevenueDate !== todayStr) {
+      setTodayRevenue(0); // วันที่เปลี่ยนแล้ว (มีค่าและไม่ตรงวันนี้)
+    } else if (typeof shop.todayRevenue === 'number') {
+      // todayRevenueDate ยังไม่ตั้ง แต่มี todayRevenue → ใช้ (backend เพิ่มจาก deliverying)
+      setTodayRevenue(shop.todayRevenue);
     }
   }, [shop?._id, shop?.todayRevenue, shop?.todayRevenueDate, todayStr]);
 
   // sync machines กลับไป backend เป็น washServices + dryServices
+  // รวมเครื่องที่ปิด (enabled=false) ด้วย status 'offline' — ไม่ลบออกจากรายการ
   const syncToBackend = useCallback((updatedMachines: Machine[]) => {
     if (!updateShop) return;
     const washServices: WashService[] = updatedMachines
-      .filter((m) => m.type === 'washer' && m.enabled)
+      .filter((m) => m.type === 'washer')
       .map((m) => ({
         machineId: m.id,
         weight: parseInt(m.capacity, 10) || 0,
-        status: m.status === 'running' ? 'busy' : m.status === 'ready' ? 'ready' : 'available',
-        finishTime: m.status === 'running' && m.finishTime ? m.finishTime : null,
+        status: !m.enabled ? 'offline' : (m.status === 'running' ? 'busy' : m.status === 'ready' ? 'ready' : 'available'),
+        finishTime: m.enabled && m.status === 'running' && m.finishTime ? m.finishTime : null,
         options: m.options ?? [
           { setting: 'Cold', duration: parseInt(m.cycleTime, 10) || 45, price: parseInt(m.price, 10) || 0 },
           { setting: 'Warm', duration: parseInt(m.cycleTime, 10) || 45, price: (parseInt(m.price, 10) || 0) + 10 },
@@ -200,12 +212,12 @@ export function MachineProvider({ children }: { children: React.ReactNode }) {
         ],
       }));
     const dryServices: DryService[] = updatedMachines
-      .filter((m) => m.type === 'dryer' && m.enabled)
+      .filter((m) => m.type === 'dryer')
       .map((m) => ({
         machineId: m.id,
         weight: parseInt(m.capacity, 10) || 0,
-        status: m.status === 'running' ? 'busy' : m.status === 'ready' ? 'ready' : 'available',
-        finishTime: m.status === 'running' && m.finishTime ? m.finishTime : null,
+        status: !m.enabled ? 'offline' : (m.status === 'running' ? 'busy' : m.status === 'ready' ? 'ready' : 'available'),
+        finishTime: m.enabled && m.status === 'running' && m.finishTime ? m.finishTime : null,
         options: m.options ?? [
           { setting: 'Low Heat', duration: parseInt(m.cycleTime, 10) || 45, price: parseInt(m.price, 10) || 0 },
           { setting: 'Medium Heat', duration: parseInt(m.cycleTime, 10) || 45, price: (parseInt(m.price, 10) || 0) + 10 },
@@ -252,20 +264,22 @@ export function MachineProvider({ children }: { children: React.ReactNode }) {
   }, [syncToBackend]);
 
   const toggleMachineEnabled = useCallback((id: string) => {
-    setMachines((prev) =>
-      prev.map((m) => {
+    setMachines((prev) => {
+      const updated = prev.map((m) => {
         if (m.id !== id) return m;
         const newEnabled = !m.enabled;
         return {
           ...m,
           enabled: newEnabled,
-          status: newEnabled ? 'available' : 'offline',
+          status: (newEnabled ? 'available' : 'offline') as MachineStatus,
           secondsLeft: newEnabled ? undefined : undefined,
           program: newEnabled ? 'Ready' : 'Maintenance',
         };
-      })
-    );
-  }, []);
+      });
+      syncToBackend(updated);
+      return updated;
+    });
+  }, [syncToBackend]);
 
   const addMachine = useCallback((machine: Machine) => {
     setMachines((prev) => {

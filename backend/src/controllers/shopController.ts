@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { Shop, calculatePriceLevel } from '../models/Shop';
+import { WithdrawalRequest } from '../models/WithdrawalRequest';
 
 // คำนวณระยะทางระหว่าง 2 จุด (Haversine formula) - return km
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -194,11 +195,11 @@ export const addCoinRevenue = async (req: Request, res: Response) => {
   }
 };
 
-/** ถอน balance (Transfer to Account) */
+/** ถอน balance (Withdraw to Account / TrueMoney) */
 export const withdrawBalance = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { amount } = req.body;
+    const { amount, phone } = req.body;
     const amt = Math.round(Number(amount) || 0);
     if (amt <= 0) {
       return res.status(400).json({ error: 'Amount must be positive' });
@@ -211,7 +212,19 @@ export const withdrawBalance = async (req: Request, res: Response) => {
     if (amt > currentBalance) {
       return res.status(400).json({ error: 'Insufficient balance' });
     }
+
+    // สร้างประวัติการถอน (status เริ่มต้น false)
+    const withdrawal = await WithdrawalRequest.create({
+      shopId: id,
+      phone: phone || '',
+      amount: amt,
+      status: false,
+    });
+
     const updated = await Shop.findByIdAndUpdate(id, { $inc: { balance: -amt } }, { new: true });
+    if (updated) {
+      await WithdrawalRequest.findByIdAndUpdate(withdrawal._id, { status: true });
+    }
     res.json(updated);
   } catch (error) {
     console.error('Error withdrawing balance:', error);

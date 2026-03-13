@@ -439,7 +439,8 @@ export default function JobScreen() {
     const isShopStage = stage === 'going_to_shop' || stage === 'going_to_shop_pickup';
     const placeName = isShopStage ? active.shopName : active.customerName;
     const placeAddress = isShopStage ? active.shopAddress : active.customerAddress;
-    const phone = isShopStage ? active.shopPhone : active.customerPhone;
+    // ถ้าไม่มีเบอร์ลูกค้า ใช้เบอร์ fallback เพื่อให้โทรได้
+    const phone = isShopStage ? active.shopPhone : (active.customerPhone || '0822189639');
 
     const onPrimary = () => {
         if (stage === 'going_to_customer') {

@@ -47,8 +47,8 @@ export const step2Schema = z.object({
     .string()
     .min(1, 'กรุณากรอกเลขบัตรประชาชน')
     .refine(validateThaiId, 'เลขบัตรประชาชนไม่ถูกต้อง'),
-  first_name: z.string().min(1, 'กรุณากรอกชื่อ'),
-  last_name: z.string().min(1, 'กรุณากรอกนามสกุล'),
+  first_name: z.string().min(1, 'กรุณากรอกชื่อนามสกุลไทย'),
+  last_name: z.string().min(1, 'กรุณากรอกชื่อนามสกุลอังกฤษ'),
   date_of_birth: z.string().min(1, 'กรุณาเลือกวันเกิด'),
   address_on_card: z.string().min(1, 'กรุณากรอกที่อยู่ตามบัตร'),
 });

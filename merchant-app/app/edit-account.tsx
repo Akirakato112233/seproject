@@ -42,7 +42,6 @@ export default function EditAccountScreen() {
     const storeName = shop?.name || '';
     const phone = user?.phone || '';
     const email = user?.email || '';
-    const address = user?.address || '';
     const reviewCount = shop?.reviewCount ?? 0;
     const rating = reviewCount === 0 ? 0 : (shop?.rating ?? 0);
 
@@ -219,21 +218,12 @@ export default function EditAccountScreen() {
                     </TouchableOpacity>
 
                     {/* Email */}
-                    <View style={s.fieldRow}>
+                    <View style={[s.fieldRow, { borderBottomWidth: 0 }]}>
                         <View style={s.fieldContent}>
                             <Text style={s.fieldLabel}>Email Address</Text>
                             <Text style={s.fieldValue}>{email || '-'}</Text>
                         </View>
                     </View>
-
-                    {/* Address */}
-                    <TouchableOpacity style={[s.fieldRow, { borderBottomWidth: 0 }]} onPress={() => openEdit('address', 'Address', address)}>
-                        <View style={s.fieldContent}>
-                            <Text style={s.fieldLabel}>Address</Text>
-                            <Text style={s.fieldValue}>{address || '-'}</Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={18} color="#d1d5db" />
-                    </TouchableOpacity>
                 </View>
 
                 {/* Store Rating */}

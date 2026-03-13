@@ -1,8 +1,59 @@
 import { Router, Request, Response } from 'express';
 import { MerchantUser } from '../models/MerchantUser';
+import { Shop } from '../models/Shop';
+import { ShopRegistration } from '../models/ShopRegistration';
 import { signAppToken, signTempToken, verifyToken } from '../utils/tokens';
 
 const router = Router();
+
+/** Middleware: ตรวจสอบ Bearer token และดึง merchantUserId */
+const merchantAuth = (req: Request, res: Response, next: () => void) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Access denied, token missing' });
+  }
+  try {
+    const decoded = verifyToken(token) as { merchantUserId?: string };
+    if (!decoded.merchantUserId) {
+      return res.status(403).json({ success: false, message: 'Invalid merchant token' });
+    }
+    (req as any).merchantUserId = decoded.merchantUserId;
+    next();
+  } catch {
+    return res.status(403).json({ success: false, message: 'Invalid or expired token' });
+  }
+};
+
+/**
+ * DELETE /api/merchants/account
+ * ลบ MerchantUser, Shop, ShopRegistration ของ merchant ที่ login อยู่
+ */
+router.delete('/account', merchantAuth, async (req: Request, res: Response) => {
+  try {
+    const merchantUserId = (req as any).merchantUserId as string;
+
+    // 1. ลบ Shop ที่ผูกกับ merchantUserId
+    const shopResult = await Shop.deleteMany({ merchantUserId });
+    console.log('🗑️ Shops deleted:', shopResult.deletedCount);
+
+    // 2. ลบ ShopRegistration ที่ผูกกับ merchantUserId
+    const regResult = await ShopRegistration.deleteMany({ merchantUserId: String(merchantUserId) });
+    console.log('🗑️ ShopRegistrations deleted:', regResult.deletedCount);
+
+    // 3. ลบ MerchantUser
+    const merchant = await MerchantUser.findByIdAndDelete(merchantUserId);
+    if (!merchant) {
+      return res.status(404).json({ success: false, message: 'Merchant not found' });
+    }
+    console.log('🗑️ MerchantUser deleted:', merchantUserId);
+
+    return res.json({ success: true, message: 'Account deleted successfully' });
+  } catch (error: any) {
+    console.error('Error deleting merchant account:', error);
+    return res.status(500).json({ success: false, message: 'Failed to delete account' });
+  }
+});
 
 /**
  * POST /api/merchants/google/login

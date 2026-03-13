@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,15 +11,56 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import { API, NGROK_HEADERS } from '../../config';
 import { useAuth } from '../../context/AuthContext';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { logout } = useAuth();
+  const { logout, token } = useAuth();
 
   const handleLogout = async () => {
     await logout();
     router.replace('/create-account');
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'ลบบัญชี',
+      'คุณแน่ใจหรือไม่ว่าต้องการลบบัญชี? การดำเนินการนี้ไม่สามารถย้อนกลับได้ ข้อมูลร้านและประวัติการใช้งานทั้งหมดจะถูกลบ',
+      [
+        { text: 'ยกเลิก', style: 'cancel' },
+        {
+          text: 'ลบบัญชี',
+          style: 'destructive',
+          onPress: async () => {
+            if (!token) {
+              Alert.alert('เกิดข้อผิดพลาด', 'ไม่พบ token กรุณา Log Out แล้วเข้าสู่ระบบใหม่');
+              return;
+            }
+            try {
+              const res = await fetch(API.MERCHANTS_DELETE_ACCOUNT, {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...NGROK_HEADERS,
+                  Authorization: `Bearer ${token}`,
+                },
+              });
+              const data = await res.json().catch(() => ({}));
+              if (res.ok && data.success) {
+                await logout();
+                router.replace('/create-account');
+              } else {
+                Alert.alert('ไม่สามารถลบบัญชีได้', data.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
+              }
+            } catch (err) {
+              console.error('Delete account error:', err);
+              Alert.alert('ไม่สามารถลบบัญชีได้', 'เกิดข้อผิดพลาดเครือข่าย กรุณาลองใหม่อีกครั้ง');
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -75,6 +117,13 @@ export default function SettingsScreen() {
             <Ionicons name="log-out-outline" size={22} color={Colors.white} />
           </View>
           <Text style={[s.menuText, s.logoutText]}>Log Out</Text>
+          <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+        </TouchableOpacity>
+        <TouchableOpacity style={s.menuItem} onPress={handleDeleteAccount}>
+          <View style={[s.iconWrap, s.iconRed]}>
+            <Ionicons name="trash-outline" size={22} color={Colors.white} />
+          </View>
+          <Text style={[s.menuText, s.deleteAccountText]}>Delete Account</Text>
           <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
         </TouchableOpacity>
       </ScrollView>
@@ -134,4 +183,5 @@ const s = StyleSheet.create({
   iconRed: { backgroundColor: '#dc2626' },
   menuText: { flex: 1, fontSize: 16, color: Colors.textPrimary },
   logoutText: { color: '#dc2626' },
+  deleteAccountText: { color: '#dc2626' },
 });

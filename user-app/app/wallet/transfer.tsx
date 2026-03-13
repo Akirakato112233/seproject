@@ -15,7 +15,13 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { API } from '../../config';
+import { API, BASE_URL } from '../../config';
+import { useAuth } from '../../context/AuthContext';
+
+// ngrok ต้องส่ง header นี้
+const NGROK_HEADERS: Record<string, string> = BASE_URL.includes('ngrok')
+    ? { 'ngrok-skip-browser-warning': '1' }
+    : {};
 
 // 🔥 Import รูป (ตรวจสอบ path ให้ถูก)
 const trueIconImg = require('../../assets/images/Trueicon.jpg');
@@ -23,6 +29,7 @@ const wDigitalImg = require('../../assets/images/Wdigita.png');
 
 export default function TransferScreen() {
     const router = useRouter();
+    const { token } = useAuth();
     const [link, setLink] = useState('');
     const [modalVisible, setModalVisible] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -31,13 +38,23 @@ export default function TransferScreen() {
     const handleConfirm = async () => {
         Keyboard.dismiss();
         if (!link) return;
+        if (!token) {
+            alert('กรุณาเข้าสู่ระบบก่อนเติมเงิน');
+            return;
+        }
 
         setLoading(true);
         try {
             // 🔥 ใช้ BASE_URL จาก config (IP ปัจจุบัน 10.64.71.179)
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                ...NGROK_HEADERS,
+            };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
             const response = await fetch(API.REDEEM, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({ link }),
             });
             const data = await response.json();

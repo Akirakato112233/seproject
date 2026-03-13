@@ -465,14 +465,17 @@ export default function ShopDetailScreen() {
                 </View>
 
                 {/* Wash Services */}
-                {shop.washServices && shop.washServices.length > 0 && (
+                {shop.washServices && shop.washServices.filter((s) => s.status !== 'offline').length > 0 && (
                     <View style={localStyles.servicesSection}>
-                        {shop.washServices.map((service, serviceIndex) => {
+                        {shop.washServices
+                            .map((service, idx) => ({ service, idx }))
+                            .filter(({ service }) => service.status !== 'offline')
+                            .map(({ service, idx: originalIndex }) => {
                             const isBusy = shop.type === 'coin' && service.status === 'busy';
                             const isReady = shop.type === 'coin' && service.status === 'ready';
                             const isDisabled = isBusy;
                             return (
-                                <View key={`wash-${serviceIndex}`} style={[localStyles.serviceGroup, isDisabled && { opacity: 0.5 }]}>
+                                <View key={`wash-${originalIndex}`} style={[localStyles.serviceGroup, isDisabled && { opacity: 0.5 }]}>
                                     <View style={localStyles.machineTitleRow}>
                                         <Text style={localStyles.serviceTitle}>
                                             {shop.type === 'coin' && service.machineId ? `${service.machineId} · ` : ''}Wash {service.weight} kg
@@ -490,7 +493,7 @@ export default function ShopDetailScreen() {
                                     </View>
                                     {service.options.map((option, optionIndex) => {
                                         const isSelected =
-                                            selectedOptions[`wash-${serviceIndex}`] === optionIndex;
+                                            selectedOptions[`wash-${originalIndex}`] === optionIndex;
                                         return (
                                             <TouchableOpacity
                                                 key={optionIndex}
@@ -498,7 +501,7 @@ export default function ShopDetailScreen() {
                                                 onPress={() => {
                                                     if (isDisabled) return;
                                                     handleSelectOption(
-                                                        `wash-${serviceIndex}`,
+                                                        `wash-${originalIndex}`,
                                                         optionIndex
                                                     );
                                                 }}
@@ -533,9 +536,11 @@ export default function ShopDetailScreen() {
                 )}
 
                 {/* Dry Services */}
-                {shop.dryServices && shop.dryServices.length > 0 && (
+                {shop.dryServices && shop.dryServices.filter((s) => s.status !== 'offline').length > 0 && (
                     <View style={localStyles.servicesSection}>
-                        {shop.dryServices.map((service, serviceIndex) => {
+                        {shop.dryServices
+                            .filter((s) => s.status !== 'offline')
+                            .map((service, serviceIndex) => {
                             const isBusy = shop.type === 'coin' && service.status === 'busy';
                             const isReady = shop.type === 'coin' && service.status === 'ready';
                             const isDisabled = isBusy;

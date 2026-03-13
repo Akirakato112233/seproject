@@ -16,6 +16,8 @@ export interface MerchantOrder {
   status: 'wait_for_rider' | 'washing' | 'ready';
   statusRaw?: string;
   total: number;
+  /** ค่าบริการเท่านั้น (ไม่รวมค่าส่ง) — ใช้สำหรับแสดงรายได้ใน History */
+  serviceTotal?: number;
   paymentMethod?: string;
   dueText?: string;
   pickupText?: string;  // "Looking for rider" | "Waiting for rider" | etc.
@@ -35,7 +37,7 @@ interface OrdersContextType {
   setOrderReady: (orderId: string) => void;
   completeOrder: (orderId: string) => void;
   walletBalance: number;
-  withdraw: (amount: number) => Promise<boolean>;
+  withdraw: (amount: number, phone?: string) => Promise<boolean>;
   refreshBalance: () => Promise<void>;
   refreshCurrentOrders: () => Promise<void>;
   refreshCompletedOrders: () => Promise<void>;
@@ -72,13 +74,14 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) return;
       const data = await res.json();
       if (data.success && Array.isArray(data.orders)) {
-        const mapped: MerchantOrder[] = data.orders.map((o: { id: string; customerName: string; orderId: string; serviceType: string; total: number; paymentMethod?: string; completedAt?: string; items?: MerchantOrderItem[]; note?: string; customerPhone?: string; riderDisplayName?: string; riderPhone?: string }) => ({
+        const mapped: MerchantOrder[] = data.orders.map((o: { id: string; customerName: string; orderId: string; serviceType: string; total: number; serviceTotal?: number; paymentMethod?: string; completedAt?: string; items?: MerchantOrderItem[]; note?: string; customerPhone?: string; riderDisplayName?: string; riderPhone?: string }) => ({
           id: o.id,
           customerName: o.customerName,
           orderId: o.orderId,
           serviceType: o.serviceType,
           status: 'ready',
           total: o.total,
+          serviceTotal: o.serviceTotal,
           paymentMethod: o.paymentMethod,
           completedAt: o.completedAt ? new Date(o.completedAt) : undefined,
           items: o.items || [],
@@ -184,13 +187,13 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
     }
   }, [shop?._id, refreshShop, refreshCurrentOrders, refreshCompletedOrders, currentOrders]);
 
-  const withdraw = useCallback(async (amount: number): Promise<boolean> => {
+  const withdraw = useCallback(async (amount: number, phone?: string): Promise<boolean> => {
     if (!shop?._id) return false;
     try {
       const res = await fetch(`${API.SHOPS}/${shop._id}/balance/withdraw`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...NGROK_HEADERS },
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ amount, phone }),
       });
       if (res.ok) {
         await refreshShop();

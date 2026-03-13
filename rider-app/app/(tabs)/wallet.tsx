@@ -73,13 +73,13 @@ export default function RiderWalletScreen() {
                     </View>
                 </View>
 
-                {/* Transfer to Account Button */}
+                {/* Withdraw to Account Button */}
                 <TouchableOpacity
                     style={s.transferBtn}
                     onPress={() => router.push('/transfer-to-account')}
                     activeOpacity={0.8}
                 >
-                    <Text style={s.transferBtnText}>Transfer to Account</Text>
+                    <Text style={s.transferBtnText}>Withdraw to Account</Text>
                 </TouchableOpacity>
 
                 {/* Transfer to WIT Button */}

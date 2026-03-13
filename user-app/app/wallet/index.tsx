@@ -2,12 +2,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router'; // ✅ เพิ่ม useFocusEffect
 import { useCallback, useState } from 'react'; // ✅ เพิ่ม useState, useCallback
 import { Image, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { API } from '../../config';
+import { API, BASE_URL } from '../../config';
+import { useAuth } from '../../context/AuthContext';
+
+const NGROK_HEADERS: Record<string, string> = BASE_URL.includes('ngrok')
+    ? { 'ngrok-skip-browser-warning': '1' }
+    : {};
 // เช็ค path รูปให้ถูก (ถ้าแดงให้แก้ path)
 const wDigitalImg = require('../../assets/images/Wdigita.png');
 
 export default function WalletScreen() {
     const router = useRouter();
+    const { token } = useAuth();
 
     // ✅ 1. สร้างตัวแปรเก็บเงิน
     const [balance, setBalance] = useState('0.00');
@@ -16,8 +22,13 @@ export default function WalletScreen() {
     useFocusEffect(
         useCallback(() => {
             const fetchBalance = async () => {
+                if (!token) return;
                 try {
-                    const res = await fetch(API.BALANCE);
+                    const headers: Record<string, string> = {
+                        ...NGROK_HEADERS,
+                        Authorization: `Bearer ${token}`,
+                    };
+                    const res = await fetch(API.BALANCE, { headers });
                     const data = await res.json();
 
                     // แปลงเป็นทศนิยม 2 ตำแหน่ง
@@ -32,7 +43,7 @@ export default function WalletScreen() {
                 }
             };
             fetchBalance();
-        }, [])
+        }, [token])
     );
 
     return (

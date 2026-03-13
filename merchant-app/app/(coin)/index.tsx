@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   Image,
   ScrollView,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import { BASE_URL } from '../../config';
 import { useCoinShop } from '../../context/CoinShopContext';
 import { useMachines } from '../../context/MachineContext';
 
@@ -22,8 +23,14 @@ const shopAvatarImg = require('../../assets/images/shop-avatar.png');
  */
 export default function CoinShopScreen() {
   const router = useRouter();
-  const { shop } = useCoinShop();
+  const { shop, refreshShopSilent } = useCoinShop();
   const { machines, todayRevenue } = useMachines();
+
+  // โหลด shop ใหม่ทุก 4 วินาที เพื่อให้ todayRevenue อัปเดตเมื่อไรเดอร์มารับผ้า
+  useEffect(() => {
+    const interval = setInterval(refreshShopSilent, 4000);
+    return () => clearInterval(interval);
+  }, [refreshShopSilent]);
 
   // คำนวณจากข้อมูลจริงใน context
   const stats = useMemo(() => ({
@@ -37,11 +44,6 @@ export default function CoinShopScreen() {
     router.back();
   };
 
-  const handleViewReports = () => {
-    // TODO: Navigate to reports page
-    console.log('View Reports');
-  };
-
   const handleAddMachine = () => {
     router.push('/(coin)/monitor?openAdd=1');
   };
@@ -52,11 +54,18 @@ export default function CoinShopScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Header */}
+      {/* Header - รูปโปรไฟล์ร้านก่อนชื่อ ดึงจาก shop.imageUrl */}
       <View style={styles.header}>
         <View style={styles.headerRight}>
+          <Image
+            source={
+              shop?.imageUrl
+                ? { uri: shop.imageUrl.startsWith('http') ? shop.imageUrl : `${BASE_URL}${shop.imageUrl}` }
+                : shopAvatarImg
+            }
+            style={styles.avatar}
+          />
           <Text style={styles.shopName}>{shop?.name ?? 'Loading...'}</Text>
-          <Image source={shopAvatarImg} style={styles.avatar} />
         </View>
       </View>
 
@@ -157,13 +166,6 @@ export default function CoinShopScreen() {
             <Text style={styles.revenueChange}>วันนี้</Text>
           </View>
           <Text style={styles.revenueAmount}>฿{todayRevenue.toLocaleString()}</Text>
-          <TouchableOpacity
-            style={styles.viewReportsButton}
-            onPress={handleViewReports}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.viewReportsText}>View Reports</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -351,19 +353,6 @@ const styles = StyleSheet.create({
   revenueAmount: {
     fontSize: 36,
     fontWeight: '800',
-    color: Colors.white,
-    marginBottom: 16,
-  },
-  viewReportsButton: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    alignSelf: 'flex-start',
-  },
-  viewReportsText: {
-    fontSize: 14,
-    fontWeight: '600',
     color: Colors.white,
   },
   bottomNav: {

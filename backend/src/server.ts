@@ -16,15 +16,19 @@ import redeemRoutes from './routes/redeem';
 import ridersRoutes from './routes/riders';
 import shopsRoutes from './routes/shops';
 import orderRoutes from './routes/orderRoutes';
+import mongoose from 'mongoose';
 import { Order } from './models/Order';
 import { Shop } from './models/Shop';
-
+import dns from 'dns';
 dotenv.config();
 
-const dns = require("dns");
+function isDbConnected(): boolean {
+  return mongoose.connection.readyState === 1;
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
-dns.setServers(["1.1.1.1", "8.8.8.8"]);
+dns.setServers(['1.1.1.1', '8.8.8.8']);
 
 // ต้อง trust proxy เมื่อใช้ ngrok (X-Forwarded-For)
 app.set('trust proxy', 1);
@@ -195,11 +199,12 @@ async function runShopMachineCompletionCron() {
 // Start server
 app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
-  // รอ DB connect ก่อนรัน cron (connectDB ถูกเรียกก่อน listen แต่อาจยังไม่เสร็จ)
-  setTimeout(() => {
+  // รัน cron เฉพาะเมื่อ MongoDB เชื่อมต่อแล้ว (เลี่ยง buffering timeout)
+  const runCronIfConnected = () => {
+    if (!isDbConnected()) return;
     runCoinCompletionCron();
     runShopMachineCompletionCron();
-  }, 2000);
-  setInterval(runCoinCompletionCron, 15000); // ทุก 15 วินาที
-  setInterval(runShopMachineCompletionCron, 15000); // ทุก 15 วินาที
+  };
+  setTimeout(runCronIfConnected, 2000);
+  setInterval(runCronIfConnected, 15000); // ทุก 15 วินาที
 });

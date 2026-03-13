@@ -78,14 +78,30 @@ function parseWashDryFromItems(items: { name: string; details?: string; price?: 
   return result;
 }
 
-/** ดึงเบอร์ลูกค้าจาก order หรือ User */
+/** ดึงเบอร์ลูกค้าจาก order หรือ User — ใช้กับ rider APIs */
 async function resolveCustomerPhone(order: any): Promise<string> {
   let phone = (order as any).customerPhone || '';
-  if (!phone && order.userId && /^[0-9a-fA-F]{24}$/.test(String(order.userId))) {
-    const u = await User.findById(order.userId).select('phone').lean();
-    phone = (u as any)?.phone || '';
+  if (phone) return String(phone).trim();
+  if (!order.userId) return '0822189639';
+  try {
+    const uid = String(order.userId);
+    let u: any = null;
+    if (/^[0-9a-fA-F]{24}$/.test(uid)) {
+      u = await User.findById(uid).select('phone').lean();
+    } else {
+      u = await User.findOne({ $or: [{ username: uid }, { email: uid }] }).select('phone').lean();
+    }
+    phone = u?.phone || '';
+    // Backfill: ถ้าได้เบอร์จาก User แต่ order ยังไม่มี — อัปเดต order เพื่อครั้งถัดไป
+    if (phone && (order as any)._id) {
+      const oid = String((order as any)._id);
+      Order.findByIdAndUpdate(oid, { $set: { customerPhone: phone.trim() } }).catch(() => {});
+      OrderForMerchant.findByIdAndUpdate(oid, { $set: { customerPhone: phone.trim() } }).catch(() => {});
+    }
+  } catch {
+    /* ignore */
   }
-  return phone;
+  return phone ? String(phone).trim() : '0822189639';
 }
 
 /** ดึงชื่อและเบอร์ไรเดอร์จาก riderId */
@@ -140,6 +156,15 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
 
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // เบอร์โทรจำเป็น เพื่อให้ไรเดอร์โทรติดต่อลูกค้าได้
+    const userPhone = (user as any).phone;
+    if (!userPhone || String(userPhone).trim().length < 9) {
+      return res.status(400).json({
+        success: false,
+        message: 'กรุณาเพิ่มเบอร์โทรศัพท์ในโปรไฟล์ก่อนสั่งงาน (เพื่อให้ไรเดอร์ติดต่อคุณได้)',
+      });
     }
 
     const shop = await Shop.findById(shopId).select('type name');
@@ -387,6 +412,36 @@ export const rateRider = async (req: AuthRequest, res: Response) => {
           $set: { riderRating: newRating }
         });
       }
+
+      // อัปเดต rating ใน RiderRegistration (ให้ไรเดอร์เห็นใน rider app)
+      let registration = await RiderRegistration.findById(riderIdToUpdate).lean();
+      if (!registration) {
+        const riderUserForReg = await User.findById(riderIdToUpdate).lean();
+        if (riderUserForReg?.email) {
+          registration = await RiderRegistration.findOne({
+            email: { $regex: new RegExp(`^${String(riderUserForReg.email).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+          })
+            .sort({ createdAt: -1 })
+            .lean();
+        }
+        if (!registration && riderUserForReg?.phone) {
+          const phoneStr = String(riderUserForReg.phone).trim();
+          registration = await RiderRegistration.findOne({
+            $or: [
+              { phone: phoneStr },
+              { phone: phoneStr.replace(/^0/, '') },
+              { phone: '0' + phoneStr.replace(/^0/, '') },
+            ],
+          })
+            .sort({ createdAt: -1 })
+            .lean();
+        }
+      }
+      if (registration) {
+        await RiderRegistration.findByIdAndUpdate(registration._id, {
+          $inc: { totalRating: rating, ratingCount: 1 },
+        });
+      }
     }
 
     res.json({ success: true, message: 'Rider rated successfully' });
@@ -501,20 +556,55 @@ export const merchantUpdateOrderStatus = async (req: AuthRequest, res: Response)
       }
     }
 
-    // เมื่อออเดอร์เปลี่ยนเป็น deliverying หรือ completed และชำระด้วย wallet ให้โอนเงินเข้า balance ร้าน
+    // Coin shop: เมื่อเปลี่ยนเป็น deliverying → เครื่อง ready → available (ร้านกด "ไรเดอร์รับผ้าแล้ว")
+    if (status === 'deliverying' || status === 'delivering') {
+      const shopId = (order as any).shopId;
+      const washIdx = (order as any).washMachineIndex;
+      const dryIdx = (order as any).dryMachineIndex;
+      if (shopId && (typeof washIdx === 'number' || typeof dryIdx === 'number')) {
+        try {
+          const updates: Record<string, unknown> = {};
+          if (typeof washIdx === 'number' && washIdx >= 0) {
+            updates[`washServices.${washIdx}.status`] = 'available';
+            updates[`washServices.${washIdx}.finishTime`] = null;
+          }
+          if (typeof dryIdx === 'number' && dryIdx >= 0) {
+            updates[`dryServices.${dryIdx}.status`] = 'available';
+            updates[`dryServices.${dryIdx}.finishTime`] = null;
+          }
+          if (Object.keys(updates).length > 0) {
+            await Shop.findByIdAndUpdate(shopId, { $set: updates });
+          }
+        } catch (err) {
+          console.error('Release coin machines (merchant-status) failed:', err);
+        }
+      }
+    }
+
+    // เมื่อเครื่อง ready → available (deliverying/completed) → โอนเงินเข้า balance ร้าน ทันที
     const prevStatus = String(order.status);
+    const alreadyCredited = (order as any).shopBalanceCredited === true;
     const isFirstTimeDeliveryingOrCompleted =
+      !alreadyCredited &&
       (status === 'deliverying' || status === 'completed') &&
-      order.paymentMethod === 'wallet' &&
       prevStatus !== 'deliverying' &&
       prevStatus !== 'Delivering' &&
       prevStatus !== 'completed' &&
       prevStatus !== 'Completed';
     if (isFirstTimeDeliveryingOrCompleted) {
-      const amt = Math.round(Number(order.total) || 0);
+      const amt = Math.round(Number(order.serviceTotal) || 0);
       if (amt > 0 && order.shopId) {
         try {
-          await Shop.findByIdAndUpdate(order.shopId, { $inc: { balance: amt } });
+          const shop = await Shop.findById(order.shopId).lean();
+          const todayStr = new Date().toISOString().slice(0, 10);
+          const existingDate = (shop as any)?.todayRevenueDate;
+          const isNewDay = existingDate !== todayStr;
+          const updateOps: Record<string, unknown> = isNewDay
+            ? { $set: { todayRevenueDate: todayStr, todayRevenue: amt }, $inc: { balance: amt } }
+            : { $inc: { balance: amt, todayRevenue: amt } };
+          await Shop.findByIdAndUpdate(order.shopId, updateOps);
+          await foundOrder!.model.findByIdAndUpdate(updateId, { $set: { shopBalanceCredited: true } });
+          console.log(`[Auto deposit merchant-status] โอน ฿${amt} เข้า Shop ${order.shopId} + todayRevenue (Order ${updateId})`);
         } catch (err) {
           console.error('Auto deposit (deliverying/completed) failed:', err);
         }
@@ -765,22 +855,32 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // เมื่อสถานะเป็น completed และชำระ wallet และยังไม่เคยโอน — โอนเข้า balance ร้าน
+    // เมื่อไรเดอร์มารับผ้า (deliverying) หรือ completed → โอนเงินเข้า balance ร้าน (ทั้ง wallet และ cash)
     const prevStatus = String(existingOrder.status);
-    const isFirstCompleted =
-      status === 'completed' &&
-      existingOrder.paymentMethod === 'wallet' &&
+    const alreadyCredited = (existingOrder as any).shopBalanceCredited === true;
+    const isFirstDeliveryingOrCompleted =
+      !alreadyCredited &&
+      (status === 'deliverying' || status === 'delivering' || status === 'completed') &&
       prevStatus !== 'completed' &&
       prevStatus !== 'Completed' &&
       prevStatus !== 'deliverying' &&
       prevStatus !== 'Delivering';
-    if (isFirstCompleted) {
-      const amt = Math.round(Number(existingOrder.total) || 0);
+    if (isFirstDeliveryingOrCompleted) {
+      const amt = Math.round(Number(existingOrder.serviceTotal) || 0);
       if (amt > 0 && existingOrder.shopId) {
         try {
-          await Shop.findByIdAndUpdate(existingOrder.shopId, { $inc: { balance: amt } });
+          const shop = await Shop.findById(existingOrder.shopId).lean();
+          const todayStr = new Date().toISOString().slice(0, 10);
+          const existingDate = (shop as any)?.todayRevenueDate;
+          const isNewDay = existingDate !== todayStr;
+          const updateOps: Record<string, unknown> = isNewDay
+            ? { $set: { todayRevenueDate: todayStr, todayRevenue: amt }, $inc: { balance: amt } }
+            : { $inc: { balance: amt, todayRevenue: amt } };
+          await Shop.findByIdAndUpdate(existingOrder.shopId, updateOps);
+          await Order.findByIdAndUpdate(actualOrderId, { $set: { shopBalanceCredited: true } });
+          console.log(`[Auto deposit] โอน ฿${amt} เข้า Shop ${existingOrder.shopId} + todayRevenue (Order ${actualOrderId})`);
         } catch (err) {
-          console.error('Auto deposit (completed) failed:', err);
+          console.error('Auto deposit (deliverying/completed) failed:', err);
         }
       }
     }
@@ -870,11 +970,7 @@ export const getMerchantPendingOrders = async (req: AuthRequest, res: Response) 
 
         const note = (order as any).note || (firstItem as any)?.additionalRequest || '';
 
-        let customerPhone = (order as any).customerPhone || '';
-        if (!customerPhone && order.userId && /^[0-9a-fA-F]{24}$/.test(String(order.userId))) {
-          const customerUser = await User.findById(order.userId).select('phone').lean();
-          customerPhone = (customerUser as any)?.phone || '';
-        }
+        const customerPhone = await resolveCustomerPhone(order);
 
         return {
           id: String(order._id),
@@ -962,11 +1058,7 @@ export const getMerchantCurrentOrders = async (req: AuthRequest, res: Response) 
 
         const note = (order as any).note || (firstItem as any)?.additionalRequest || '';
 
-        let customerPhone = (order as any).customerPhone || '';
-        if (!customerPhone && order.userId && /^[0-9a-fA-F]{24}$/.test(String(order.userId))) {
-          const customerUser = await User.findById(order.userId).select('phone').lean();
-          customerPhone = (customerUser as any)?.phone || '';
-        }
+        const customerPhone = await resolveCustomerPhone(order);
 
         let riderDisplayName = '';
         let riderPhone = '';
@@ -990,6 +1082,8 @@ export const getMerchantCurrentOrders = async (req: AuthRequest, res: Response) 
           status: displayStatus,
           statusRaw: s,
           total: order.total || 0,
+          serviceTotal: order.serviceTotal ?? 0,
+          deliveryFee: order.deliveryFee ?? 0,
           paymentMethod: order.paymentMethod === 'wallet' ? 'Wallet' : 'Cash',
           dueText,
           pickupText,
@@ -1035,11 +1129,7 @@ export const getMerchantOrderHistory = async (req: AuthRequest, res: Response) =
 
         const note = (order as any).note || (firstItem as any)?.additionalRequest || '';
 
-        let customerPhone = (order as any).customerPhone || '';
-        if (!customerPhone && order.userId && /^[0-9a-fA-F]{24}$/.test(String(order.userId))) {
-          const customerUser = await User.findById(order.userId).select('phone').lean();
-          customerPhone = (customerUser as any)?.phone || '';
-        }
+        const customerPhone = await resolveCustomerPhone(order);
 
         let riderDisplayName = '';
         let riderPhone = '';
@@ -1064,6 +1154,8 @@ export const getMerchantOrderHistory = async (req: AuthRequest, res: Response) =
           serviceType: firstItem?.name || 'Wash & Fold',
           status: 'completed',
           total: order.total || 0,
+          serviceTotal: order.serviceTotal ?? 0,
+          deliveryFee: order.deliveryFee ?? 0,
           paymentMethod: order.paymentMethod === 'wallet' ? 'Wallet' : 'Cash',
           completedAt: order.updatedAt || order.createdAt,
           items: order.items || [],
@@ -1110,18 +1202,8 @@ export const getPendingOrders = async (req: AuthRequest, res: Response) => {
           ? { latitude: shop.location.lat, longitude: shop.location.lng }
           : { latitude: 13.117629, longitude: 100.916613 };
 
-        // โทรลูกค้า: ดึงจาก User (คนสั่ง) ถ้า order ไม่มี customerPhone
-        let customerPhone = (order as any).customerPhone || '';
-        if (!customerPhone && order.userId) {
-          try {
-            const customerUser = /^[0-9a-fA-F]{24}$/.test(String(order.userId))
-              ? await User.findById(order.userId).select('phone').lean()
-              : await User.findOne({ $or: [{ username: order.userId }, { email: order.userId }] }).select('phone').lean();
-            customerPhone = (customerUser as any)?.phone || '';
-          } catch (e) {
-            console.error('Error fetching customerPhone:', e);
-          }
-        }
+        // โทรลูกค้า: ใช้ resolveCustomerPhone (ดึงจาก order หรือ User)
+        const customerPhone = await resolveCustomerPhone(order);
 
         // โทรร้าน: ดึงจาก MerchantUser
         let shopPhone = '';
@@ -1247,16 +1329,7 @@ export const getRiderOrderHistory = async (req: AuthRequest, res: Response) => {
         const items = order.items || [];
         const washDry = parseWashDryFromItems(items);
 
-        // fallback ดึง customerPhone จาก User ถ้า order ไม่มี
-        let customerPhoneHist = (order as any).customerPhone || '';
-        if (!customerPhoneHist && order.userId) {
-          try {
-            const customerUser = /^[0-9a-fA-F]{24}$/.test(String(order.userId))
-              ? await User.findById(order.userId).select('phone').lean()
-              : await User.findOne({ $or: [{ username: order.userId }, { email: order.userId }] }).select('phone').lean();
-            customerPhoneHist = (customerUser as any)?.phone || '';
-          } catch (e) { /* ignore */ }
-        }
+        const customerPhoneHist = await resolveCustomerPhone(order);
 
         return {
           id: String(order._id),
@@ -1369,16 +1442,7 @@ export const getRiderReadyForPickup = async (req: AuthRequest, res: Response) =>
         const items = order.items || [];
         const washDry = parseWashDryFromItems(items);
 
-        // fallback ดึง customerPhone จาก User ถ้า order ไม่มี
-        let customerPhoneActive = (order as any).customerPhone || '';
-        if (!customerPhoneActive && order.userId) {
-          try {
-            const customerUser = /^[0-9a-fA-F]{24}$/.test(String(order.userId))
-              ? await User.findById(order.userId).select('phone').lean()
-              : await User.findOne({ $or: [{ username: order.userId }, { email: order.userId }] }).select('phone').lean();
-            customerPhoneActive = (customerUser as any)?.phone || '';
-          } catch (e) { /* ignore */ }
-        }
+        const customerPhoneActive = await resolveCustomerPhone(order);
 
         return {
           id: String(order._id),
@@ -1491,16 +1555,7 @@ export const getRiderAtShopOrders = async (req: AuthRequest, res: Response) => {
         const items = order.items || [];
         const washDry = parseWashDryFromItems(items);
 
-        // fallback ดึง customerPhone จาก User ถ้า order ไม่มี
-        let customerPhoneAtShop = (order as any).customerPhone || '';
-        if (!customerPhoneAtShop && order.userId) {
-          try {
-            const customerUser = /^[0-9a-fA-F]{24}$/.test(String(order.userId))
-              ? await User.findById(order.userId).select('phone').lean()
-              : await User.findOne({ $or: [{ username: order.userId }, { email: order.userId }] }).select('phone').lean();
-            customerPhoneAtShop = (customerUser as any)?.phone || '';
-          } catch (e) { /* ignore */ }
-        }
+        const customerPhoneAtShop = await resolveCustomerPhone(order);
 
         return {
           id: String(order._id),

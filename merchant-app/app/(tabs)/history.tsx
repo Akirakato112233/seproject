@@ -46,7 +46,7 @@ export default function HistoryScreen() {
       const d = getOrderDate(o);
       return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
     });
-    const total = filtered.reduce((sum, o) => sum + o.total, 0);
+    const total = filtered.reduce((sum, o) => sum + (o.serviceTotal ?? o.total ?? 0), 0);
     const byDate = filtered.reduce<Record<string, MerchantOrder[]>>((acc, o) => {
       const d = getOrderDate(o);
       const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -98,7 +98,7 @@ export default function HistoryScreen() {
     return {
       id: (selectedOrder.orderId || '').replace('ORD-', '') || selectedOrder.id.slice(-4),
       status: 'completed',
-      total: selectedOrder.total,
+      total: (selectedOrder.serviceTotal ?? selectedOrder.total),
       isPaid: true,
       paymentMethod: selectedOrder.paymentMethod || 'Cash',
       customerName: selectedOrder.customerName,
@@ -195,7 +195,7 @@ export default function HistoryScreen() {
                   >
                     <Text style={s.entryName}>{order.customerName}</Text>
                     <View style={s.amountBox}>
-                      <Text style={s.entryAmount}>+ {order.total.toFixed(0)} Baht</Text>
+                      <Text style={s.entryAmount}>+ {(order.serviceTotal ?? order.total ?? 0).toFixed(0)} Baht</Text>
                     </View>
                   </TouchableOpacity>
                 ))}

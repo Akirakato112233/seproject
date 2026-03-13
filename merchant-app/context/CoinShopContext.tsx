@@ -10,7 +10,7 @@ export interface WashServiceOption {
 export interface WashService {
   machineId?: string;
   weight: number;
-  status?: 'available' | 'busy' | 'ready';
+  status?: 'available' | 'busy' | 'ready' | 'offline';
   finishTime?: string | null;
   options: WashServiceOption[];
 }
@@ -23,7 +23,7 @@ export interface DryServiceOption {
 export interface DryService {
   machineId?: string;
   weight: number;
-  status?: 'available' | 'busy' | 'ready';
+  status?: 'available' | 'busy' | 'ready' | 'offline';
   finishTime?: string | null;
   options: DryServiceOption[];
 }
@@ -51,6 +51,8 @@ interface CoinShopContextType {
   loading: boolean;
   error: string | null;
   refreshShop: () => Promise<void>;
+  /** โหลดซ้ำโดยไม่แสดง loading (ใช้สำหรับ polling) */
+  refreshShopSilent: () => Promise<void>;
   updateShop: (updates: Partial<CoinShopData>) => Promise<boolean>;
 }
 
@@ -62,10 +64,12 @@ export function CoinShopProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
-  const loadShop = useCallback(async () => {
+  const loadShop = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
-      setError(null);
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+      }
 
       // 1) ถ้ามี user (merchant) ให้ดึงร้าน coin ของ user นั้นก่อน
       if (user?._id) {
@@ -140,8 +144,10 @@ export function CoinShopProvider({ children }: { children: React.ReactNode }) {
     }
   }, [shop]);
 
+  const refreshShopSilent = useCallback(() => loadShop(true), [loadShop]);
+
   return (
-    <CoinShopContext.Provider value={{ shop, loading, error, refreshShop: loadShop, updateShop }}>
+    <CoinShopContext.Provider value={{ shop, loading, error, refreshShop: () => loadShop(false), refreshShopSilent, updateShop }}>
       {children}
     </CoinShopContext.Provider>
   );

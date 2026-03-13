@@ -33,6 +33,7 @@ interface ApiPendingOrder {
   userAddress?: string;
   customerPhone?: string;
   total: number;
+  serviceTotal?: number;
   paymentMethod: string;
   serviceType: string;
   serviceDetail: string;
@@ -65,11 +66,12 @@ function formatPickupTime(createdAt: string): string {
 function apiOrderToNewOrderData(order: ApiPendingOrder & { userDisplayName?: string }): NewOrderData {
   const createdAt = order.createdAt;
   const createdStr = typeof createdAt === 'string' ? createdAt : createdAt ? new Date(createdAt as Date).toISOString() : '';
+  const displayAmount = order.serviceTotal ?? order.total ?? 0;
   return {
     id: order.orderId || String(order.id || '').slice(-4) || '?',
     customerName: order.customerName || order.userDisplayName || 'Customer',
     distance: '4 KM',
-    total: Number(order.total) || 0,
+    total: Number(displayAmount) || 0,
     paymentMethod: order.paymentMethod || 'เงินสด',
     serviceType: order.serviceType || 'Wash & Fold Service',
     serviceDetail: order.serviceDetail || 'approx. 5-7 kg',
@@ -227,7 +229,7 @@ export default function DashboardScreen() {
           customerName: o.customerName || 'Customer',
           orderId: o.orderId || `ORD-${o.id.slice(-4)}`,
           serviceType: o.serviceType || 'Wash & Fold',
-          total: o.total || 0,
+          total: (o.serviceTotal ?? o.total ?? 0) || 0,
           status: 'new_order' as const,
           statusRaw: 'decision' as const,
           pickupText: undefined as string | undefined,
@@ -239,7 +241,7 @@ export default function DashboardScreen() {
             customerName: o.customerName,
             orderId: o.orderId,
             serviceType: o.serviceType,
-            total: o.total,
+            total: o.serviceTotal ?? o.total ?? 0,
             status: 'completed' as const,
             statusRaw: 'completed' as const,
             pickupText: undefined as string | undefined,
@@ -347,7 +349,7 @@ export default function DashboardScreen() {
         id: o.orderId?.replace('ORD-', '') || String(o.id).slice(-4),
         status: 'new_order',
         isNewOrder: true,
-        total: o.total || 0,
+        total: (o.serviceTotal ?? o.total ?? 0) || 0,
         isPaid: false,
         paymentMethod: o.paymentMethod || 'Cash',
         customerName: o.customerName || 'Customer',
@@ -368,7 +370,7 @@ export default function DashboardScreen() {
       return {
         id: (selectedOrder.orderId || '').replace('ORD-', '') || selectedOrder.id.slice(-4),
         status: 'completed',
-        total: selectedOrder.total,
+        total: selectedOrder.serviceTotal ?? selectedOrder.total,
         isPaid: true,
         paymentMethod: selectedOrder.paymentMethod || 'Cash',
         customerName: selectedOrder.customerName,
@@ -419,7 +421,7 @@ export default function DashboardScreen() {
       id: displayId,
       status,
       statusLabel: selectedOrder.status === 'wait_for_rider' ? selectedOrder.pickupText : undefined,
-      total: selectedOrder.total,
+      total: selectedOrder.serviceTotal ?? selectedOrder.total,
       isPaid: selectedOrder.status === 'ready',
       paymentMethod: selectedOrder.paymentMethod || 'Cash',
       customerName: selectedOrder.customerName,
@@ -616,7 +618,7 @@ export default function DashboardScreen() {
                             : 'Ready for pickup'}
                 </Text>
               </View>
-              <Text style={s.orderPrice}>{item.total.toFixed(2)}฿</Text>
+              <Text style={s.orderPrice}>{((item as any).serviceTotal ?? item.total ?? 0).toFixed(2)}฿</Text>
             </View>
           </TouchableOpacity>
         )}

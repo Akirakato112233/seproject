@@ -10,6 +10,7 @@
     "seed": "ts-node src/scripts/seedData.ts",
     "seed-users": "ts-node src/scripts/seedUsers.ts",
     "seed-orders": "ts-node src/scripts/seedOrders.ts",
+    "backfill-shop-credits": "ts-node src/scripts/backfillShopCredits.ts",
     "format": "prettier --write \"src/**/*.ts\" \"*.json\""
   },
   "dependencies": {

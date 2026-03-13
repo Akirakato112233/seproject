@@ -47,6 +47,7 @@ export const API = {
   // Merchant Auth (เก็บใน merchant-user)
   MERCHANTS_GOOGLE_LOGIN: `${BASE_URL}/api/merchants/google/login`,
   MERCHANTS_GOOGLE_REGISTER: `${BASE_URL}/api/merchants/google/register`,
+  MERCHANTS_DELETE_ACCOUNT: `${BASE_URL}/api/merchants/account`,
   // Order APIs
   ORDERS: `${BASE_URL}/api/orders`,
   ORDERS_ACTIVE: `${BASE_URL}/api/orders/active`,

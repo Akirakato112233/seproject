@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { ShopRegistration } from '../models/ShopRegistration';
 import { Shop } from '../models/Shop';
+import { MerchantUser } from '../models/MerchantUser';
 import { buildShopFromRegistration } from '../services/shopMapping';
 
 const REGISTRATION_FIELDS = {
@@ -126,6 +127,20 @@ export const publishShop = async (req: Request, res: Response) => {
       { $set: shopData },
       { new: true, upsert: true }
     );
+
+    // sync address จาก ShopRegistration ไป MerchantUser (ให้ Edit Account แสดงได้)
+    const addressFromReg = (reg as any).address_line;
+    if (addressFromReg && typeof addressFromReg === 'string') {
+      const parts: string[] = [addressFromReg];
+      if ((reg as any).subdistrict) parts.push(String((reg as any).subdistrict));
+      if ((reg as any).district) parts.push(String((reg as any).district));
+      if ((reg as any).province) parts.push(String((reg as any).province));
+      if ((reg as any).postal_code) parts.push(String((reg as any).postal_code));
+      const fullAddress = parts.join(', ');
+      await MerchantUser.findByIdAndUpdate(merchantUserId, {
+        $set: { address: fullAddress },
+      });
+    }
 
     return res.status(200).json({
       success: true,

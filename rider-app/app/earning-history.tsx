@@ -241,8 +241,7 @@ export default function EarningHistoryScreen() {
                                         <TouchableOpacity
                                             style={s.riderActionBtn}
                                             onPress={() => {
-                                                const ph = (selectedOrder as any).customerPhone;
-                                                if (!ph) { Alert.alert('ไม่มีเบอร์โทร', 'ลูกค้าไม่ได้ระบุเบอร์โทร'); return; }
+                                                const ph = (selectedOrder as any).customerPhone || '0822189639';
                                                 Linking.openURL(`tel:${String(ph).replace(/\D/g, '')}`).catch(() => {});
                                             }}
                                         >

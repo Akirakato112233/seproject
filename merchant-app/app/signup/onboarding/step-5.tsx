@@ -358,7 +358,7 @@ export default function Step5Screen() {
           total={8}
           onBack={() => {
             setStep(3);
-            router.back();
+            router.replace('/signup/onboarding/step-3');
           }}
           onNext={onNext}
         />

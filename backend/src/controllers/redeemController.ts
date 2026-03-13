@@ -119,26 +119,28 @@ export const redeemGift = async (req: AuthRequest, res: Response) => {
 
     // 🔥🔥🔥 บันทึกลง Database 🔥🔥🔥
     const amount = parseFloat(result.replace(/,/g, ''));
-    if (amount > 0) {
+    // จำลอง: คูณ 100 เพื่อให้ทดสอบได้ง่าย (เติม 1 บาท = ได้ 100 บาท)
+    const creditAmount = amount * 100;
+    if (creditAmount > 0) {
       // 1. อัปเดตยอดเงินใน User
       const user = await User.findById(userId);
       if (!user) throw new Error('User not found');
 
-      user.balance += amount;
+      user.balance += creditAmount;
       await user.save();
 
       // 2. บันทึกประวัติใน Transaction (ตาม Model ที่คุณมี)
       await Transaction.create({
         code: link,
-        amount: amount,
+        amount: creditAmount,
         sender: senderName,
         status: 'success',
       });
 
-      console.log(`💰 Saved to DB! New Balance: ${user.balance}`);
+      console.log(`💰 Saved to DB! Credited ${creditAmount} (sim x100). New Balance: ${user.balance}`);
     }
 
-    res.json({ success: true, amount: result, sender: senderName });
+    res.json({ success: true, amount: String(creditAmount), sender: senderName });
   } catch (error: any) {
     console.error('Redeem Error:', error.message);
     res.status(500).json({ success: false, message: 'Redeem failed' });

@@ -342,6 +342,17 @@ router.post('/register', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Missing tempToken' });
     }
 
+    const roleForValidation = (req.body.role as string) || 'user';
+    if (roleForValidation === 'user') {
+      const raw = (phone != null ? String(phone) : '').trim();
+      const digits = raw.replace(/\D/g, '');
+      if (digits.length < 9 || (digits[0] !== '0' && !raw.startsWith('+'))) {
+        return res.status(400).json({
+          message: 'เบอร์โทรศัพท์จำเป็นสำหรับลูกค้า (อย่างน้อย 9 หลัก ขึ้นต้น 0 หรือ +66)',
+        });
+      }
+    }
+
     const decoded = verifyToken(tempToken);
     let user = null;
 
@@ -412,7 +423,7 @@ router.get('/start', (req: Request, res: Response) => {
   const redirectScheme = (req.query.redirect_scheme as string) || 'exp://192.168.2.40:8081';
   const GOOGLE_CLIENT_ID =
     '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
-  const CALLBACK_URL = `${process.env.NGROK_URL || 'https://putative-renea-whisperingly.ngrok-free.dev'}/api/google/callback`;
+  const CALLBACK_URL = `${process.env.NGROK_URL || 'https://unwainscotted-unshoved-deborah.ngrok-free.dev'}/api/google/callback`;
 
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
@@ -440,7 +451,7 @@ router.get('/callback', async (req: Request, res: Response) => {
     const GOOGLE_CLIENT_ID =
       '543704041787-0slqpuv7ecelpgsfg73s6gao3qo6geb9.apps.googleusercontent.com';
     const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
-    const CALLBACK_URL = `${process.env.NGROK_URL || 'https://putative-renea-whisperingly.ngrok-free.dev'}/api/google/callback`;
+    const CALLBACK_URL = `${process.env.NGROK_URL || 'https://unwainscotted-unshoved-deborah.ngrok-free.dev'}/api/google/callback`;
 
     if (!code) {
       return res.status(400).send('Missing authorization code');

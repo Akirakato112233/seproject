@@ -139,45 +139,44 @@ export default function Step2Screen() {
               )}
             </View>
 
-            <View style={s.row}>
-              <View style={[s.field, { flex: 1 }]}>
-                <Text style={s.label}>ชื่อ *</Text>
-                <Controller
-                  control={control}
-                  name="first_name"
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <TextInput
-                      style={[s.input, errors.first_name && s.inputError]}
-                      placeholder="ชื่อ"
-                      value={value}
-                      onChangeText={onChange}
-                      onBlur={onBlur}
-                    />
-                  )}
-                />
-                {errors.first_name && (
-                  <Text style={s.error}>{errors.first_name.message}</Text>
+            <View style={s.field}>
+              <Text style={s.label}>ชื่อนามสกุลไทย *</Text>
+              <Controller
+                control={control}
+                name="first_name"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    style={[s.input, errors.first_name && s.inputError]}
+                    placeholder="ชื่อนามสกุลภาษาไทย"
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                  />
                 )}
-              </View>
-              <View style={[s.field, { flex: 1 }]}>
-                <Text style={s.label}>นามสกุล *</Text>
-                <Controller
-                  control={control}
-                  name="last_name"
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <TextInput
-                      style={[s.input, errors.last_name && s.inputError]}
-                      placeholder="นามสกุล"
-                      value={value}
-                      onChangeText={onChange}
-                      onBlur={onBlur}
-                    />
-                  )}
-                />
-                {errors.last_name && (
-                  <Text style={s.error}>{errors.last_name.message}</Text>
+              />
+              {errors.first_name && (
+                <Text style={s.error}>{errors.first_name.message}</Text>
+              )}
+            </View>
+
+            <View style={s.field}>
+              <Text style={s.label}>ชื่อนามสกุลอังกฤษ *</Text>
+              <Controller
+                control={control}
+                name="last_name"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    style={[s.input, errors.last_name && s.inputError]}
+                    placeholder="ชื่อนามสกุลภาษาอังกฤษ"
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                  />
                 )}
-              </View>
+              />
+              {errors.last_name && (
+                <Text style={s.error}>{errors.last_name.message}</Text>
+              )}
             </View>
 
             <View style={s.field}>
@@ -205,7 +204,7 @@ export default function Step2Screen() {
                   />
                 )}
               />
-              <Text style={s.hint}>ใช้ปี ค.ศ. เท่านั้น (กรอกปี-เดือน-วัน รวม 8 หลัก เช่น 20050202)</Text>
+              <Text style={s.hint}>ใช้ปี ค.ศ. เท่านั้น (กรอกปี-เดือน-วัน รวม 8 หลัก เช่น 2005-02-02)</Text>
               {errors.date_of_birth && (
                 <Text style={s.error}>{errors.date_of_birth.message}</Text>
               )}

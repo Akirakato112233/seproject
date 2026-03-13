@@ -50,7 +50,7 @@ export default function MerchantWalletScreen() {
           onPress={() => router.push('/(tabs)/transfer')}
           activeOpacity={0.8}
         >
-          <Text style={s.transferBtnText}>Transfer to Account</Text>
+          <Text style={s.transferBtnText}>Withdraw to Account</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
